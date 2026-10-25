@@ -35,7 +35,7 @@ The first editor launch downloads plugins and language tools, including Git read
 
 The configuration installs separately at `~/.config/jvim` using `NVIM_APPNAME=jvim`. It leaves `~/.config/nvim` in place. The Mac integration manages `~/.local/bin/jvim*`, `~/.local/share/jvim` and iTerm's `DynamicProfiles/jvim.json`. Existing managed destinations move into a timestamped backup under `~/.local/state/jvim/backups`. Inspect the preview before applying. Custom XDG directory overrides are not supported by these installers.
 
-Within iTerm/Herdr, keyboard mappings apply while the editor pane is focused and restore afterward. The launcher does not create tabs or windows. The local URL-handler app enables Cmd-click definitions. The installer disables iTerm's **Underline OSC 8 hyperlinks** setting globally to keep code readable; an iTerm restart may be needed because that setting is cached. It does not restart iTerm. Change that option back to Yes in Advanced settings to restore always-underlined links.
+Within iTerm/Herdr, keyboard mappings apply while the editor pane is focused and restore afterward. The launcher does not create tabs or windows. Code hyperlinks default off to keep the editor free of dashed link underlines. Use **Ctrl-click** or **Cmd+B** for definitions. The bridge enables Ctrl-click reporting while jvim is focused and restores the prior behavior afterward. In the action menu, **Toggle Cmd-click code links (dashed underlines)** opts into native Cmd-click and its link decoration, only for jvim. The installer does not change iTerm's global underline preference.
 
 In another terminal, the editor can start but the Mac shortcut transport and native Cmd-click are not provided. Use the primary setup for the full workflow.
 
@@ -48,13 +48,13 @@ In another terminal, the editor can start but the Mac shortcut transport and nat
 | Cmd+Shift+W | Exit, asking about unsaved buffers |
 | Cmd+1 | Open/focus the project tree; hide it when already focused |
 | Cmd+Shift+A | Search actions and shortcuts |
-| Cmd+B / Cmd-click | Go to definition |
+| Cmd+B / Ctrl-click | Go to definition (Cmd-click is optional) |
 | Cmd+Option+Left / Right | Navigate back / forward |
 | Cmd+Z / Cmd+Shift+Z | Undo / redo |
 | Cmd+Shift+O | Find a file |
 | Cmd+Shift+F | Search the project |
 
-Named writable files autosave after an 800 ms typing pause, on file switches, on focus loss and on exit. New unnamed files require Cmd+S to choose a name. Read-only files are not automatically written. Write failures are reported and leave the buffer modified.
+Named writable files autosave after an 800 ms typing pause, on file switches, on focus loss and on exit. New unnamed files require Cmd+S to choose a name. Read-only files are not automatically written. Write failures are reported and leave the buffer modified. Autosave does not run formatting or import sorting, so undo stays undone. Explicit saves and the Format file action can format.
 
 Markdown renders while typing; search **Toggle Markdown preview** in the action menu to view/edit raw source. Click once to open a tree file or expand a folder. After closing the tree with `q`, Cmd+1 brings it back without leaving ordinary typing. See [the full keymap](docs/KEYBOARD.md).
 
@@ -77,7 +77,7 @@ On Windows, Cmd-based editor mappings become Ctrl-based mappings: Ctrl+B for def
 
 `config/` is the editor; `bin/` contains the Mac launchers; `integrations/macos/` contains the shortcut preset, AppleScript sources and Python requirements. No compiled Mac app, plugin cache, Python environment, editing history, credentials, sockets or project source is bundled. The installer builds the app and runtime on the destination computer.
 
-After updating the repository, rerun the installer. It backs up the previous managed installation. To roll back, close jvim and restore the desired files from the reported backup directory. The iTerm underline preference is global and must be reverted separately if desired.
+After updating the repository, rerun the installer. It backs up the previous managed installation. To roll back, close jvim and restore the desired files from the reported backup directory. The installer does not alter iTerm's global underline preference.
 
 To connect this prepared directory to GitHub, inspect the destination repository before choosing whether to clone/merge into existing history or initialize an empty repository. Do not force-push over existing work.
 

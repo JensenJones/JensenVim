@@ -5,7 +5,10 @@ function M.save_all()
     if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].buftype == '' and vim.bo[buf].modified
       and not vim.bo[buf].readonly and vim.bo[buf].modifiable
       and vim.api.nvim_buf_get_name(buf) ~= '' and vim.fn.isdirectory(vim.api.nvim_buf_get_name(buf)) == 0 then
+      local previous = vim.b[buf].jvim_autosaving
+      vim.b[buf].jvim_autosaving = true
       local ok, err = pcall(vim.api.nvim_buf_call, buf, function() vim.cmd 'silent update' end)
+      if vim.api.nvim_buf_is_valid(buf) then vim.b[buf].jvim_autosaving = previous end
       if not ok then vim.notify('Autosave failed: ' .. tostring(err), vim.log.levels.ERROR) end
     end
   end

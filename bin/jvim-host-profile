@@ -8,7 +8,46 @@ from pathlib import Path
 import sys
 import iterm2
 
-PARENT_PID = os.getppid()
+PARENT_PID = int(os.environ.get('JVIM_PARENT_PID', os.getppid()))
+
+async def find_host(app, preferred, herdr):
+    session = app.get_session_by_id(preferred)
+    if session is not None:
+        return session
+    await app.async_refresh()
+    if herdr:
+        hosts = []
+        for window in app.terminal_windows:
+            for tab in window.tabs:
+                for candidate in tab.sessions:
+                    if await candidate.async_get_variable('session.jobName') == 'herdr':
+                        hosts.append(candidate)
+        if len(hosts) == 1:
+            return hosts[0]
+    raise RuntimeError('The original terminal is gone; no unique replacement Herdr host was found')
+
+
+async def pane_focused(pane):
+    process = await asyncio.create_subprocess_exec(
+        'herdr', 'pane', 'get', pane,
+        stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.DEVNULL)
+    try:
+        output, _ = await asyncio.wait_for(process.communicate(), timeout=2)
+    except asyncio.TimeoutError:
+        process.kill()
+        await process.wait()
+        raise RuntimeError('Herdr focus lookup timed out')
+    if process.returncode:
+        raise RuntimeError('Could not read the jvim pane focus')
+    return bool(json.loads(output)['result']['pane']['focused'])
+
+
+def host_focused(app, session_id):
+    window = app.current_terminal_window
+    tab = window.current_tab if window else None
+    session = tab.current_session if tab else None
+    return session is not None and session.session_id == session_id
+
 
 async def main(connection):
     app = await iterm2.async_get_app(connection)
@@ -17,9 +56,9 @@ async def main(connection):
         _, socket_path, session_id, original, owner = sys.argv[1:]
     else:
         session_id, original = sys.argv[1:]
-    session = app.get_session_by_id(session_id)
-    if session is None:
-        raise RuntimeError('The original iTerm session is no longer open')
+    pane = os.environ.get('HERDR_PANE_ID') if os.environ.get('HERDR_ENV') == '1' else None
+    session = await find_host(app, session_id, bool(pane))
+    session_id = session.session_id
     profiles = await iterm2.PartialProfile.async_query(connection)
     cached = {}
     for name in {'jvim', original}:
@@ -58,10 +97,40 @@ async def main(connection):
     async def watch_parent():
         while not stop.is_set():
             await asyncio.sleep(1)
-            if PARENT_PID == 1 or os.getppid() != PARENT_PID:
+            try:
+                os.kill(PARENT_PID, 0)
+            except ProcessLookupError:
                 stop.set()
     watcher = asyncio.create_task(watch_parent())
     lock = asyncio.Lock()
+    async def control_click(active):
+        # This iTerm preference is global. Give it a shared ownership lease so
+        # it is restored on leaving jvim, including across multiple hosts.
+        path = state_root/'control-click.json'
+        with path.open('a+') as state:
+            os.chmod(path, 0o600)
+            fcntl.flock(state, fcntl.LOCK_EX)
+            state.seek(0)
+            try:
+                value = json.load(state)
+            except ValueError:
+                value = {}
+            key = iterm2.PreferenceKey.PASS_ON_CONTROL_CLICK
+            if active:
+                if not value.get('owner'):
+                    value['original'] = await iterm2.preferences.async_get_preference(connection, key)
+                value['owner'] = owner
+                target = True
+            elif value.get('owner') == owner:
+                value['owner'] = None
+                target = bool(value.get('original'))
+            else:
+                return
+            await iterm2.preferences.async_set_preference(connection, key, target)
+            state.seek(0)
+            state.truncate()
+            json.dump(value, state)
+            state.flush()
     async def apply(active):
         async with lock:
             with lease_path.open('a+') as lease:
@@ -76,20 +145,62 @@ async def main(connection):
                 elif current == owner:
                     next_owner, profile = None, original
                 else:
+                    await control_click(False)
                     return
-                await set_keys(profile)
+                if active:
+                    # Record ownership before awaits, so interrupted updates
+                    # can still be restored by the final cleanup.
+                    lease.seek(0)
+                    lease.truncate()
+                    json.dump({'owner': next_owner, 'original_keys': original_keys}, lease)
+                    lease.flush()
+                if active:
+                    await set_keys(profile)
+                    await control_click(True)
+                else:
+                    try:
+                        await set_keys(profile)
+                    finally:
+                        await control_click(False)
                 lease.seek(0)
                 lease.truncate()
                 json.dump({'owner': next_owner, 'original_keys': original_keys}, lease)
                 lease.flush()
+    async def watch_host():
+        nonlocal session, session_id, original_keys, lease_path
+        last_active = None
+        while not stop.is_set():
+            try:
+                found = await find_host(app, session_id, bool(pane))
+                if found.session_id != session_id:
+                    async with lock:
+                        session = found
+                        session_id = found.session_id
+                        original_keys = (await found.async_get_profile()).key_mappings or {}
+                        if original_keys == jvim_keys:
+                            original_keys = cached[original].key_mappings or {}
+                        lease_path = state_root/('host-'+''.join(c for c in session_id if c.isalnum())+'.json')
+                        lease_path.touch(mode=0o600, exist_ok=True)
+                        lease_path.chmod(0o600)
+                    last_active = None
+                if pane:
+                    active = host_focused(app, session_id) and await pane_focused(pane)
+                    if active != last_active:
+                        await apply(active)
+                        last_active = active
+            except (OSError, RuntimeError, ValueError, KeyError, iterm2.rpc.RPCException):
+                # A closed/reopened host or a transient layout change is retried.
+                last_active = None
+            await asyncio.sleep(0.2)
+    host_watcher = asyncio.create_task(watch_host())
     async def handle(reader, writer):
         try:
             while line := await reader.readline():
                 operation = line.decode().strip()
                 if operation == 'focus':
-                    await apply(True)
+                    await apply((host_focused(app, session_id) and await pane_focused(pane)) if pane else True)
                 elif operation in ('blur', 'stop'):
-                    await apply(False)
+                    await apply((host_focused(app, session_id) and await pane_focused(pane)) if pane and operation != 'stop' else False)
                     if operation == 'stop':
                         stop.set()
                 else:
@@ -113,7 +224,14 @@ async def main(connection):
             await stop.wait()
     finally:
         watcher.cancel()
-        await apply(False)
-        Path(socket_path).unlink(missing_ok=True)
+        host_watcher.cancel()
+        try:
+            await apply(False)
+        finally:
+            try:
+                await control_click(False)
+            finally:
+                Path(socket_path).unlink(missing_ok=True)
 
-iterm2.run_until_complete(main)
+if __name__ == '__main__':
+    iterm2.run_until_complete(main)

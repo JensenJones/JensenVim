@@ -1,5 +1,10 @@
 local M = {}
 
+function M.toggle()
+  vim.g.jvim_definition_links = vim.g.jvim_definition_links == false
+  vim.cmd 'redraw!'
+end
+
 function M.jump(win, buf, row, col)
   if not vim.api.nvim_buf_is_valid(buf) or not vim.api.nvim_win_is_valid(win) then return 0 end
   if row < 1 or row > vim.api.nvim_buf_line_count(buf) then return 0 end
@@ -13,6 +18,13 @@ function M.jump(win, buf, row, col)
 end
 
 function M.setup()
+  if vim.g.jvim_definition_links == nil then vim.g.jvim_definition_links = false end
+  vim.keymap.set({ 'n', 'i' }, '<C-LeftMouse>', function()
+    local mouse = vim.fn.getmousepos()
+    if mouse.winid ~= 0 and vim.api.nvim_win_is_valid(mouse.winid) then
+      M.jump(mouse.winid, vim.api.nvim_win_get_buf(mouse.winid), mouse.line, math.max(0, mouse.column - 1))
+    end
+  end, { desc = 'Go to clicked symbol definition' })
   local token = vim.env.JVIM_LINK_TOKEN
   if not token or #token ~= 32 or not token:match '^[a-f0-9]+$' then return end
   local root = vim.fn.expand '~/.local/state/jvim/jvim-links'
@@ -24,6 +36,7 @@ function M.setup()
   local ns = vim.api.nvim_create_namespace 'jvim-definition-links'
   vim.api.nvim_set_decoration_provider(ns, {
     on_win = function(_, _, buf)
+      if vim.g.jvim_definition_links == false then return false end
       if vim.bo[buf].buftype ~= '' then return false end
       return #vim.lsp.get_clients { bufnr = buf, method = 'textDocument/definition' } > 0
     end,
@@ -53,12 +66,6 @@ function M.setup()
     group = 'jvim-definition-links',
     callback = function() vim.uv.fs_unlink(registry) end,
   })
-  vim.keymap.set({ 'n', 'i' }, '<C-LeftMouse>', function()
-    local mouse = vim.fn.getmousepos()
-    if mouse.winid ~= 0 and vim.api.nvim_win_is_valid(mouse.winid) then
-      M.jump(mouse.winid, vim.api.nvim_win_get_buf(mouse.winid), mouse.line, math.max(0, mouse.column - 1))
-    end
-  end, { desc = 'Go to clicked symbol definition' })
 end
 
 return M

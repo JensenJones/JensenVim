@@ -41,7 +41,7 @@ def install(home, *, apply=False, runtime=True, registration=True):
     if not nvim:
         raise RuntimeError('Install Neovim first (for example: brew install neovim ripgrep).')
     if registration:
-        for tool in ('osacompile', 'codesign', 'defaults'):
+        for tool in ('osacompile', 'codesign'):
             if not shutil.which(tool):
                 raise RuntimeError(f'Missing required Mac utility: {tool}')
     # The installer does not read or modify the existing ~/.config/nvim setup.
@@ -88,10 +88,8 @@ def install(home, *, apply=False, runtime=True, registration=True):
         info_path.write_bytes(plistlib.dumps(info))
         subprocess.run(['codesign', '--force', '--sign', '-', str(app)], check=True)
         subprocess.run(['/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister', '-f', str(app)], check=True)
-        subprocess.run(['defaults', 'write', 'com.googlecode.iterm2', 'UnderlineHyperlinks', '-bool', 'false'], check=True)
     print('Installed. Add ~/.local/bin to PATH, enable iTerm Settings > General > Magic > Python API, then run jvim .')
     print('First launch downloads plugins/tools. This installer does not run Git or open terminal windows.')
-    print('iTerm may need restarting for its hyperlink underline setting. No restart is performed.')
     if backup.exists():
         print('Previous managed files saved to:', backup)
 

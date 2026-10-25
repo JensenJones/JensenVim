@@ -5,6 +5,7 @@ function M.open()
   local entries = {}
   table.insert(entries, { name = 'Close editor (ask about unsaved files)', shortcut = 'Cmd+Shift+W', key = '<F35>63' })
   table.insert(entries, { name = 'Toggle Markdown preview', shortcut = '', key = '<F35>65' })
+  table.insert(entries, { name = 'Toggle Cmd-click code links (dashed underlines)', shortcut = '', key = '<F35>66' })
   for _, item in pairs(audit.actions) do
     local number = item.transport
     local key = (number < 35 or number == 36 or number == 37) and ('<F' .. number .. '>') or ('<F35>' .. number)

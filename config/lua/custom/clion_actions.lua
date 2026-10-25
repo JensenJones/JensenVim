@@ -111,6 +111,7 @@ function M.setup(action, resume_editing)
       vim.notify 'Open a Markdown file to toggle its preview'
     end
   end, 'Toggle Markdown preview')
+  action({ '<F35>66' }, function() require('custom.definition_links').toggle() end, 'Toggle Cmd-click code links (dashed underlines)')
 
   -- Expand and shrink a selection using the syntax tree already installed.
   local function node_selection(node)

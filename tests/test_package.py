@@ -6,8 +6,10 @@ import os
 from pathlib import Path
 import plistlib
 import shutil
+import socket
 import subprocess
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
@@ -65,8 +67,7 @@ class PackageTests(unittest.TestCase):
         info = plistlib.loads((self.home/'.local/share/jvim/JvimLinks.app/Contents/Info.plist').read_bytes())
         self.assertTrue(info['LSUIElement'])
         self.assertEqual(info['CFBundleURLTypes'][0]['CFBundleURLSchemes'], ['jvim-definition'])
-        self.assertIn(['defaults', 'write', 'com.googlecode.iterm2', 'UnderlineHyperlinks', '-bool', 'false'], calls)
-        self.assertFalse(any(args[0] in ('open', 'git', 'herdr') for args in calls))
+        self.assertFalse(any(args[0] in ('open', 'git', 'herdr', 'defaults') for args in calls))
 
     def test_legacy_jvim_profile_is_backed_up_and_actual_parent_is_recorded(self):
         legacy = self.home/'Library/Application Support/iTerm2/DynamicProfiles/neovim-clion.json'
@@ -122,6 +123,105 @@ error('last-file close did not exit')
         result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(script)], env=env, capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(target.read_text(), 'saved on close\n')
+
+    @unittest.skipUnless(shutil.which('nvim'), 'Neovim needed for core behavior checks')
+    def test_editor_bridge_reconnects_after_socket_disconnect(self):
+        path = str(self.home/'s')
+        marker = self.home/'reconnected'
+        messages, errors = [], []
+        listener = socket.socket(socket.AF_UNIX)
+        listener.bind(path)
+        listener.listen()
+        listener.settimeout(5)
+        def serve():
+            try:
+                for attempt in range(2):
+                    client, _ = listener.accept()
+                    with client:
+                        client.settimeout(5)
+                        messages.append(client.recv(4096))
+                        if attempt:
+                            client.sendall(b'OK\n')
+                            marker.touch()
+                            client.recv(4096)
+            except Exception as error:
+                errors.append(error)
+            finally:
+                listener.close()
+        worker = threading.Thread(target=serve, daemon=True)
+        worker.start()
+        script = self.home/'reconnect.lua'
+        script.write_text('''
+vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
+require('custom.herdr_host').setup()
+assert(vim.wait(3000, function() return vim.fn.filereadable(vim.env.JVIM_TEST_MARKER)==1 end, 20), 'bridge did not reconnect')
+assert(vim.v.errmsg=='', vim.v.errmsg)
+vim.cmd 'qall'
+''')
+        env = dict(os.environ, HOME=str(self.home), JVIM_TEST_CONFIG=str(ROOT/'config'), JVIM_HOST_SOCKET=path, JVIM_TEST_MARKER=str(marker))
+        result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(script)], env=env, capture_output=True, text=True, timeout=8)
+        worker.join(2)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(errors, errors)
+        self.assertEqual(messages, [b'focus\n', b'focus\n'])
+
+    @unittest.skipUnless(shutil.which('nvim'), 'Neovim needed for core behavior checks')
+    def test_code_link_toggle_is_scoped_and_keeps_diagnostics(self):
+        script = self.home/'links.lua'
+        script.write_text('''
+vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
+vim.diagnostic.config({underline=true})
+local provider
+vim.api.nvim_set_decoration_provider=function(_, value) provider=value end
+vim.lsp.get_clients=function() return {{}} end
+local links=require('custom.definition_links')
+links.setup()
+assert(provider.on_win(nil,nil,0)==false, 'code hyperlinks should default off')
+assert(vim.fn.maparg('<C-LeftMouse>','i')~='', 'Ctrl-click mapping missing')
+links.toggle()
+assert(provider.on_win(nil,nil,0)==true, 'Cmd-click links should be opt-in')
+links.toggle()
+assert(provider.on_win(nil,nil,0)==false)
+assert(vim.diagnostic.config().underline==true, 'diagnostic underlines changed')
+vim.cmd 'qall'
+''')
+        env = dict(os.environ, HOME=str(self.home), JVIM_TEST_CONFIG=str(ROOT/'config'), JVIM_LINK_TOKEN='a'*32)
+        result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(script)], env=env, capture_output=True, text=True, timeout=8)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    @unittest.skipUnless(shutil.which('nvim'), 'Neovim needed for core behavior checks')
+    def test_autosave_preserves_import_order_after_undo(self):
+        target = self.home/'imports.cpp'
+        target.write_text('#include <vector>\n#include <algorithm>\n')
+        script = self.home/'imports.lua'
+        script.write_text('''
+vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
+vim.o.swapfile = false
+local autosave = require('custom.autosave')
+local policy = require('custom.formatting')
+autosave.setup()
+vim.cmd.edit(vim.env.JVIM_TEST_FILE)
+vim.api.nvim_create_autocmd('BufWritePre', { callback = function(ev)
+  if policy.on_save(ev.buf) then
+    local lines = vim.api.nvim_buf_get_lines(ev.buf, 0, -1, false)
+    table.sort(lines)
+    vim.api.nvim_buf_set_lines(ev.buf, 0, -1, false, lines)
+  end
+end })
+vim.cmd 'write'
+assert(vim.fn.getline(1) == '#include <algorithm>', 'explicit save should format')
+vim.cmd 'undo'
+assert(vim.fn.getline(1) == '#include <vector>', 'undo should restore original imports')
+vim.cmd 'doautocmd TextChanged'
+assert(vim.wait(2000, function() return not vim.bo.modified end, 20), 'autosave did not finish')
+assert(vim.fn.getline(1) == '#include <vector>', 'autosave re-sorted imports after undo')
+assert(vim.fn.readfile(vim.env.JVIM_TEST_FILE)[1] == '#include <vector>')
+assert(vim.b.jvim_autosaving == nil, 'autosave flag leaked')
+vim.cmd 'qall'
+''')
+        env = dict(os.environ, HOME=str(self.home), JVIM_TEST_CONFIG=str(ROOT/'config'), JVIM_TEST_FILE=str(target))
+        result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(script)], env=env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
 
     @unittest.skipUnless(shutil.which('nvim'), 'Neovim needed for core behavior checks')
     def test_close_empty_editor_exits(self):

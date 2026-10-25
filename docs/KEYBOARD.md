@@ -6,8 +6,8 @@ Run in your existing Herdr pane:
 
 The editor stays in that pane. It does not create iTerm tabs or windows. Its terminal keyboard mappings apply only while its pane is focused; your normal mappings return when you leave. Fonts and window layout are preserved.
 
-- **Cmd-click a code symbol:** jump to its definition, using the language server.
-- **Cmd+B:** keyboard navigation to a definition.
+- **Ctrl-click a code symbol:** jump to its definition, using the language server. Native Cmd-click is optional: search **Toggle Cmd-click code links (dashed underlines)** in the action menu.
+- **Cmd+B:** keyboard navigation to a definition. Autosave preserves edits and undo without formatting or sorting imports; explicit saves can format.
 - **Cmd+Shift+A:** search editor actions and see their shortcuts.
 - **Cmd+1:** open/focus the project tree; press again while in the tree to hide it.
 - Named files autosave after 800 ms without typing, when switching files, when leaving the editor, and on exit. New unnamed files still need **Cmd+S** to choose a filename.
