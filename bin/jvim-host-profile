@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+"""Short-lived or persistent, focus-scoped iTerm profile control for jvim."""
+import asyncio
+import fcntl
+import json
+import os
+from pathlib import Path
+import sys
+import iterm2
+
+PARENT_PID = os.getppid()
+
+async def main(connection):
+    app = await iterm2.async_get_app(connection)
+    serve = sys.argv[1] == '--serve'
+    if serve:
+        _, socket_path, session_id, original, owner = sys.argv[1:]
+    else:
+        session_id, original = sys.argv[1:]
+    session = app.get_session_by_id(session_id)
+    if session is None:
+        raise RuntimeError('The original iTerm session is no longer open')
+    profiles = await iterm2.PartialProfile.async_query(connection)
+    cached = {}
+    for name in {'jvim', original}:
+        match = next((profile for profile in profiles if profile.name == name), None)
+        if match is None:
+            raise RuntimeError(f'Unknown iTerm profile: {name}')
+        cached[name] = await match.async_get_full_profile()
+    current_profile = await session.async_get_profile()
+    original_keys = current_profile.key_mappings or {}
+    jvim_keys = cached['jvim'].key_mappings or {}
+    if original != 'jvim' and original_keys == jvim_keys:
+        original_keys = cached[original].key_mappings or {}
+    async def set_keys(name):
+        changes = iterm2.LocalWriteOnlyProfile()
+        changes.set_key_mappings((cached['jvim'].key_mappings or {}) if name == 'jvim' else original_keys)
+        await session.async_set_profile_properties(changes)
+        await session.async_set_variable('user.jvimActive', name == 'jvim')
+    if not serve:
+        changes = iterm2.LocalWriteOnlyProfile()
+        changes.set_key_mappings(cached[original].key_mappings or {})
+        await session.async_set_profile_properties(changes)
+        return
+    state_root = Path.home()/'.local/state/jvim'
+    state_root.mkdir(parents=True, exist_ok=True)
+    lease_path = state_root/('host-'+''.join(c for c in session_id if c.isalnum())+'.json')
+    if lease_path.exists():
+        try:
+            lease_state = json.loads(lease_path.read_text())
+            if lease_state.get('owner') and 'original_keys' in lease_state:
+                original_keys = lease_state['original_keys']
+        except ValueError:
+            pass
+    lease_path.touch(mode=0o600, exist_ok=True)
+    lease_path.chmod(0o600)
+    stop = asyncio.Event()
+    async def watch_parent():
+        while not stop.is_set():
+            await asyncio.sleep(1)
+            if PARENT_PID == 1 or os.getppid() != PARENT_PID:
+                stop.set()
+    watcher = asyncio.create_task(watch_parent())
+    lock = asyncio.Lock()
+    async def apply(active):
+        async with lock:
+            with lease_path.open('a+') as lease:
+                fcntl.flock(lease, fcntl.LOCK_EX)
+                lease.seek(0)
+                try:
+                    current = json.load(lease).get('owner')
+                except (ValueError, AttributeError):
+                    current = None
+                if active:
+                    next_owner, profile = owner, 'jvim'
+                elif current == owner:
+                    next_owner, profile = None, original
+                else:
+                    return
+                await set_keys(profile)
+                lease.seek(0)
+                lease.truncate()
+                json.dump({'owner': next_owner, 'original_keys': original_keys}, lease)
+                lease.flush()
+    async def handle(reader, writer):
+        try:
+            while line := await reader.readline():
+                operation = line.decode().strip()
+                if operation == 'focus':
+                    await apply(True)
+                elif operation in ('blur', 'stop'):
+                    await apply(False)
+                    if operation == 'stop':
+                        stop.set()
+                else:
+                    raise ValueError('Unknown profile operation')
+                writer.write(b'OK\n')
+                await writer.drain()
+                if operation == 'stop':
+                    break
+        except (ConnectionError, BrokenPipeError):
+            pass
+        except Exception as error:
+            writer.write(('ERROR '+str(error)+'\n').encode())
+            await writer.drain()
+        finally:
+            writer.close()
+    server = await asyncio.start_unix_server(handle, socket_path)
+    os.chmod(socket_path, 0o600)
+    print('READY', flush=True)
+    try:
+        async with server:
+            await stop.wait()
+    finally:
+        watcher.cancel()
+        await apply(False)
+        Path(socket_path).unlink(missing_ok=True)
+
+iterm2.run_until_complete(main)

@@ -1,0 +1,143 @@
+import contextlib
+import importlib.util
+import io
+import json
+import os
+from pathlib import Path
+import plistlib
+import shutil
+import subprocess
+import tempfile
+import unittest
+from unittest.mock import patch
+
+ROOT = Path(__file__).resolve().parents[1]
+spec = importlib.util.spec_from_file_location('jvim_install', ROOT/'install/macos.py')
+installer = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(installer)
+
+
+class PackageTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory(prefix='jvim-package-')
+        self.home = Path(self.temp.name)
+        self.addCleanup(self.temp.cleanup)
+
+    def install(self, **kwargs):
+        with contextlib.redirect_stdout(io.StringIO()):
+            installer.install(self.home, **kwargs)
+
+    def test_preview_does_not_write(self):
+        self.install()
+        self.assertEqual(list(self.home.iterdir()), [])
+
+    def test_install_isolated_and_repeat_install_backs_up_edits(self):
+        existing = self.home/'.config/nvim/init.lua'
+        existing.parent.mkdir(parents=True)
+        existing.write_text('original user settings')
+        with patch.object(installer.shutil, 'which', return_value='/test/nvim'):
+            self.install(apply=True, runtime=False, registration=False)
+            copied = self.home/'.config/jvim/init.lua'
+            self.assertTrue(copied.exists())
+            copied.write_text('user edits to previous jvim')
+            self.install(apply=True, runtime=False, registration=False)
+        self.assertEqual(existing.read_text(), 'original user settings')
+        backups = list((self.home/'.local/state/jvim/backups').glob('*/.config/jvim/init.lua'))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(backups[0].read_text(), 'user edits to previous jvim')
+        profile = json.loads((self.home/'Library/Application Support/iTerm2/DynamicProfiles/jvim.json').read_text())['Profiles'][0]
+        self.assertEqual(profile['Name'], 'jvim')
+        self.assertIn('0x62-0x100000', profile['Keyboard Map'])  # Cmd+B
+        self.assertIn('0xf702-0x380000', profile['Keyboard Map'])
+        self.assertNotIn('0xf702-0x2c0000', profile['Keyboard Map'])
+
+    def test_url_app_registration_builds_metadata_without_opening_ui(self):
+        calls = []
+        def run(args, **kwargs):
+            calls.append(args)
+            if args[0] == 'osacompile':
+                contents = Path(args[2])/'Contents'
+                contents.mkdir(parents=True)
+                (contents/'Info.plist').write_bytes(plistlib.dumps({}))
+            return subprocess.CompletedProcess(args, 0)
+        with patch.object(installer.shutil, 'which', return_value='/test/nvim'), patch.object(installer.subprocess, 'run', side_effect=run):
+            self.install(apply=True, runtime=False)
+        info = plistlib.loads((self.home/'.local/share/jvim/JvimLinks.app/Contents/Info.plist').read_bytes())
+        self.assertTrue(info['LSUIElement'])
+        self.assertEqual(info['CFBundleURLTypes'][0]['CFBundleURLSchemes'], ['jvim-definition'])
+        self.assertIn(['defaults', 'write', 'com.googlecode.iterm2', 'UnderlineHyperlinks', '-bool', 'false'], calls)
+        self.assertFalse(any(args[0] in ('open', 'git', 'herdr') for args in calls))
+
+    def test_legacy_jvim_profile_is_backed_up_and_actual_parent_is_recorded(self):
+        legacy = self.home/'Library/Application Support/iTerm2/DynamicProfiles/neovim-clion.json'
+        legacy.parent.mkdir(parents=True)
+        legacy.write_text(json.dumps({'Profiles': [{'Name': 'jvim'}, {'Name': 'Unrelated profile'}]}))
+        prefs = self.home/'Library/Preferences/com.googlecode.iterm2.plist'
+        prefs.parent.mkdir(parents=True)
+        prefs.write_bytes(plistlib.dumps({'Default Bookmark Guid': 'parent-guid', 'New Bookmarks': [{'Name': 'My terminal', 'Guid': 'parent-guid'}]}))
+        with patch.object(installer.shutil, 'which', return_value='/test/nvim'):
+            self.install(apply=True, runtime=False, registration=False)
+        self.assertEqual(json.loads(legacy.read_text())['Profiles'], [{'Name': 'Unrelated profile'}])
+        self.assertEqual(len(list((self.home/'.local/state/jvim/backups').glob('*/Library/Application Support/iTerm2/DynamicProfiles/neovim-clion.json'))), 1)
+        metadata = json.loads((self.home/'.local/share/jvim/runtime.json').read_text())
+        self.assertEqual(metadata['parent_profile'], 'My terminal')
+
+    def test_launcher_selects_separate_configuration(self):
+        executable = self.home/'nvim'
+        executable.write_text('#!/bin/sh\nprintf "%s" "$NVIM_APPNAME"\n')
+        executable.chmod(0o755)
+        env = dict(os.environ, HOME=str(self.home), JVIM_NVIM=str(executable))
+        result = subprocess.run([shutil.which('python3'), str(ROOT/'bin/jvim')], env=env, capture_output=True, text=True, check=True)
+        self.assertEqual(result.stdout, 'jvim')
+
+    @unittest.skipUnless(shutil.which('nvim'), 'Neovim needed for core behavior checks')
+    def test_autosave_and_windows_shortcuts_without_plugins(self):
+        target = self.home/'sample.txt'
+        target.write_text('original\n')
+        script = self.home/'check.lua'
+        script.write_text('''
+vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
+vim.o.swapfile = false
+require('custom.keymaps')
+vim.cmd.edit(vim.env.JVIM_TEST_FILE)
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'autosaved' })
+vim.cmd 'doautocmd TextChangedI'
+assert(vim.wait(2000, function() return not vim.bo.modified end, 20), 'idle autosave failed')
+assert(vim.fn.readfile(vim.env.JVIM_TEST_FILE)[1] == 'autosaved')
+local has = vim.fn.has
+vim.fn.has = function(feature) if feature == 'win32' then return 1 end return has(feature) end
+require('custom.windows_keys').setup()
+vim.fn.has = has
+for _, key in ipairs { '<C-b>', '<C-1>', '<C-w>', '<C-S-w>', '<C-M-Left>', '<C-LeftMouse>' } do
+  assert(vim.fn.maparg(key, 'i') ~= '', 'missing Windows shortcut: ' .. key)
+end
+assert(vim.fn.maparg('<C-M-Right>', 'i', false, true).desc == 'Navigate forward')
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'saved on close' })
+vim.fn.maparg('<D-w>', 'i', false, true).callback()
+error('last-file close did not exit')
+''')
+        env = dict(os.environ, HOME=str(self.home), JVIM_TEST_CONFIG=str(ROOT/'config'), JVIM_TEST_FILE=str(target))
+        env.pop('JVIM_HOST_SOCKET', None)
+        env.pop('JVIM_LINK_TOKEN', None)
+        result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(script)], env=env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(target.read_text(), 'saved on close\n')
+
+    @unittest.skipUnless(shutil.which('nvim'), 'Neovim needed for core behavior checks')
+    def test_close_empty_editor_exits(self):
+        script = self.home/'close.lua'
+        script.write_text('''
+vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
+require('custom.keymaps')
+vim.fn.maparg('<D-w>', 'i', false, true).callback()
+error('empty editor did not exit')
+''')
+        env = dict(os.environ, HOME=str(self.home), JVIM_TEST_CONFIG=str(ROOT/'config'))
+        env.pop('JVIM_HOST_SOCKET', None)
+        env.pop('JVIM_LINK_TOKEN', None)
+        result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(script)], env=env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+
+if __name__ == '__main__':
+    unittest.main()

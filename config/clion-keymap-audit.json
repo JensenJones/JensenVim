@@ -1,0 +1,318 @@
+{
+  "active_keymap": "macOS copy",
+  "parent": "Mac OS X 10.5+",
+  "actions": {
+    "$Copy": {
+      "shortcuts": [
+        "meta c"
+      ],
+      "transport": 13
+    },
+    "$Cut": {
+      "shortcuts": [
+        "meta x",
+        "shift delete"
+      ],
+      "transport": 14
+    },
+    "$Paste": {
+      "shortcuts": [
+        "meta v"
+      ],
+      "transport": 15
+    },
+    "SaveAll": {
+      "shortcuts": [
+        "meta s"
+      ],
+      "transport": 16
+    },
+    "GotoFile": {
+      "shortcuts": [
+        "meta shift o"
+      ],
+      "transport": 17
+    },
+    "FindInPath": {
+      "shortcuts": [
+        "meta shift f"
+      ],
+      "transport": 18
+    },
+    "RecentFiles": {
+      "shortcuts": [
+        "meta e"
+      ],
+      "transport": 19
+    },
+    "CloseContent": {
+      "shortcuts": [
+        "meta w"
+      ],
+      "transport": 20
+    },
+    "ActivateProjectToolWindow": {
+      "shortcuts": [
+        "meta 1"
+      ],
+      "transport": 21
+    },
+    "RenameElement": {
+      "shortcuts": [
+        "shift f6"
+      ],
+      "transport": 22
+    },
+    "ShowIntentionActions": {
+      "shortcuts": [
+        "alt enter"
+      ],
+      "transport": 23
+    },
+    "ReformatCode": {
+      "shortcuts": [
+        "meta alt l"
+      ],
+      "transport": 24
+    },
+    "$SelectAll": {
+      "shortcuts": [
+        "meta a"
+      ],
+      "transport": 25
+    },
+    "$Undo": {
+      "shortcuts": [
+        "meta z"
+      ],
+      "transport": 26
+    },
+    "$Redo": {
+      "shortcuts": [
+        "meta shift z",
+        "alt shift back_space"
+      ],
+      "transport": 27
+    },
+    "EditorDuplicate": {
+      "shortcuts": [
+        "meta d"
+      ],
+      "transport": 28
+    },
+    "CommentByLineComment": {
+      "shortcuts": [
+        "meta slash"
+      ],
+      "transport": 29
+    },
+    "Find": {
+      "shortcuts": [
+        "meta f"
+      ],
+      "transport": 30
+    },
+    "GotoDeclaration": {
+      "shortcuts": [
+        "meta b"
+      ],
+      "transport": 31
+    },
+    "FindUsages": {
+      "shortcuts": [
+        "alt f7"
+      ],
+      "transport": 32
+    },
+    "Back": {
+      "shortcuts": [
+        "meta open_bracket",
+        "meta alt left"
+      ],
+      "transport": 33
+    },
+    "Forward": {
+      "shortcuts": [
+        "meta close_bracket",
+        "meta alt right"
+      ],
+      "transport": 34
+    },
+    "ReopenClosedTab": {
+      "shortcuts": [
+        "shift meta t"
+      ],
+      "transport": 35
+    },
+    "NextTab": {
+      "shortcuts": [
+        "meta shift close_bracket",
+        "control right"
+      ],
+      "transport": 36
+    },
+    "PreviousTab": {
+      "shortcuts": [
+        "meta shift open_bracket",
+        "control left"
+      ],
+      "transport": 37
+    },
+    "GotoAction": {
+      "shortcuts": [
+        "meta shift a"
+      ],
+      "transport": 38
+    },
+    "GotoImplementation": {
+      "shortcuts": [
+        "meta alt b"
+      ],
+      "transport": 39
+    },
+    "GotoTypeDeclaration": {
+      "shortcuts": [
+        "meta shift b",
+        "control shift b"
+      ],
+      "transport": 40
+    },
+    "QuickJavaDoc": {
+      "shortcuts": [
+        "f1",
+        "control j"
+      ],
+      "transport": 41
+    },
+    "ParameterInfo": {
+      "shortcuts": [
+        "meta p"
+      ],
+      "transport": 42
+    },
+    "FileStructurePopup": {
+      "shortcuts": [
+        "meta f12"
+      ],
+      "transport": 43
+    },
+    "GotoSymbol": {
+      "shortcuts": [
+        "meta alt o"
+      ],
+      "transport": 44
+    },
+    "GotoClass": {
+      "shortcuts": [
+        "meta o"
+      ],
+      "transport": 45
+    },
+    "GotoLine": {
+      "shortcuts": [
+        "meta l"
+      ],
+      "transport": 46
+    },
+    "Replace": {
+      "shortcuts": [
+        "meta r"
+      ],
+      "transport": 47
+    },
+    "ReplaceInPath": {
+      "shortcuts": [
+        "meta shift r"
+      ],
+      "transport": 48
+    },
+    "EditorSelectWord": {
+      "shortcuts": [
+        "alt up"
+      ],
+      "transport": 49
+    },
+    "EditorUnSelectWord": {
+      "shortcuts": [
+        "alt down"
+      ],
+      "transport": 50
+    },
+    "MoveLineUp": {
+      "shortcuts": [
+        "alt shift up"
+      ],
+      "transport": 51
+    },
+    "MoveLineDown": {
+      "shortcuts": [
+        "alt shift down"
+      ],
+      "transport": 52
+    },
+    "EditorDeleteLine": {
+      "shortcuts": [
+        "meta back_space"
+      ],
+      "transport": 53
+    },
+    "GotoNextError": {
+      "shortcuts": [
+        "f2"
+      ],
+      "transport": 54
+    },
+    "GotoPreviousError": {
+      "shortcuts": [
+        "shift f2"
+      ],
+      "transport": 55
+    },
+    "FindNext": {
+      "shortcuts": [
+        "f3",
+        "control l",
+        "meta g"
+      ],
+      "transport": 56
+    },
+    "FindPrevious": {
+      "shortcuts": [
+        "shift f3",
+        "control shift l",
+        "meta shift g"
+      ],
+      "transport": 57
+    },
+    "CollapseRegion": {
+      "shortcuts": [
+        "meta minus"
+      ],
+      "transport": 58
+    },
+    "ExpandRegion": {
+      "shortcuts": [
+        "meta equals"
+      ],
+      "transport": 59
+    },
+    "EditorMatchBrace": {
+      "shortcuts": [
+        "control m"
+      ],
+      "transport": 60
+    },
+    "JumpToLastChange": {
+      "shortcuts": [
+        "meta shift back_space"
+      ],
+      "transport": 61
+    },
+    "RecentLocations": {
+      "shortcuts": [
+        "meta shift e"
+      ],
+      "transport": 62
+    }
+  }
+}

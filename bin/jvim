@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+"""Run jvim in the current terminal, including Herdr panes."""
+import json
+import os
+from pathlib import Path
+import select
+import shutil
+import socket
+import subprocess
+import sys
+import tempfile
+import uuid
+
+ROOT = Path.home()/'.local/share/jvim'
+HOST_SCRIPT = str(ROOT/'host-profile.applescript')
+
+def request(path, operation):
+    with socket.socket(socket.AF_UNIX) as client:
+        client.settimeout(3)
+        client.connect(path)
+        client.sendall((operation+'\n').encode())
+        result = client.recv(4096).decode()
+        if not result.startswith('OK'):
+            raise RuntimeError(result)
+
+def main():
+    args = sys.argv[1:]
+    installed = json.loads((ROOT/'runtime.json').read_text()) if (ROOT/'runtime.json').exists() else {}
+    NVIM = os.environ.get('JVIM_NVIM') or shutil.which('nvim') or installed.get('nvim')
+    if not NVIM:
+        raise SystemExit('jvim: install Neovim and put nvim on PATH first')
+    env = os.environ.copy()
+    env['NVIM_APPNAME'] = 'jvim'
+    if not sys.stdout.isatty():
+        os.execve(NVIM, [NVIM, *args], env)
+    bridge = directory = previous = None
+    if sys.platform == 'darwin' and env.get('TERM_PROGRAM') == 'iTerm.app':
+        env['JVIM_LINK_TOKEN'] = uuid.uuid4().hex
+        try:
+            description = subprocess.check_output(['osascript', HOST_SCRIPT, 'describe' if env.get('HERDR_ENV') == '1' else 'current'], text=True).strip()
+            host, previous = description.split('|', 1)
+            if previous == 'jvim':
+                previous = installed.get('parent_profile') or 'jvim'
+            state = Path.home()/'.local/state/jvim'
+            state.mkdir(parents=True, exist_ok=True)
+            directory = Path(tempfile.mkdtemp(prefix='profile-', dir=state))
+            path = str(directory/'socket')
+            bridge = subprocess.Popen([str(ROOT/'runtime/bin/python3'), str(Path.home()/'.local/bin/jvim-host-profile'), '--serve', path, host, previous, str(uuid.uuid4())], stdout=subprocess.PIPE, text=True)
+            if not select.select([bridge.stdout], [], [], 10)[0] or bridge.stdout.readline().strip() != 'READY':
+                raise RuntimeError('iTerm profile bridge did not start')
+            env['JVIM_HOST_SOCKET'] = path
+            focused = True
+            if env.get('HERDR_ENV') == '1':
+                info = json.loads(subprocess.check_output(['herdr','pane','get',env['HERDR_PANE_ID']],text=True))
+                focused = info['result']['pane']['focused']
+            if focused:
+                request(path, 'focus')
+        except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:
+            print(f'jvim: could not prepare terminal shortcuts: {error}', file=sys.stderr)
+    try:
+        return subprocess.call([NVIM, *args], env=env)
+    finally:
+        if bridge and bridge.poll() is None:
+            try:
+                request(str(directory/'socket'), 'stop')
+                bridge.wait(timeout=5)
+            except (OSError, RuntimeError, subprocess.TimeoutExpired):
+                bridge.terminate()
+        if directory:
+            try:
+                directory.rmdir()
+            except OSError:
+                pass
+
+if __name__ == '__main__':
+    raise SystemExit(main())
