@@ -224,6 +224,78 @@ vim.cmd 'qall'
         self.assertEqual(result.returncode, 0, result.stderr)
 
     @unittest.skipUnless(shutil.which('nvim'), 'Neovim needed for core behavior checks')
+    def test_clicking_away_from_selection_preserves_text_and_history(self):
+        script = self.home/'mouse.lua'
+        script.write_text(r'''
+vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
+vim.o.swapfile = false
+require('custom.keymaps')
+vim.api.nvim_buf_set_name(0, vim.env.JVIM_TEST_FILE)
+local lines = { 'hello world', 'another line', 'last line' }
+for _, selection in ipairs { 'v4l\7', 'V\7', '\22j2l\7', 'v4l' } do
+  vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+  vim.cmd('normal! gg0' .. selection)
+  local tick = vim.b.changedtick
+  vim.api.nvim_feedkeys(vim.keycode('<LeftMouse>'), 'xt', false)
+  assert(vim.deep_equal(vim.api.nvim_buf_get_lines(0, 0, -1, false), lines),
+    'clicking away from selection changed text: ' .. vim.inspect(vim.api.nvim_buf_get_lines(0, 0, -1, false)))
+  assert(vim.b.changedtick == tick, 'clicking created an edit')
+end
+vim.cmd 'clearjumps'
+vim.api.nvim_win_set_cursor(0, { 2, 3 })
+vim.cmd 'normal! v2l\7'
+local departure = vim.api.nvim_win_get_cursor(0)
+vim.api.nvim_feedkeys(vim.keycode('<LeftMouse>'), 'xt', false)
+vim.api.nvim_win_set_cursor(0, { 3, 0 })
+vim.fn.maparg('<D-M-Left>', 'n', false, true).callback()
+assert(vim.deep_equal(vim.api.nvim_win_get_cursor(0), departure), 'mouse departure missing from back history')
+assert(vim.v.errmsg == '', vim.v.errmsg)
+vim.cmd 'qall!'
+''')
+        env = dict(os.environ, HOME=str(self.home), JVIM_TEST_CONFIG=str(ROOT/'config'),
+                   JVIM_TEST_FILE=str(self.home/'mouse.txt'))
+        env.pop('JVIM_HOST_SOCKET', None)
+        env.pop('JVIM_LINK_TOKEN', None)
+        result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(script)],
+                                env=env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    @unittest.skipUnless(shutil.which('nvim'), 'Neovim needed for core behavior checks')
+    def test_project_startup_preserves_existing_buffers(self):
+        script = self.home/'startup.lua'
+        script.write_text(r'''
+vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
+vim.o.swapfile = false
+require('custom.keymaps')
+-- Headless runs have no desktop UI or project-tree plugin.
+vim.api.nvim_list_uis = function() return { {} } end
+local opened
+package.loaded['neo-tree.command'] = { execute = function(opts) opened = opts end }
+local function startup()
+  opened = nil
+  vim.api.nvim_exec_autocmds('VimEnter', { group = 'clion-editing' })
+  assert(vim.wait(1000, function() return opened ~= nil end), 'project tree did not open')
+end
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'unsaved work' })
+startup()
+assert(vim.bo.buflisted, 'modified unnamed buffer was hidden')
+assert(opened.action == 'show', 'modified buffer lost editor focus')
+vim.api.nvim_buf_set_name(0, vim.env.JVIM_TEST_FILE)
+vim.bo.modified = false
+startup()
+assert(vim.bo.buflisted, 'named file was hidden')
+assert(opened.action == 'show', 'named file lost editor focus')
+vim.cmd 'qall!'
+''')
+        env = dict(os.environ, HOME=str(self.home), JVIM_TEST_CONFIG=str(ROOT/'config'),
+                   JVIM_TEST_FILE=str(self.home/'opened.txt'))
+        env.pop('JVIM_HOST_SOCKET', None)
+        env.pop('JVIM_LINK_TOKEN', None)
+        result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(script)],
+                                env=env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    @unittest.skipUnless(shutil.which('nvim'), 'Neovim needed for core behavior checks')
     def test_close_empty_editor_exits(self):
         script = self.home/'close.lua'
         script.write_text('''

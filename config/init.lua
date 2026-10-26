@@ -896,6 +896,7 @@ require('lazy').setup({
       -- - sr)'  - [S]urround [R]eplace [)] [']
       require('mini.surround').setup()
       require('mini.tabline').setup()
+      require('custom.files').setup_tabline()
 
       -- Simple and easy statusline.
       --  You could remove this setup call if you don't like it,
@@ -1030,6 +1031,8 @@ require('lazy').setup({
   },
 })
 
+-- RGB cursor highlighting lets wheel browsing hide the native edge cursor.
+vim.o.termguicolors = true
 vim.cmd.colorscheme 'dark-ubuntu'
 
 -- The line beneath this is called `modeline`. See `:help modeline`

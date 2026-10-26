@@ -6,6 +6,8 @@ Run in your existing Herdr pane:
 
 The editor stays in that pane. It does not create iTerm tabs or windows. Its terminal keyboard mappings apply only while its pane is focused; your normal mappings return when you leave. Fonts and window layout are preserved.
 
+`jvim` and `jvim /project/path/` start in the project tree without an empty file tab. Opening a file creates the editor pane beside the tree. Ctrl+Tab / Ctrl+Shift+Tab switch open files, including when the tree has focus; closing a file keeps the remaining file visible.
+
 - **Ctrl-click a code symbol:** jump to its definition, using the language server. Native Cmd-click is optional: search **Toggle Cmd-click code links (dashed underlines)** in the action menu.
 - **Cmd+B:** keyboard navigation to a definition. Autosave preserves edits and undo without formatting or sorting imports; explicit saves can format.
 - **Cmd+Shift+A:** search editor actions and see their shortcuts.
@@ -16,7 +18,7 @@ The editor stays in that pane. It does not create iTerm tabs or windows. Its ter
 - Markdown renders in the editor, including while typing. Find **Toggle Markdown preview** in the action menu to switch between preview and source.
 - **Cmd+Shift+W:** close the editor, asking about unsaved files.
 
-Typing, mouse selection, Shift-selection and clipboard shortcuts use ordinary editing. Escape cancels a selection or popup and keeps you ready to type.
+Typing, mouse selection, Shift-selection and clipboard shortcuts use ordinary editing. Double-click selects a word; typing replaces the selected text. Escape cancels a selection or popup and keeps you ready to type.
 
 Use Herdr's normal **Ctrl+B, then N/P** to switch Herdr tabs. No extra iTerm tabs are needed.
 
@@ -83,7 +85,7 @@ Find in file uses a literal query shared by next/previous search. File and proje
 
 ## Scrolling and code assistance
 
-Wheel/trackpad browsing remembers the editing position and returns there before the next keyboard action. Click to choose a new editing position. Neovim's visible cursor still moves when it reaches the viewport edge.
+Wheel/trackpad browsing keeps a stationary marker at the editing position and hides the native cursor so it does not appear to follow the viewport edge. Typing returns to the saved position; clicking chooses a new editing position.
 
 C/C++ uses your installed clangd for completion, diagnostics while typing, definitions, types, implementations, references, rename, fixes, documentation, and parameter information. Accurate includes and project symbols depend on the project's compiler flags or compilation database.
 

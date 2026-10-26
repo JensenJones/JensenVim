@@ -20,6 +20,18 @@ return {
   opts = {
     window = { width = 30 },
     filesystem = {
+      -- custom.files owns directory startup and removes its placeholder.
+      hijack_netrw_behavior = 'disabled',
+      components = {
+        name = function(config, node, state)
+          local result = require('neo-tree.sources.common.components').name(config, node, state)
+          if node.type == 'directory' and node:get_depth() == 1 then
+            local name = vim.fs.basename(vim.fs.normalize(node.path))
+            result.text = name ~= '' and name or node.path
+          end
+          return result
+        end,
+      },
       follow_current_file = { enabled = true },
       use_libuv_file_watcher = true,
       window = {

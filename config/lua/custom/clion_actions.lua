@@ -27,10 +27,15 @@ function M.setup(action, resume_editing)
   -- definition jumps. Browsing backward must not create fresh history entries.
   local navigating = false
   local function remember()
-    if not navigating and vim.bo.buftype == '' and vim.api.nvim_buf_get_name(0) ~= '' then vim.cmd "normal! m'" end
+    if not navigating and vim.bo.buftype == '' and vim.api.nvim_buf_get_name(0) ~= '' then
+      -- :normal respects Select mode: leave it before m' can replace text.
+      vim.cmd "normal! \27m'"
+    end
   end
   vim.on_key(function(_, typed)
-    if typed ~= '' and vim.fn.keytrans(typed):find('LeftMouse', 1, true) then
+    -- Multi-clicks extend the native selection; injecting Escape on their
+    -- second/third press cancels it before Neovim can select the word/line.
+    if typed ~= '' and vim.fn.keytrans(typed) == '<LeftMouse>' then
       selections[vim.api.nvim_get_current_buf()] = nil
       remember()
     end

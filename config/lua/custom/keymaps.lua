@@ -117,19 +117,16 @@ action({ '<F20>', '<D-w>' }, function()
   end
   require('custom.autosave').save_all()
   local buf, name = vim.api.nvim_get_current_buf(), vim.api.nvim_buf_get_name(0)
-  local other_files = false
-  for _, other in ipairs(vim.api.nvim_list_bufs()) do
-    if other ~= buf and vim.bo[other].buflisted and vim.bo[other].buftype == ''
-      and (vim.api.nvim_buf_get_name(other) ~= '' or vim.bo[other].modified) then
-      other_files = true
-      break
-    end
-  end
-  if not other_files then
+  local files = require 'custom.files'
+  local remaining = vim.tbl_filter(function(other) return other ~= buf end, files.list())
+  if #remaining == 0 then
     vim.cmd 'confirm qall'
     return
   end
-  vim.cmd 'confirm bdelete'
+  -- Select the replacement first: :bdelete otherwise closes the editor pane
+  -- when the sidebar is visible, leaving hidden files behind the tree.
+  files.show(remaining[1])
+  vim.cmd('confirm bdelete ' .. buf)
   if name ~= '' and not vim.api.nvim_buf_is_loaded(buf) then table.insert(closed_files, name) end
 end, 'Close file')
 action({ '<F21>', '<D-1>' }, function()
@@ -171,8 +168,8 @@ action({ '<F30>', '<D-f>', '<C-f>' }, telescope 'current_buffer_fuzzy_find', 'Fi
 action({ '<F35>45', '<D-o>' }, telescope 'lsp_dynamic_workspace_symbols', 'Find class')
 action({ '<F31>', '<D-b>', '<F12>' }, vim.lsp.buf.definition, 'Go to definition')
 action({ '<F32>', '<M-F7>' }, telescope 'lsp_references', 'Find usages')
-action({ '<F36>', '<C-Tab>' }, function() vim.cmd 'bnext' end, 'Next file')
-action({ '<F37>', '<C-S-Tab>' }, function() vim.cmd 'bprevious' end, 'Previous file')
+action({ '<F36>', '<C-Tab>' }, function() require('custom.files').cycle(1) end, 'Next file')
+action({ '<F37>', '<C-S-Tab>' }, function() require('custom.files').cycle(-1) end, 'Previous file')
 action({ '<F2>' }, function() vim.diagnostic.jump { count = 1, float = true } end, 'Next problem')
 action({ '<S-F2>' }, function() vim.diagnostic.jump { count = -1, float = true } end, 'Previous problem')
 -- Keep Option+arrows for word movement, as on macOS.
@@ -205,6 +202,8 @@ vim.api.nvim_create_autocmd({ 'VimEnter', 'BufEnter', 'WinEnter' }, {
 -- Bracketed paste should not replace the system clipboard with deleted text.
 local original_paste = vim.paste
 vim.paste = function(lines, phase)
+  -- Bracketed paste bypasses on_key, so restore the edit point explicitly.
+  require('custom.scroll').resume()
   local clipboard = vim.o.clipboard
   vim.o.clipboard = ''
   local ok, result = pcall(original_paste, lines, phase)
@@ -214,24 +213,7 @@ vim.paste = function(lines, phase)
 end
 require('custom.scroll').setup()
 
--- Start with a project sidebar without taking focus away from the editor.
-vim.api.nvim_create_autocmd('VimEnter', {
-  group = group,
-  callback = function()
-    if #vim.api.nvim_list_uis() == 0 or vim.fn.argc() > 1 then return end
-    local name = vim.api.nvim_buf_get_name(0)
-    if name ~= '' and vim.fn.isdirectory(name) == 1 then return end
-    vim.schedule(function()
-      local root = name ~= ''
-          and (vim.fs.root(name, { '.git', 'CMakeLists.txt', 'compile_commands.json', 'compile_flags.txt', 'package.json', 'pyproject.toml' }) or vim.fs.dirname(
-            name
-          ))
-        or vim.fn.getcwd()
-      require('neo-tree.command').execute { action = 'show', position = 'left', dir = root, reveal = name ~= '', reveal_force_cwd = true }
-      resume_editing()
-    end)
-  end,
-})
+require('custom.files').setup(group)
 
 require('custom.clion_actions').setup(action, resume_editing)
 

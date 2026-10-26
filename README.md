@@ -87,4 +87,4 @@ To connect this prepared directory to GitHub, inspect the destination repository
 python3 -m unittest discover -s tests -v
 ```
 
-The tests use temporary installation homes and mocked external registration/runtime commands. They do not launch the desktop UI, install plugins, access Git or change your installed editor. Mac desktop behavior was exercised during development; Windows desktop behavior is not verified.
+The tests use temporary installation homes and mocked external registration/runtime commands. Navigation and terminal startup integration tests use existing Neo-tree, Plenary, Nui and Mini installations when available, with Git features disabled; otherwise those tests skip. Tests do not launch the desktop UI, install plugins, access Git or change your installed editor. Mac desktop behavior was exercised during development; Windows desktop behavior is not verified.

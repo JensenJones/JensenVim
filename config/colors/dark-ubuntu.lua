@@ -63,6 +63,13 @@ local groups = {
   StatusLine = { fg = p.fg, bg = p.bg_alt },
   StatusLineNC = { fg = p.comment, bg = p.bg_alt },
   Title = { fg = p.type, bold = true },
+  -- Make the active filename distinct even when terminal bold is subtle.
+  MiniTablineCurrent = { fg = p.bg, bg = p.type, bold = true },
+  MiniTablineModifiedCurrent = { fg = p.bg, bg = p.type, bold = true },
+  MiniTablineVisible = { fg = p.fg, bg = p.bg_float },
+  MiniTablineModifiedVisible = { fg = p.warn, bg = p.bg_float },
+  MiniTablineHidden = { fg = p.fg, bg = p.bg_alt },
+  MiniTablineModifiedHidden = { fg = p.warn, bg = p.bg_alt },
   Directory = { fg = p.type },
   ErrorMsg = { fg = p.error },
   WarningMsg = { fg = p.warn },
