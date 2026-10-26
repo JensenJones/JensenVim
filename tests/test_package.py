@@ -53,6 +53,24 @@ class PackageTests(unittest.TestCase):
         self.assertIn('0xf702-0x380000', profile['Keyboard Map'])
         self.assertNotIn('0xf702-0x2c0000', profile['Keyboard Map'])
 
+    def test_install_keeps_terminal_plus_minus_bindings(self):
+        zoom = {
+            '0x2d-0x100000': {'Action': 10, 'Text': 'host-minus'},
+            '0x3d-0x100000': {'Action': 10, 'Text': 'host-plus'},
+        }
+        prefs = self.home/'Library/Preferences/com.googlecode.iterm2.plist'
+        prefs.parent.mkdir(parents=True)
+        prefs.write_bytes(plistlib.dumps({
+            'Default Bookmark Guid': 'parent',
+            'New Bookmarks': [{'Name': 'Default', 'Guid': 'parent', 'Keyboard Map': zoom}],
+        }))
+        with patch.object(installer.shutil, 'which', return_value='/test/nvim'):
+            self.install(apply=True, runtime=False, registration=False)
+        path = self.home/'Library/Application Support/iTerm2/DynamicProfiles/jvim.json'
+        mappings = json.loads(path.read_text())['Profiles'][0]['Keyboard Map']
+        for key, binding in zoom.items():
+            self.assertEqual(mappings[key], binding)
+
     def test_url_app_registration_builds_metadata_without_opening_ui(self):
         calls = []
         def run(args, **kwargs):
@@ -113,6 +131,10 @@ for _, key in ipairs { '<C-b>', '<C-1>', '<C-w>', '<C-S-w>', '<C-M-Left>', '<C-L
   assert(vim.fn.maparg(key, 'i') ~= '', 'missing Windows shortcut: ' .. key)
 end
 assert(vim.fn.maparg('<C-M-Right>', 'i', false, true).desc == 'Navigate forward')
+for _, key in ipairs { '<D-->', '<D-=>', '<D-+>' } do
+  assert(vim.fn.maparg(key, 'i') == '', 'editor steals terminal zoom: ' .. key)
+end
+assert(vim.fn.maparg('<F35>58', 'i', false, true).desc == 'Collapse code fold')
 vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'saved on close' })
 vim.fn.maparg('<D-w>', 'i', false, true).callback()
 error('last-file close did not exit')

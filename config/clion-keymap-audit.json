@@ -285,15 +285,11 @@
       "transport": 57
     },
     "CollapseRegion": {
-      "shortcuts": [
-        "meta minus"
-      ],
+      "shortcuts": [],
       "transport": 58
     },
     "ExpandRegion": {
-      "shortcuts": [
-        "meta equals"
-      ],
+      "shortcuts": [],
       "transport": 59
     },
     "EditorMatchBrace": {

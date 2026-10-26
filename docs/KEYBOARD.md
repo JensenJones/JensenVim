@@ -73,11 +73,11 @@ These bindings are generated from your active macOS copy keymap and its bundled 
 | Shift+F2 | Previous problem |
 | F3, Ctrl+L, Cmd+G | Next search match |
 | Shift+F3, Ctrl+Shift+L, Cmd+Shift+G | Previous search match |
-| Cmd+- | Collapse code fold |
-| Cmd+= | Expand code fold |
 | Ctrl+M | Go to matching bracket |
 | Cmd+Shift+Backspace | Last edit location |
 | Cmd+Shift+E | Recent locations |
+
+**Cmd+plus/minus** keep their normal terminal font zoom behaviour. Collapse or expand code folds through **Cmd+Shift+A**. Matching brackets use a cyan background when the cursor is on a bracket or immediately after it in Insert mode.
 
 Extra conveniences: **Cmd+Shift+W closes the editor**, asking about unsaved files. Ctrl+Tab / Ctrl+Shift+Tab switch files; F12 also jumps to a definition. Home/End and Cmd+Left/Right move to line boundaries, Option+Left/Right move by word, and Shift extends selections. Tab/Shift+Tab indent/unindent selections. Copy/cut uses the current line when no text is selected. Cmd+D duplicates selected text or the current line. Cmd+S saves modified named files and asks for a path for a new unnamed file.
 

@@ -50,7 +50,7 @@ local groups = {
   Search = { bg = p.bg_float, underline = true },
   IncSearch = { bg = p.select },
   CurSearch = { bg = p.select },
-  MatchParen = { bold = true, underline = true },
+  MatchParen = { fg = p.bg, bg = p.type, bold = true },
   NonText = { fg = p.dim },
   Whitespace = { fg = p.dim },
   SpecialKey = { fg = p.dim },
