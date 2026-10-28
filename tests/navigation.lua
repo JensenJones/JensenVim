@@ -20,6 +20,7 @@ vim.v.errmsg = ''
 vim.api.nvim_list_uis = function() return { {} } end
 local root = vim.env.JVIM_TEST_PROJECT
 local main, other = root .. '/main.txt', root .. '/other.txt'
+local third = root .. '/third.txt'
 local function settle()
   vim.wait(150, function() return false end, 10)
 end
@@ -118,6 +119,34 @@ elseif case == 'modified_startup' then
   settle()
   assert(vim.api.nvim_get_current_buf() == buf and vim.bo.buflisted, 'startup hid unsaved work')
   assert(vim.fn.getline(1) == 'unsaved work', 'startup changed unsaved work')
+elseif case == 'tree_toggle' then
+  vim.api.nvim_exec_autocmds('VimEnter', { group = 'clion-editing' })
+  settle()
+  local mainbuf = open(main)
+  press '<D-1>'
+  assert(vim.bo.filetype ~= 'neo-tree', 'Cmd+1 did not close tree while editing')
+  press '<D-1>'
+  assert(vim.bo.filetype == 'neo-tree', 'Cmd+1 did not reopen a closed tree')
+  require('custom.files').show(mainbuf)
+  press '<D-1>'
+  assert(vim.bo.filetype ~= 'neo-tree', 'Cmd+1 did not close a visible tree from the editor')
+  assert(vim.api.nvim_get_current_buf() == mainbuf, 'closing the tree lost the current file')
+  press '<D-1>'
+  assert(vim.bo.filetype == 'neo-tree', 'Cmd+1 did not reopen a closed tree')
+elseif case == 'recent_files' then
+  vim.api.nvim_exec_autocmds('VimEnter', { group = 'clion-editing' })
+  settle()
+  focus_tree()
+  local mainbuf = open(main)
+  local otherbuf = open(other)
+  local thirdbuf = open(third)
+  require('custom.files').show(mainbuf)
+  press '<C-Tab>'
+  assert(vim.api.nvim_get_current_buf() == thirdbuf,
+    'Ctrl+Tab did not select the most recently used other file: ' .. vim.inspect({ current = vim.api.nvim_get_current_buf(), expected = thirdbuf }))
+  require('custom.files').show(mainbuf)
+  press '<C-S-Tab>'
+  assert(vim.api.nvim_get_current_buf() == otherbuf, 'Ctrl+Shift+Tab did not select the oldest file in recent order')
 else
   error('unknown navigation case: ' .. tostring(case))
 end

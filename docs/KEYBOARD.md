@@ -6,13 +6,14 @@ Run in your existing Herdr pane:
 
 The editor stays in that pane. It does not create iTerm tabs or windows. Its terminal keyboard mappings apply only while its pane is focused; your normal mappings return when you leave. Fonts and window layout are preserved.
 
-`jvim` and `jvim /project/path/` start in the project tree without an empty file tab. Opening a file creates the editor pane beside the tree. Ctrl+Tab / Ctrl+Shift+Tab switch open files, including when the tree has focus; closing a file keeps the remaining file visible.
+`jvim` and `jvim /project/path/` start in the project tree without an empty file tab. Opening a file creates the editor pane beside the tree. Ctrl+Tab switches to the most recently used open file; Ctrl+Shift+Tab moves to the oldest in that recent order. Closing a file keeps the remaining file visible.
 
 - **Ctrl-click a code symbol:** jump to its definition, using the language server. Native Cmd-click is optional: search **Toggle Cmd-click code links (dashed underlines)** in the action menu.
 - **Cmd+B:** keyboard navigation to a definition. Autosave preserves edits and undo without formatting or sorting imports; explicit saves can format.
 - **Cmd+Shift+A:** search editor actions and see their shortcuts.
-- **Cmd+1:** open/focus the project tree; press again while in the tree to hide it.
+- **Cmd+1:** toggle the project tree from the tree or editor. `\\` also opens it.
 - Named files autosave after 800 ms without typing, when switching files, when leaving the editor, and on exit. New unnamed files still need **Cmd+S** to choose a filename.
+- Stale swap files are backed up and recovered automatically; active editors keep Neovim's normal swap protection.
 - **Cmd+W:** close the current file; closing the last file exits jvim.
 - **Single-click** a tree folder to expand/collapse it or a file to open it.
 - Markdown renders in the editor, including while typing. Find **Toggle Markdown preview** in the action menu to switch between preview and source.
@@ -37,6 +38,7 @@ These bindings are generated from your active macOS copy keymap and its bundled 
 | Cmd+E | Recent files |
 | Cmd+W | Close file |
 | Cmd+1 | Project files |
+| Cmd+Option+minus/equal | Collapse / expand code fold |
 | Shift+F6 | Rename symbol |
 | Option+Return | Quick fix |
 | Cmd+Option+L | Format file |
@@ -77,7 +79,9 @@ These bindings are generated from your active macOS copy keymap and its bundled 
 | Cmd+Shift+Backspace | Last edit location |
 | Cmd+Shift+E | Recent locations |
 
-**Cmd+plus/minus** keep their normal terminal font zoom behaviour. Collapse or expand code folds through **Cmd+Shift+A**. Matching brackets use a cyan background when the cursor is on a bracket or immediately after it in Insert mode.
+**Cmd+plus/minus** keep their normal terminal font zoom behaviour. When a Tree-sitter parser is available, **Cmd+Option+minus** collapses the fold at the cursor and **Cmd+Option+equal** expands it. Matching brackets use a cyan background when the cursor is on a bracket or immediately after it in Insert mode.
+
+The status line also has clickable **[- Fold]** and **[+ Fold]** controls. **Cmd+Option+semicolon** opens a shell in the current project; close its pane with **Cmd+W**. Horizontal trackpad swipes move the text with your finger.
 
 Extra conveniences: **Cmd+Shift+W closes the editor**, asking about unsaved files. Ctrl+Tab / Ctrl+Shift+Tab switch files; F12 also jumps to a definition. Home/End and Cmd+Left/Right move to line boundaries, Option+Left/Right move by word, and Shift extends selections. Tab/Shift+Tab indent/unindent selections. Copy/cut uses the current line when no text is selected. Cmd+D duplicates selected text or the current line. Cmd+S saves modified named files and asks for a path for a new unnamed file.
 

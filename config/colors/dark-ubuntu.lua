@@ -48,6 +48,8 @@ local groups = {
   ColorColumn = { bg = p.bg_alt },
   Visual = { bg = p.select },
   Search = { bg = p.bg_float, underline = true },
+  JvimWord = { fg = p.bg, bg = p.warn, bold = true },
+  JvimFoldButton = { fg = p.type, bold = true },
   IncSearch = { bg = p.select },
   CurSearch = { bg = p.select },
   MatchParen = { fg = p.bg, bg = p.type, bold = true },

@@ -70,6 +70,8 @@ class PackageTests(unittest.TestCase):
         mappings = json.loads(path.read_text())['Profiles'][0]['Keyboard Map']
         for key, binding in zoom.items():
             self.assertEqual(mappings[key], binding)
+        self.assertIn('0x2d-0x180000', mappings)  # Cmd+Option+minus folds
+        self.assertIn('0x3d-0x180000', mappings)  # Cmd+Option+equals unfolds
 
     def test_url_app_registration_builds_metadata_without_opening_ui(self):
         calls = []
@@ -135,6 +137,9 @@ for _, key in ipairs { '<D-->', '<D-=>', '<D-+>' } do
   assert(vim.fn.maparg(key, 'i') == '', 'editor steals terminal zoom: ' .. key)
 end
 assert(vim.fn.maparg('<F35>58', 'i', false, true).desc == 'Collapse code fold')
+assert(vim.fn.maparg('<D-M-->', 'i', false, true).desc == 'Collapse code fold')
+assert(vim.fn.maparg('<D-M-=>', 'i', false, true).desc == 'Expand code fold')
+assert(vim.fn.maparg('<F35>67', 'i', false, true).desc == 'Open terminal')
 vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'saved on close' })
 vim.fn.maparg('<D-w>', 'i', false, true).callback()
 error('last-file close did not exit')

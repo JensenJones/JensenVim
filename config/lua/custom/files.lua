@@ -1,5 +1,15 @@
 local M = {}
 local last_file
+local recent = {}
+
+local function remember(buf)
+  if not vim.api.nvim_buf_is_valid(buf) then return false end
+  local name = vim.api.nvim_buf_get_name(buf)
+  if vim.bo[buf].buftype ~= '' or (name == '' and not vim.bo[buf].modified) or (name ~= '' and vim.fn.isdirectory(name) == 1) then return false end
+  recent = vim.tbl_filter(function(other) return other ~= buf end, recent)
+  table.insert(recent, 1, buf)
+  return true
+end
 
 function M.list()
   return vim.tbl_filter(function(buf)
@@ -36,6 +46,7 @@ function M.show(buf)
     vim.api.nvim_open_win(buf, true, { split = 'right' })
   end
   last_file = buf
+  remember(buf)
 end
 
 function M.cycle(direction)
@@ -43,13 +54,15 @@ function M.cycle(direction)
   if #files == 0 then return end
   local current = vim.api.nvim_get_current_buf()
   if vim.bo.filetype == 'neo-tree' then current = last_file end
-  for index, buf in ipairs(files) do
+  recent = vim.tbl_filter(function(buf) return vim.tbl_contains(files, buf) end, recent)
+  if current and vim.tbl_contains(files, current) then remember(current) end
+  for index, buf in ipairs(recent) do
     if buf == current then
-      M.show(files[(index - 1 + direction) % #files + 1])
+      M.show(recent[(index - 1 + direction) % #recent + 1])
       return
     end
   end
-  M.show(direction > 0 and files[1] or files[#files])
+  M.show(recent[1] or files[1])
 end
 
 function M.setup_tabline()
@@ -69,10 +82,11 @@ function M.setup(group)
   vim.g.loaded_netrw = 1
   vim.g.loaded_netrwPlugin = 1
   vim.api.nvim_create_augroup('FileExplorer', { clear = true })
+  local history_group = vim.api.nvim_create_augroup('JvimFileHistory', { clear = true })
   vim.api.nvim_create_autocmd('BufEnter', {
-    group = group,
+    group = history_group,
     callback = function(args)
-      if vim.tbl_contains(M.list(), args.buf) then last_file = args.buf end
+      if remember(args.buf) then last_file = args.buf end
     end,
   })
   if package.loaded['mini.tabline'] then M.setup_tabline() end

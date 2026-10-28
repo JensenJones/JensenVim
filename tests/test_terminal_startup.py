@@ -49,6 +49,7 @@ opts.filesystem.use_libuv_file_watcher = false
 opts.filesystem.filtered_items = { hide_gitignored = false }
 require('neo-tree').setup(opts)
 require('mini.tabline').setup()
+require('mini.statusline').setup { use_icons = false }
 require('custom.keymaps')
 vim.api.nvim_create_autocmd('VimEnter', { callback = function()
   vim.defer_fn(function() _G.jvim_test_started = true end, 300)
@@ -83,7 +84,7 @@ end })
                 result = subprocess.run(['nvim', '-u', 'NONE', '--server', server, '--remote-expr', expression],
                                         env=env, capture_output=True, text=True, timeout=3)
                 if result.returncode:
-                    return None
+                    raise AssertionError('remote nvim expression failed: ' + result.stderr)
                 return result.stdout.strip()
             try:
                 deadline = time.monotonic() + 8
@@ -113,7 +114,7 @@ end })
                     try:
                         remote('execute("qall!")')
                         process.wait(timeout=3)
-                    except subprocess.TimeoutExpired:
+                    except Exception:
                         process.terminate()
                         process.wait(timeout=3)
                 os.close(master)
@@ -136,6 +137,45 @@ end })
         row, col = pos['row'] - 1, pos['col'] - 1
         def mouse(button, action):
             lua(f"vim.api.nvim_input_mouse('{button}','{action}','',0,{row},{col})")
+        if interaction == 'fold_buttons':
+            lua("(function() vim.api.nvim_buf_set_lines(0,0,-1,false,{'function start','  first','  second','end','after'}); vim.wo.foldmethod='manual'; vim.wo.foldenable=true; vim.wo.foldlevel=99; vim.cmd('1,4fold'); vim.cmd('normal! zo'); vim.api.nvim_win_set_cursor(0,{1,0}); return true end)()")
+            self.assertEqual(state('vim.fn.foldclosed(1)'), -1)
+            click_state = state("(function() local w=vim.api.nvim_get_current_win(); local s=vim.api.nvim_eval_statusline(vim.wo[w].statusline,{winid=w}); local i=assert(s.str:find('[- Fold]',1,true)); local p=vim.api.nvim_win_get_position(w); local c=p[2]+vim.fn.strdisplaywidth(s.str:sub(1,i-1)); local h=vim.api.nvim_win_get_height(w); local r=p[1]+h; return {str=s.str,width=s.width,pos=p,height=h,row=r,col=c} end)()")
+            os.write(master, f"\x1b[<0;{click_state['col'] + 1};{click_state['row'] + 1}M\x1b[<0;{click_state['col'] + 1};{click_state['row'] + 1}m".encode())
+            time.sleep(0.1)
+            self.assertEqual(state('vim.fn.foldclosed(1)'), 1, 'clicking [- Fold] did not collapse code: ' + repr(click_state))
+            expand_click = state("(function() local w=vim.api.nvim_get_current_win(); local s=vim.api.nvim_eval_statusline(vim.wo[w].statusline,{winid=w}); local i=assert(s.str:find('[+ Fold]',1,true)); local p=vim.api.nvim_win_get_position(w); local c=p[2]+vim.fn.strdisplaywidth(s.str:sub(1,i-1)); local r=p[1]+vim.api.nvim_win_get_height(w); return {row=r,col=c} end)()")
+            os.write(master, f"\x1b[<0;{expand_click['col'] + 1};{expand_click['row'] + 1}M\x1b[<0;{expand_click['col'] + 1};{expand_click['row'] + 1}m".encode())
+            time.sleep(0.05)
+            self.assertEqual(state('vim.fn.foldclosed(1)'), -1, 'clicking [+ Fold] did not expand code')
+            return
+        if interaction == 'command_terminal':
+            lua("require('custom.command_terminal').open()")
+            self.assertEqual(state('vim.bo.buftype'), 'terminal')
+            self.assertTrue(state('vim.fn.getcwd()').endswith('/Honours'))
+            lua("vim.api.nvim_input('echo JVIM_COMMAND_OK\\r')")
+            self.assertEqual(lua("vim.wait(3000,function() for _,line in ipairs(vim.api.nvim_buf_get_lines(0,0,-1,false)) do if line:find('JVIM_COMMAND_OK',1,true) then return true end end return false end,25)"), 'true')
+            return
+        if interaction == 'code_action_undo':
+            lua("(function() vim.api.nvim_buf_set_lines(0,0,1,false,{'before'}); vim.cmd('let &undolevels = &undolevels'); vim.lsp.util.apply_text_edits({{range={start={line=0,character=0},['end']={line=0,character=6}},newText='after'}},vim.api.nvim_get_current_buf(),'utf-16'); return true end)()")
+            self.assertEqual(state('vim.fn.getline(1)'), 'after')
+            lua("vim.api.nvim_input('<F26>')")
+            time.sleep(0.1)
+            self.assertEqual(state('vim.fn.getline(1)'), 'before', 'undo should reverse an LSP-applied code action')
+            return
+        if interaction == 'horizontal_scroll':
+            lua("(function() vim.api.nvim_buf_set_lines(0,0,1,false,{string.rep('0123456789',30)}); vim.wo.wrap=false; vim.api.nvim_win_set_cursor(0,{1,250}); vim.cmd.redraw(); return true end)()")
+            before = state('vim.fn.winsaveview().leftcol')
+            self.assertGreater(before, 0, 'test needs a nonzero horizontal viewport')
+            mouse('wheel', 'left')
+            time.sleep(0.1)
+            moved_right = state('vim.fn.winsaveview().leftcol')
+            self.assertGreater(moved_right, before, 'leftward trackpad gesture should move the viewport right')
+            mouse('wheel', 'right')
+            time.sleep(0.1)
+            moved_left = state('vim.fn.winsaveview().leftcol')
+            self.assertLess(moved_left, moved_right, 'rightward trackpad gesture should move the viewport left')
+            return
         mouse('left', 'press')
         mouse('left', 'release')
         if interaction == 'double_click':
@@ -192,3 +232,15 @@ end })
 
     def test_paste_after_scrolling_uses_original_edit_location(self):
         self.check_startup(False, 'scroll_paste')
+
+    def test_statusline_fold_buttons_collapse_and_expand(self):
+        self.check_startup(False, 'fold_buttons')
+
+    def test_command_terminal_runs_a_shell_command_in_project(self):
+        self.check_startup(False, 'command_terminal')
+
+    def test_horizontal_trackpad_scroll_follows_gesture_direction(self):
+        self.check_startup(False, 'horizontal_scroll')
+
+    def test_undo_reverses_a_suggested_code_action(self):
+        self.check_startup(False, 'code_action_undo')

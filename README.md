@@ -46,7 +46,7 @@ In another terminal, the editor can start but the Mac shortcut transport and nat
 | Cmd+S | Save all; choose a filename for an unnamed buffer |
 | Cmd+W | Close file; exit after the last file |
 | Cmd+Shift+W | Exit, asking about unsaved buffers |
-| Cmd+1 | Open/focus the project tree; hide it when already focused |
+| Cmd+1 | Toggle the project tree from the tree or editor |
 | Cmd+Shift+A | Search actions and shortcuts |
 | Cmd+B / Ctrl-click | Go to definition (Cmd-click is optional) |
 | Cmd+Option+Left / Right | Navigate back / forward |
@@ -56,7 +56,11 @@ In another terminal, the editor can start but the Mac shortcut transport and nat
 
 Named writable files autosave after an 800 ms typing pause, on file switches, on focus loss and on exit. New unnamed files require Cmd+S to choose a name. Read-only files are not automatically written. Write failures are reported and leave the buffer modified. Autosave does not run formatting or import sorting, so undo stays undone. Explicit saves and the Format file action can format.
 
+If Neovim finds a stale swap file, jvim saves a backup and recovers its edits automatically. A file still open in a live editor keeps Neovim's normal protection.
+
 Markdown renders while typing; search **Toggle Markdown preview** in the action menu to view/edit raw source. Click once to open a tree file or expand a folder. After closing the tree with `q`, Cmd+1 brings it back without leaving ordinary typing. See [the full keymap](docs/KEYBOARD.md).
+
+Ctrl+Tab switches to the most recently used open file; Ctrl+Shift+Tab moves to the oldest in that recent order. Cmd+Option+minus/equal collapse and expand code folds.
 
 C++ definition navigation/diagnostics require clangd and correct project compile flags. Supply a `compile_commands.json` (for CMake: `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`) or a suitable `compile_flags.txt`.
 

@@ -21,6 +21,7 @@ class NavigationTests(unittest.TestCase):
             project.mkdir()
             (project/'main.txt').write_text('main contents\n')
             (project/'other.txt').write_text('other contents\n')
+            (project/'third.txt').write_text('third contents\n')
             env = dict(os.environ, HOME=str(home), JVIM_TEST_CONFIG=str(ROOT/'config'),
                        JVIM_TEST_PLUGINS=str(PLUGINS), JVIM_TEST_PROJECT=str(project), JVIM_TEST_CASE=case)
             env.pop('JVIM_HOST_SOCKET', None)
@@ -53,3 +54,9 @@ class NavigationTests(unittest.TestCase):
 
     def test_startup_preserves_modified_unnamed_file(self):
         self.check_case('modified_startup')
+
+    def test_project_tree_shortcut_toggles_tree_from_editor(self):
+        self.check_case('tree_toggle')
+
+    def test_control_tab_uses_recent_file_order(self):
+        self.check_case('recent_files')

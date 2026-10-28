@@ -12,6 +12,16 @@ vim.o.sidescrolloff = 0
 vim.o.wrap = false
 vim.o.hidden = true
 
+-- macOS trackpads report horizontal wheel direction as finger movement, while
+-- Neovim's defaults move the viewport the opposite way. Keep content following
+-- the gesture: swipe left reveals content to the right, and vice versa.
+map({ 'n', 'i', 's', 'x' }, '<ScrollWheelLeft>', function()
+  vim.cmd.normal { args = { '6zl' }, bang = true }
+end, { desc = 'Scroll horizontally right' })
+map({ 'n', 'i', 's', 'x' }, '<ScrollWheelRight>', function()
+  vim.cmd.normal { args = { '6zh' }, bang = true }
+end, { desc = 'Scroll horizontally left' })
+
 for key, target in pairs {
   ['<M-Left>'] = '<C-Left>',
   ['<M-b>'] = '<C-Left>',
@@ -50,12 +60,16 @@ map({ 'n', 'i', 's', 'x' }, '<D-a>', '<Esc>gg0vG$<C-g>', { desc = 'Select all' }
 
 map('c', '<F15>', '<C-r>+', { desc = 'Paste into command line' })
 map('c', '<D-v>', '<C-r>+', { desc = 'Paste into command line' })
+local close_terminal = '<C-\\><C-n><cmd>close<CR>'
+map('t', '<F20>', close_terminal, { desc = 'Close terminal pane' })
+map('t', '<D-w>', close_terminal, { desc = 'Close terminal pane' })
 
 local function action(keys, fn, desc)
   for _, key in ipairs(keys) do
     map({ 'n', 'i', 's', 'x' }, key, fn, { desc = desc })
   end
 end
+action({ '<F35>67', '<D-M-;>' }, function() require('custom.command_terminal').open() end, 'Open terminal')
 local function telescope(name)
   return function() require('telescope.builtin')[name]() end
 end
@@ -131,7 +145,11 @@ action({ '<F20>', '<D-w>' }, function()
 end, 'Close file')
 action({ '<F21>', '<D-1>' }, function()
   local tree = require 'neo-tree.command'
-  if vim.bo.filetype == 'neo-tree' then
+  local tree_open = vim.tbl_contains(
+    vim.tbl_map(function(win) return vim.bo[vim.api.nvim_win_get_buf(win)].filetype == 'neo-tree' end, vim.api.nvim_tabpage_list_wins(0)),
+    true
+  )
+  if tree_open then
     tree.execute { action = 'close', position = 'left' }
   else
     local name = vim.api.nvim_buf_get_name(0)
@@ -228,3 +246,9 @@ require('custom.shortcut_transport').setup()
 require('custom.autosave').setup()
 
 require('custom.windows_keys').setup()
+
+require('custom.swap_recovery').setup()
+
+require('custom.word_highlight').setup()
+
+if package.loaded['mini.statusline'] then require('custom.fold_controls').setup(require('mini.statusline')) end
