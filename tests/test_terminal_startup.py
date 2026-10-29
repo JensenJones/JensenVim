@@ -312,6 +312,17 @@ end })
             self.assertEqual(selected['text'], ['target'], selected)
             lua("vim.api.nvim_input('X')")
             self.assertEqual(state('vim.fn.getline(1)'), 'alpha X omega')
+        elif interaction == 'mouse_drag_selection':
+            start = state('vim.fn.screenpos(vim.api.nvim_get_current_win(),1,7)')
+            end = state('vim.fn.screenpos(vim.api.nvim_get_current_win(),1,13)')
+            lua(f"vim.api.nvim_input_mouse('left','press','',0,{start['row']-1},{start['col']-1})")
+            lua(f"vim.api.nvim_input_mouse('left','drag','',0,{end['row']-1},{end['col']-1})")
+            lua(f"vim.api.nvim_input_mouse('left','release','',0,{end['row']-1},{end['col']-1})")
+            selected = state("{mode=vim.fn.mode(),line=vim.fn.getline(1),text=vim.fn.getregion(vim.fn.getpos('v'),vim.fn.getpos('.'),{type='v',exclusive=true})}")
+            self.assertEqual(selected['line'], 'alpha target omega', 'dragging to highlight text changed the source line: ' + repr(selected))
+            self.assertIn(selected['mode'], ('s', 'v'), 'mouse drag did not create a selection: ' + repr(selected))
+            lua("vim.api.nvim_input('X')")
+            self.assertEqual(state('vim.fn.getline(1)'), 'alpha X omega', 'typing after mouse drag did not replace only the selected word: ' + repr(selected))
         elif interaction in ('scroll', 'scroll_click', 'scroll_paste'):
             anchor = state('vim.api.nvim_win_get_cursor(0)')
             original = state('vim.fn.getline(1)')
@@ -349,6 +360,9 @@ end })
 
     def test_double_click_selects_word_and_typing_replaces_it(self):
         self.check_startup(False, 'double_click')
+
+    def test_mouse_drag_selection_does_not_insert_input_garbage(self):
+        self.check_startup(False, 'mouse_drag_selection')
 
     def test_option_shift_arrow_selects_word_without_inserting_key_sequence(self):
         self.check_startup(False, 'shift_word_selection')
