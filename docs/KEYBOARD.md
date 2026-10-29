@@ -6,7 +6,7 @@ Run in your existing Herdr pane:
 
 The editor stays in that pane. It does not create iTerm tabs or windows. Its terminal keyboard mappings apply only while its pane is focused; your normal mappings return when you leave. Fonts and window layout are preserved.
 
-`jvim` and `jvim /project/path/` start in the project tree without an empty file tab. Opening a file creates the editor pane beside the tree. Ctrl+Tab switches to the most recently used open file; Ctrl+Shift+Tab moves to the oldest in that recent order. Closing a file keeps the remaining file visible.
+`jvim` and `jvim /project/path/` start in the project tree without an empty file tab. Opening a file creates the editor pane beside the tree. Ctrl+Tab switches to the most recently used open file; another press within 350 ms advances farther through the same recent-file order. After pausing, Ctrl+Tab starts a fresh switch (usually back to the previous file). Ctrl+Shift+Tab walks in the opposite direction. Closing a file keeps the remaining file visible.
 
 - **Ctrl-click a code symbol:** jump to its definition, using the language server. Native Cmd-click is optional: search **Toggle Cmd-click code links (dashed underlines)** in the action menu.
 - **Cmd+B:** keyboard navigation to a definition. Autosave preserves edits and undo without formatting or sorting imports; explicit saves can format.

@@ -61,7 +61,7 @@ If Neovim finds a stale swap file, jvim saves a backup and recovers its edits au
 
 Markdown renders while typing; search **Toggle Markdown preview** in the action menu to view/edit raw source. Click once to open a tree file or expand a folder. Press **F4** (or **Fn+F4** if needed) to toggle the project tree from any editor mode. PDFs open as rendered pages; use `]` and `[` to turn pages and `q` to close the viewer. See [the full keymap](docs/KEYBOARD.md).
 
-Ctrl+Tab switches to the most recently used open file; Ctrl+Shift+Tab moves to the oldest in that recent order. Cmd+Option+minus/equal collapse and expand code folds.
+Ctrl+Tab switches to the most recently used open file; another press within 350 ms advances farther through the same recent-file order. After pausing, Ctrl+Tab starts a fresh switch (usually back to the previous file). Ctrl+Shift+Tab walks in the opposite direction. Cmd+Option+minus/equal collapse and expand code folds.
 
 C++ definition navigation/diagnostics require clangd and correct project compile flags. Supply a `compile_commands.json` (for CMake: `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`) or a suitable `compile_flags.txt`.
 
