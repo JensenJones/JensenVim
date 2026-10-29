@@ -28,6 +28,10 @@ local function press(key)
   vim.fn.maparg(key, 'n', false, true).callback()
   settle()
 end
+local function press_typed(key)
+  vim.api.nvim_feedkeys(vim.keycode(key), 'mxt', false)
+  settle()
+end
 local function tree_state() return require('neo-tree.sources.manager').get_state 'filesystem' end
 local function focus_tree()
   require('neo-tree.command').execute { action = 'focus', position = 'left', dir = root }
@@ -123,15 +127,17 @@ elseif case == 'tree_toggle' then
   vim.api.nvim_exec_autocmds('VimEnter', { group = 'clion-editing' })
   settle()
   local mainbuf = open(main)
-  press '<D-1>'
+  vim.cmd.startinsert()
+  press_typed '<C-F11>21'
   assert(vim.bo.filetype ~= 'neo-tree', 'Cmd+1 did not close tree while editing')
-  press '<D-1>'
+  press_typed '<C-F11>21'
   assert(vim.bo.filetype == 'neo-tree', 'Cmd+1 did not reopen a closed tree')
   require('custom.files').show(mainbuf)
-  press '<D-1>'
+  vim.cmd.startinsert()
+  press_typed '<C-F11>21'
   assert(vim.bo.filetype ~= 'neo-tree', 'Cmd+1 did not close a visible tree from the editor')
   assert(vim.api.nvim_get_current_buf() == mainbuf, 'closing the tree lost the current file')
-  press '<D-1>'
+  press_typed '<C-F11>21'
   assert(vim.bo.filetype == 'neo-tree', 'Cmd+1 did not reopen a closed tree')
 elseif case == 'recent_files' then
   vim.api.nvim_exec_autocmds('VimEnter', { group = 'clion-editing' })

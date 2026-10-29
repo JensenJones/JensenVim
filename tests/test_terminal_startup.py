@@ -146,6 +146,22 @@ end })
         row, col = pos['row'] - 1, pos['col'] - 1
         def mouse(button, action):
             lua(f"vim.api.nvim_input_mouse('{button}','{action}','',0,{row},{col})")
+        if interaction == 'tree_toggle':
+            lua("vim.cmd.startinsert()")
+            time.sleep(0.05)
+            os.write(master, b'\x1b[23;5~21')
+            time.sleep(0.1)
+            self.assertEqual(state("vim.tbl_contains(vim.tbl_map(function(w) return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' end,vim.api.nvim_tabpage_list_wins(0)),true)"), False, 'Cmd+1 did not hide the tree from the editor')
+            os.write(master, b'\x1b[23;5~21')
+            time.sleep(0.1)
+            self.assertEqual(state("vim.tbl_contains(vim.tbl_map(function(w) return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' end,vim.api.nvim_tabpage_list_wins(0)),true)"), True, 'Cmd+1 did not bring back the hidden tree')
+            os.write(master, b'\x1b[23;5~21')
+            time.sleep(0.1)
+            self.assertEqual(state("vim.tbl_contains(vim.tbl_map(function(w) return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' end,vim.api.nvim_tabpage_list_wins(0)),true)"), False, 'Cmd+1 did not hide the tree while it had focus')
+            os.write(master, b'\x1b[23;5~21')
+            time.sleep(0.1)
+            self.assertEqual(state("vim.tbl_contains(vim.tbl_map(function(w) return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' end,vim.api.nvim_tabpage_list_wins(0)),true)"), True, 'Cmd+1 did not restore the tree after hiding it from tree focus')
+            return
         if interaction == 'fold_buttons':
             lua("(function() vim.api.nvim_buf_set_lines(0,0,-1,false,{'function start','  first','  second','end','after'}); vim.wo.foldmethod='manual'; vim.wo.foldenable=true; vim.wo.foldlevel=99; vim.cmd('1,4fold'); vim.cmd('normal! zo'); vim.api.nvim_win_set_cursor(0,{1,0}); return true end)()")
             self.assertEqual(state('vim.fn.foldclosed(1)'), -1)
@@ -270,6 +286,9 @@ end })
 
     def test_iterm_copy_and_paste_work_between_files(self):
         self.check_startup(False, 'clipboard_copy_paste')
+
+    def test_iterm_command_one_hides_and_restores_the_tree(self):
+        self.check_startup(False, 'tree_toggle')
 
     def test_iterm_command_w_closes_only_the_jvim_terminal_pane(self):
         self.check_startup(False, 'terminal_cmdw')
