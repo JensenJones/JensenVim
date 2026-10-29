@@ -34,6 +34,9 @@ return {
       window = {
         mappings = {
           ['\\'] = 'close_window',
+          -- macOS Delete sends Backspace; don't let it silently change roots.
+          ['<BS>'] = 'none',
+          ['<Del>'] = 'none',
           ['<Left>'] = 'close_node',
           ['<Right>'] = 'open',
           ['<2-LeftMouse>'] = 'none',
