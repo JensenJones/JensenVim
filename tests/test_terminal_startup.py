@@ -214,6 +214,15 @@ end })
             self.assertEqual(state_after['cursor'][0], 1, 'Shift+Left stopped on the next line instead of reaching the prior line end: ' + repr(state_after))
             self.assertNotIn('    ', state_after['selection'], 'Shift+Left selected the next line indentation: ' + repr(state_after))
             return
+        if interaction == 'option_shift_right_word':
+            lua("(function() vim.api.nvim_buf_set_lines(0,0,-1,false,{'word    ','next'}); vim.api.nvim_win_set_cursor(0,{1,0}); vim.cmd.startinsert(); return true end)()")
+            os.write(master, b'\x1b[1;4C')
+            time.sleep(0.1)
+            selected = state("{mode=vim.fn.mode(),cursor=vim.api.nvim_win_get_cursor(0),text=vim.fn.getregion(vim.fn.getpos('v'),vim.fn.getpos('.'),{type='v',exclusive=true})}")
+            self.assertIn(selected['mode'], ('s', 'v'), selected)
+            self.assertEqual(selected['cursor'][0], 1, 'Option+Shift+Right crossed onto the next line: ' + repr(selected))
+            self.assertEqual(selected['text'], ['word'], 'Option+Shift+Right selected trailing spaces with the word: ' + repr(selected))
+            return
         if interaction == 'cmd_left_indent':
             lua("(function() vim.api.nvim_buf_set_lines(0,0,1,false,{'    indented value'}); vim.api.nvim_win_set_cursor(0,{1,17}); vim.cmd.stopinsert(); return true end)()")
             os.write(master, b'\x1b[23;5~70')
@@ -327,6 +336,9 @@ end })
 
     def test_shift_left_crosses_line_boundary_without_selecting_indentation(self):
         self.check_startup(False, 'shift_left_across_line')
+
+    def test_option_shift_right_selects_word_without_trailing_spaces(self):
+        self.check_startup(False, 'option_shift_right_word')
 
     def test_command_left_moves_to_indentation(self):
         self.check_startup(False, 'cmd_left_indent')

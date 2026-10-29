@@ -42,6 +42,14 @@ local function identifier_target(direction, insert_mode)
   return col
 end
 
+local function select_identifier(direction)
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  local target = identifier_target(direction, true)
+  local distance = math.abs(target - cursor[2])
+  if distance == 0 then return '' end
+  return string.rep(direction > 0 and '<S-Right>' or '<S-Left>', distance)
+end
+
 -- Familiar selection: Shift+arrows select; typing replaces the selection.
 vim.o.keymodel = 'startsel,stopsel'
 vim.o.selectmode = 'mouse,key'
@@ -73,10 +81,13 @@ for key, target in pairs {
   ['<M-Right>'] = '<C-Right>',
   ['<M-f>'] = '<C-Right>',
   ['<M-S-Left>'] = '<C-S-Left>',
-  ['<M-S-Right>'] = '<C-S-Right>',
 } do
   map({ 'n', 'i', 's' }, key, target)
 end
+map({ 'n', 'i', 's', 'x' }, '<M-S-Right>', function() return select_identifier(1) end,
+  { expr = true, replace_keycodes = true, desc = 'Select next word' })
+map({ 'n', 'i', 's', 'x' }, '<C-S-Right>', function() return select_identifier(1) end,
+  { expr = true, replace_keycodes = true, desc = 'Select next word' })
 map('i', '<M-BS>', '<C-w>', { desc = 'Delete previous word' })
 map('i', '<M-d>', '<C-o>de', { desc = 'Delete next word' })
 -- iTerm Natural Text Editing sends these for Command+Backspace/Left/Right.
@@ -113,7 +124,8 @@ shortcut('<F35>72', '<S-Right>', '<S-Right>', '<S-Right>', '<S-Right>', 'Select 
 shortcut('<F35>73', '<S-Up>', '<S-Up>', '<S-Up>', '<S-Up>', 'Select up')
 shortcut('<F35>74', '<S-Down>', '<S-Down>', '<S-Down>', '<S-Down>', 'Select down')
 shortcut('<F35>75', '<C-S-Left>', '<C-S-Left>', '<C-S-Left>', '<C-S-Left>', 'Select previous word')
-shortcut('<F35>76', '<C-S-Right>', '<C-S-Right>', '<C-S-Right>', '<C-S-Right>', 'Select next word')
+map({ 'n', 'i', 's', 'x' }, '<F35>76', function() return select_identifier(1) end,
+  { expr = true, replace_keycodes = true, desc = 'Select next word' })
 
 map('c', '<F15>', '<C-r>+', { desc = 'Paste into command line' })
 map('c', '<D-v>', '<C-r>+', { desc = 'Paste into command line' })
