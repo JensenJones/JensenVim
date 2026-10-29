@@ -53,6 +53,9 @@ vim.o.scrolloff = 0
 vim.o.sidescrolloff = 0
 vim.o.wrap = false
 vim.o.hidden = true
+-- Let Insert/Replace-mode arrows cross line boundaries without changing the
+-- wrapping behavior of Normal-mode motions.
+vim.opt.whichwrap:append { '[', ']' }
 
 -- macOS trackpads report horizontal wheel direction as finger movement, while
 -- Neovim's defaults move the viewport the opposite way. Keep content following

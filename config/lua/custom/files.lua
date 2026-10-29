@@ -1,8 +1,6 @@
 local M = {}
 local last_file
 local recent = {}
-local tab_cycle
-local tab_cycle_timeout_ms = 350
 
 local function remember(buf)
   if not vim.api.nvim_buf_is_valid(buf) then return false end
@@ -57,33 +55,14 @@ function M.cycle(direction)
   local current = vim.api.nvim_get_current_buf()
   if vim.bo.filetype == 'neo-tree' then current = last_file end
   recent = vim.tbl_filter(function(buf) return vim.tbl_contains(files, buf) end, recent)
-  local now = vim.uv.now()
-  local win = vim.api.nvim_get_current_win()
-  local continuing = tab_cycle
-    and tab_cycle.win == win
-    and now - tab_cycle.last_press <= tab_cycle_timeout_ms
-    and vim.tbl_contains(tab_cycle.order, current)
-
-  if not continuing then
-    tab_cycle = nil
-    if current and vim.tbl_contains(files, current) then remember(current) end
-    local order = vim.deepcopy(recent)
-    if #order == 0 then order = files end
-    local index = 1
-    for position, buf in ipairs(order) do
-      if buf == current then
-        index = position
-        break
-      end
+  if current and vim.tbl_contains(files, current) then remember(current) end
+  for index, buf in ipairs(recent) do
+    if buf == current then
+      M.show(recent[(index - 1 + direction) % #recent + 1])
+      return
     end
-    tab_cycle = { order = order, index = index, win = win, last_press = now }
   end
-
-  local count = #tab_cycle.order
-  if count < 2 then return end
-  tab_cycle.index = (tab_cycle.index - 1 + direction) % count + 1
-  tab_cycle.last_press = now
-  M.show(tab_cycle.order[tab_cycle.index])
+  M.show(recent[1] or files[1])
 end
 
 function M.setup_tabline()
