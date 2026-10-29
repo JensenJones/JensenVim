@@ -73,6 +73,7 @@ class PackageTests(unittest.TestCase):
         self.assertIn('0x2d-0x180000', mappings)  # Cmd+Option+minus folds
         self.assertIn('0x3d-0x180000', mappings)  # Cmd+Option+equals unfolds
         self.assertIn('0x6e-0x100000', mappings)  # Cmd+N creates a project file
+        self.assertIn('0xd-0x20000', mappings)  # Shift+Enter inserts a line below
 
     def test_url_app_registration_builds_metadata_without_opening_ui(self):
         calls = []
@@ -288,6 +289,59 @@ vim.cmd 'qall!'
                    JVIM_TEST_FILE=str(self.home/'mouse.txt'))
         env.pop('JVIM_HOST_SOCKET', None)
         env.pop('JVIM_LINK_TOKEN', None)
+        result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(script)],
+                                env=env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    @unittest.skipUnless(shutil.which('nvim'), 'Neovim needed for core behavior checks')
+    def test_select_mode_opening_delimiters_wrap_selected_text(self):
+        script = self.home/'surround.lua'
+        script.write_text(r'''
+vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
+vim.o.swapfile = false
+vim.o.selection = 'exclusive'
+require('custom.clion_actions').setup(function() end, function() end)
+local cases = { { '(', ')' }, { '[', ']' }, { '{', '}' }, { '"', '"' }, { "'", "'" }, { '`', '`' } }
+for _, pair in ipairs(cases) do
+  vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'before word after' })
+  vim.api.nvim_win_set_cursor(0, { 1, 7 })
+  vim.cmd.normal { args = { 'v4l\7' }, bang = true }
+  assert(vim.fn.mode():match('^[sS]'), 'test did not enter Select mode: ' .. vim.fn.mode())
+  vim.api.nvim_feedkeys(pair[1], 'xt', false)
+  assert(vim.api.nvim_get_current_line() == 'before ' .. pair[1] .. 'word' .. pair[2] .. ' after',
+    'opener ' .. pair[1] .. ' did not wrap selection: ' .. vim.api.nvim_get_current_line())
+end
+vim.cmd 'qall!'
+''')
+        env = dict(os.environ, HOME=str(self.home), JVIM_TEST_CONFIG=str(ROOT/'config'))
+        result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(script)],
+                                env=env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    @unittest.skipUnless(shutil.which('nvim'), 'Neovim needed for core behavior checks')
+    def test_shift_enter_opens_line_below_without_changing_current_line(self):
+        script = self.home/'shift_enter.lua'
+        script.write_text(r'''
+vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
+vim.o.swapfile = false
+require('custom.keymaps')
+local key = vim.keycode('<C-F11>69')
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'keep this text', 'following line' })
+vim.api.nvim_win_set_cursor(0, { 1, 4 })
+vim.api.nvim_feedkeys(key, 'xt', false)
+assert(vim.api.nvim_buf_get_lines(0, 0, -1, false)[1] == 'keep this text', 'normal mode changed current line')
+assert(vim.api.nvim_buf_get_lines(0, 0, -1, false)[2] == '', 'normal mode did not open a blank line below')
+vim.cmd.stopinsert()
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'preserve me', 'after' })
+vim.api.nvim_win_set_cursor(0, { 1, 3 })
+vim.cmd.startinsert()
+vim.api.nvim_feedkeys(key, 'xt', false)
+local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
+assert(lines[1] == 'preserve me', 'insert mode changed current line')
+assert(lines[2] == '', 'insert mode did not create a blank line below')
+vim.cmd 'qall!'
+''')
+        env = dict(os.environ, HOME=str(self.home), JVIM_TEST_CONFIG=str(ROOT/'config'))
         result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(script)],
                                 env=env, capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)

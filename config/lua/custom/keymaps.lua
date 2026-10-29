@@ -57,6 +57,9 @@ shortcut('<F14>', '"+ddi', '<C-o>"+dd', '<C-g>"+di', '"+di', 'Cut')
 shortcut('<F15>', 'i<C-r><C-p>+', '<C-r><C-p>+', '<C-g>"_c<C-r><C-p>+', '"_c<C-r><C-p>+', 'Paste')
 shortcut('<F25>', 'gg0vG$<C-g>', '<Esc>gg0vG$<C-g>', '<Esc>gg0vG$<C-g>', '<Esc>gg0vG$<C-g>', 'Select all')
 map({ 'n', 'i', 's', 'x' }, '<D-a>', '<Esc>gg0vG$<C-g>', { desc = 'Select all' })
+-- iTerm sends Shift+Enter as the packaged F35 action 69. Open a line below
+-- without replacing the current line, in both normal and editing modes.
+shortcut('<F35>69', 'o', '<Esc>o', '<C-g><Esc>o', '<Esc>o', 'Insert line below')
 
 map('c', '<F15>', '<C-r>+', { desc = 'Paste into command line' })
 map('c', '<D-v>', '<C-r>+', { desc = 'Paste into command line' })

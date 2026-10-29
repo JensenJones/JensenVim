@@ -17,6 +17,29 @@ function M.setup(action, resume_editing)
     vim.api.nvim_win_set_cursor(0, position)
     vim.cmd.startinsert()
   end, { desc = 'Cancel selection' })
+  -- Mouse highlighting enters Select mode, where ordinary typing replaces
+  -- the selection. Treat opening delimiters as surround actions instead.
+  for opener, closer in pairs {
+    ['('] = ')', ['['] = ']', ['{'] = '}', ['<'] = '>',
+    ['"'] = '"', ["'"] = "'", [string.char(96)] = string.char(96),
+  } do
+    map('s', opener, function()
+      local anchor, cursor = vim.fn.getpos 'v', vim.fn.getpos '.'
+      local forward = anchor[2] < cursor[2] or (anchor[2] == cursor[2] and anchor[3] <= cursor[3])
+      local first, last = forward and anchor or cursor, forward and cursor or anchor
+      local exclusive = vim.o.selection == 'exclusive'
+      local selected = vim.fn.getregion(anchor, cursor, { type = 'v', exclusive = exclusive })
+      if #selected == 0 then selected = { '' } end
+      local start_row, start_col = first[2] - 1, first[3] - 1
+      local end_row, end_col = last[2] - 1, last[3] - 1 + (exclusive and 0 or 1)
+      vim.cmd 'normal! \27'
+      selected[1] = opener .. selected[1]
+      selected[#selected] = selected[#selected] .. closer
+      vim.api.nvim_buf_set_text(0, start_row, start_col, end_row, end_col, selected)
+      vim.api.nvim_win_set_cursor(0, { end_row + 1, end_col + #opener })
+      vim.cmd.startinsert()
+    end, { desc = 'Surround selection with ' .. opener .. closer })
+  end
   map('n', '<Esc>', function()
     vim.cmd.nohlsearch()
     resume_editing()
