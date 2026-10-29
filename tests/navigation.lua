@@ -137,6 +137,12 @@ elseif case == 'tree_toggle' then
   assert(vim.api.nvim_get_current_buf() == mainbuf, 'closing the tree lost the current file')
   press_typed '\\'
   assert(vim.bo.filetype == 'neo-tree', 'Backslash did not reopen a closed tree')
+elseif case == 'tree_click_mapping' then
+  focus_tree()
+  local mapping = vim.api.nvim_buf_call(vim.api.nvim_get_current_buf(), function()
+    return vim.fn.maparg('<LeftMouse>', 'n', false, true)
+  end)
+  assert(mapping.desc ~= 'Open clicked project item', 'jvim overrode Neo-tree single-click handling')
 elseif case == 'recent_files' then
   vim.api.nvim_exec_autocmds('VimEnter', { group = 'clion-editing' })
   settle()
@@ -148,9 +154,11 @@ elseif case == 'recent_files' then
   press '<C-Tab>'
   assert(vim.api.nvim_get_current_buf() == thirdbuf,
     'Ctrl+Tab did not select the most recently used other file: ' .. vim.inspect({ current = vim.api.nvim_get_current_buf(), expected = thirdbuf }))
+  press '<C-Tab>'
+  assert(vim.api.nvim_get_current_buf() == otherbuf, 'repeated Ctrl+Tab did not continue through older recent files')
   require('custom.files').show(mainbuf)
   press '<C-S-Tab>'
-  assert(vim.api.nvim_get_current_buf() == otherbuf, 'Ctrl+Shift+Tab did not select the oldest file in recent order')
+  assert(vim.api.nvim_get_current_buf() == thirdbuf, 'Ctrl+Shift+Tab did not move backward in the recent-file cycle')
 elseif case == 'add_file_from_editor' then
   vim.api.nvim_exec_autocmds('VimEnter', { group = 'clion-editing' })
   settle()

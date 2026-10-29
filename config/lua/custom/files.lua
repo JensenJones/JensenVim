@@ -1,6 +1,8 @@
 local M = {}
 local last_file
 local recent = {}
+local cycle_order
+local cycle_index
 
 local function remember(buf)
   if not vim.api.nvim_buf_is_valid(buf) then return false end
@@ -25,8 +27,12 @@ local function editor_window(win)
   return vim.bo[buf].buftype == '' and vim.bo[buf].filetype ~= 'neo-tree'
 end
 
-function M.show(buf)
+function M.show(buf, cycling)
   if not vim.api.nvim_buf_is_valid(buf) then return end
+  if not cycling then
+    cycle_order = nil
+    cycle_index = nil
+  end
   local win = vim.api.nvim_get_current_win()
   if not editor_window(win) then
     win = nil
@@ -55,14 +61,26 @@ function M.cycle(direction)
   local current = vim.api.nvim_get_current_buf()
   if vim.bo.filetype == 'neo-tree' then current = last_file end
   recent = vim.tbl_filter(function(buf) return vim.tbl_contains(files, buf) end, recent)
-  if current and vim.tbl_contains(files, current) then remember(current) end
-  for index, buf in ipairs(recent) do
-    if buf == current then
-      M.show(recent[(index - 1 + direction) % #recent + 1])
-      return
+  local continuing = cycle_order and cycle_order[cycle_index] == current
+  if not continuing then
+    if current and vim.tbl_contains(files, current) then remember(current) end
+    cycle_order = vim.deepcopy(recent)
+    cycle_index = nil
+    for index, buf in ipairs(cycle_order) do
+      if buf == current then
+        cycle_index = index
+        break
+      end
+    end
+    if not cycle_index then
+      table.insert(cycle_order, 1, files[1])
+      cycle_index = 1
     end
   end
-  M.show(recent[1] or files[1])
+  local next_index = (cycle_index - 1 + direction) % #cycle_order + 1
+  local target = cycle_order[next_index]
+  cycle_index = next_index
+  M.show(target, true)
 end
 
 function M.setup_tabline()

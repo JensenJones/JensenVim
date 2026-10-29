@@ -58,6 +58,9 @@ class NavigationTests(unittest.TestCase):
     def test_project_tree_shortcut_toggles_tree_from_editor(self):
         self.check_case('tree_toggle')
 
+    def test_tree_click_uses_neotree_single_click_handler(self):
+        self.check_case('tree_click_mapping')
+
     def test_control_tab_uses_recent_file_order(self):
         self.check_case('recent_files')
 

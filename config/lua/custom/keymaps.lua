@@ -331,8 +331,6 @@ require('custom.files').setup(group)
 
 require('custom.clion_actions').setup(action, resume_editing)
 
-require('custom.tree_mouse').setup()
-
 require('custom.herdr_host').setup()
 
 require('custom.definition_links').setup()
