@@ -55,7 +55,7 @@ local groups = {
   JvimFoldButton = { fg = p.type, bold = true },
   IncSearch = { bg = p.select },
   CurSearch = { bg = p.select },
-  MatchParen = { fg = p.bg, bg = p.type, bold = true },
+  MatchParen = { underline = true, sp = p.type, bold = true },
   NonText = { fg = p.dim },
   Whitespace = { fg = p.dim },
   SpecialKey = { fg = p.dim },
