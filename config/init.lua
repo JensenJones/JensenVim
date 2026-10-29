@@ -807,6 +807,9 @@ require('lazy').setup({
         -- See :h blink-cmp-config-keymap for defining your own keymap
         preset = 'super-tab',
 
+        ['<Left>'] = { 'hide', 'fallback' },
+        ['<Right>'] = { 'hide', 'fallback' },
+
         ['<Tab>'] = {
           function(cmp)
             if cmp.snippet_active() then return cmp.accept() end

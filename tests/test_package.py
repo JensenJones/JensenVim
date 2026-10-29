@@ -74,7 +74,7 @@ class PackageTests(unittest.TestCase):
         self.assertIn('0x3d-0x180000', mappings)  # Cmd+Option+equals unfolds
         self.assertIn('0x6e-0x100000', mappings)  # Cmd+N creates a project file
         self.assertIn('0xd-0x20000', mappings)  # Shift+Enter inserts a line below
-        self.assertEqual(mappings['0x31-0x100000']['Text'], '0x1b 0x5b 0x32 0x30 0x3b 0x32 0x7e')  # Cmd+1 sends terminal F21
+        self.assertEqual(mappings['0x31-0x100000']['Text'], '0x1b 0x4f 0x53')  # Cmd+1 sends standard F4
         for key in ('0xf702-0x100000', '0xf702-0x20000', '0xf703-0x20000',
                     '0xf700-0x20000', '0xf701-0x20000', '0xf702-0x2a0000', '0xf703-0x2a0000'):
             self.assertIn(key, mappings, f'modified arrow transport missing: {key}')

@@ -207,9 +207,9 @@ action({ '<F20>', '<D-w>' }, function()
   vim.cmd('confirm bdelete ' .. buf)
   if name ~= '' and not vim.api.nvim_buf_is_loaded(buf) then table.insert(closed_files, name) end
 end, 'Close file')
--- Some terminal layers label xterm's F21 sequence as Shift+F9. Accept both
--- names so Cmd+1 survives either terminal key parser.
-action({ '<F21>', '<S-F9>', '<D-1>', '<C-F11>31' }, function()
+-- iTerm sends plain F4 for Cmd+1: modified function keys are unreliable in
+-- nested terminals such as Herdr. Keep the older aliases for existing setups.
+action({ '<F4>', '<F21>', '<S-F9>', '<D-1>', '<C-F11>31' }, function()
   local tree = require 'neo-tree.command'
   local tree_open = vim.tbl_contains(
     vim.tbl_map(function(win) return vim.bo[vim.api.nvim_win_get_buf(win)].filetype == 'neo-tree' end, vim.api.nvim_tabpage_list_wins(0)),
