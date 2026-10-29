@@ -4,7 +4,7 @@ function M.setup()
   -- iTerm encodes Command shortcuts as Ctrl+F11 followed by an action number
   -- (for example, Cmd+C arrives as <C-F11>13 and Cmd+W as <C-F11>20). Map
   -- that actual sequence as well as the standalone function-key forms.
-  for number = 13, 69 do
+  for number = 13, 76 do
     local source = number <= 37 and number ~= 35 and ('<F' .. number .. '>') or ('<F35>' .. number)
     local destination = '<F35>' .. number
     for _, mode in ipairs { 'n', 'i', 's', 'x', 'c', 't' } do

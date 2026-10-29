@@ -181,6 +181,43 @@ end })
             lua("vim.api.nvim_input('echo JVIM_COMMAND_OK\\r')")
             self.assertEqual(lua("vim.wait(3000,function() for _,line in ipairs(vim.api.nvim_buf_get_lines(0,0,-1,false)) do if line:find('JVIM_COMMAND_OK',1,true) then return true end end return false end,25)"), 'true')
             return
+        if interaction == 'shift_word_selection':
+            mouse('left', 'press')
+            mouse('left', 'release')
+            mouse('left', 'press')
+            mouse('left', 'release')
+            selected_before = state("{mode=vim.fn.mode(),text=vim.fn.getregion(vim.fn.getpos('v'),vim.fn.getpos('.'),{type='v',exclusive=true}),line=vim.fn.getline(1)}")
+            self.assertEqual(selected_before['line'], 'alpha target omega', selected_before)
+            self.assertIn(selected_before['mode'], ('s', 'v'), selected_before)
+            time.sleep(0.05)
+            os.write(master, b'\x1b[23;5~75')
+            time.sleep(0.1)
+            selected = state("{mode=vim.fn.mode(),text=vim.fn.getregion(vim.fn.getpos('v'),vim.fn.getpos('.'),{type='v',exclusive=true}),line=vim.fn.getline(1)}")
+            self.assertEqual(selected['line'], 'alpha target omega', selected)
+            self.assertIn(selected['mode'], ('s', 'v'), selected)
+            self.assertNotEqual(selected['text'], selected_before['text'], 'Option+Shift+Left did not extend the word selection')
+            mouse('left', 'press')
+            mouse('left', 'release')
+            self.assertEqual(state('vim.fn.getline(1)'), 'alpha target omega', 'clicking away after word selection edited the line')
+            lua("(function() vim.cmd.stopinsert(); vim.cmd('normal! \\27'); vim.api.nvim_buf_set_lines(0,0,1,false,{'alpha target omega'}); vim.api.nvim_win_set_cursor(0,{1,#vim.fn.getline(1)}); vim.cmd.startinsert(); return true end)()")
+            os.write(master, b'\x1b[23;5~71')
+            time.sleep(0.1)
+            shifted = state("{mode=vim.fn.mode(),text=vim.fn.getregion(vim.fn.getpos('v'),vim.fn.getpos('.'),{type='v',exclusive=true}),line=vim.fn.getline(1)}")
+            self.assertEqual(shifted['mode'], 's', shifted)
+            self.assertEqual(shifted['line'], 'alpha target omega', 'Shift+Left inserted terminal sequence text')
+            self.assertEqual(shifted['text'], ['a'], 'Shift+Left should select exactly one character')
+            return
+        if interaction == 'cmd_left_indent':
+            lua("(function() vim.api.nvim_buf_set_lines(0,0,1,false,{'    indented value'}); vim.api.nvim_win_set_cursor(0,{1,17}); vim.cmd.stopinsert(); return true end)()")
+            os.write(master, b'\x1b[23;5~70')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.api.nvim_win_get_cursor(0)[2]'), 4, 'Cmd+Left should move to first nonblank column')
+            lua('vim.cmd.startinsert()')
+            os.write(master, b'\x1b[23;5~70')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.api.nvim_win_get_cursor(0)[2]'), 4, 'Cmd+Left in Insert mode should keep indentation')
+            self.assertEqual(state('vim.fn.getline(1)'), '    indented value', 'Cmd+Left inserted key-sequence text')
+            return
         if interaction == 'terminal_cmdw':
             lua("require('custom.command_terminal').open()")
             self.assertEqual(state('vim.bo.buftype'), 'terminal')
@@ -268,6 +305,12 @@ end })
 
     def test_double_click_selects_word_and_typing_replaces_it(self):
         self.check_startup(False, 'double_click')
+
+    def test_option_shift_arrow_selects_word_without_inserting_key_sequence(self):
+        self.check_startup(False, 'shift_word_selection')
+
+    def test_command_left_moves_to_indentation(self):
+        self.check_startup(False, 'cmd_left_indent')
 
     def test_scrolling_hides_displaced_cursor_and_preserves_edit_location(self):
         self.check_startup(False, 'scroll')

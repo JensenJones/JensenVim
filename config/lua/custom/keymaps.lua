@@ -60,6 +60,15 @@ map({ 'n', 'i', 's', 'x' }, '<D-a>', '<Esc>gg0vG$<C-g>', { desc = 'Select all' }
 -- iTerm sends Shift+Enter as the packaged F35 action 69. Open a line below
 -- without replacing the current line, in both normal and editing modes.
 shortcut('<F35>69', 'o', '<Esc>o', '<C-g><Esc>o', '<Esc>o', 'Insert line below')
+-- Give modified arrows explicit iTerm transport codes so terminal escape
+-- parsing cannot turn them into literal text.
+shortcut('<F35>70', '^', '<C-o>^', '<C-g>^', '^', 'Move to first nonblank column')
+shortcut('<F35>71', '<S-Left>', '<S-Left>', '<S-Left>', '<S-Left>', 'Select left')
+shortcut('<F35>72', '<S-Right>', '<S-Right>', '<S-Right>', '<S-Right>', 'Select right')
+shortcut('<F35>73', '<S-Up>', '<S-Up>', '<S-Up>', '<S-Up>', 'Select up')
+shortcut('<F35>74', '<S-Down>', '<S-Down>', '<S-Down>', '<S-Down>', 'Select down')
+shortcut('<F35>75', '<C-S-Left>', '<C-S-Left>', '<C-S-Left>', '<C-S-Left>', 'Select previous word')
+shortcut('<F35>76', '<C-S-Right>', '<C-S-Right>', '<C-S-Right>', '<C-S-Right>', 'Select next word')
 
 map('c', '<F15>', '<C-r>+', { desc = 'Paste into command line' })
 map('c', '<D-v>', '<C-r>+', { desc = 'Paste into command line' })

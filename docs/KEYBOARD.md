@@ -22,6 +22,8 @@ The editor stays in that pane. It does not create iTerm tabs or windows. Its ter
 
 Typing, mouse selection, Shift-selection and clipboard shortcuts use ordinary editing. Double-click selects a word; typing replaces the selected text. Escape cancels a selection or popup and keeps you ready to type.
 
+**Shift+Arrow** extends a character or line selection; **Shift+Option+Left/Right** extends by a word. **Cmd+Left** moves to the first nonblank column (preserving indentation), and **Cmd+Right** moves to the end of the line.
+
 Use Herdr's normal **Ctrl+B, then N/P** to switch Herdr tabs. No extra iTerm tabs are needed.
 
 ## Keymap
@@ -84,7 +86,7 @@ These bindings are generated from your active macOS copy keymap and its bundled 
 
 The status line also has clickable **[- Fold]** and **[+ Fold]** controls. **Cmd+Option+semicolon** opens a shell in the current project; close its pane with **Cmd+W**. Horizontal trackpad swipes move the text with your finger.
 
-Extra conveniences: **Cmd+Shift+W closes the editor**, asking about unsaved files. Ctrl+Tab / Ctrl+Shift+Tab switch files; F12 also jumps to a definition. Home/End and Cmd+Left/Right move to line boundaries, Option+Left/Right move by word, and Shift extends selections. Tab/Shift+Tab indent/unindent selections. Copy/cut uses the current line when no text is selected. Cmd+D duplicates selected text or the current line. Cmd+S saves modified named files and asks for a path for a new unnamed file.
+Extra conveniences: **Cmd+Shift+W closes the editor**, asking about unsaved files. Ctrl+Tab / Ctrl+Shift+Tab switch files; F12 also jumps to a definition. Home/End move to line boundaries; Cmd+Left goes to the first nonblank column, and Cmd+Right to the line end. Option+Left/Right move by word, with Shift extending selection and Shift+Option extending it by word. Tab/Shift+Tab indent/unindent selections. Copy/cut uses the current line when no text is selected. Cmd+D duplicates selected text or the current line. Cmd+S saves modified named files and asks for a path for a new unnamed file.
 
 Find in file uses a literal query shared by next/previous search. File and project replacement treat search/replacement text literally and ask before replacing matches. Project replacement first offers a matching-file review and leaves edits unsaved until Save All.
 

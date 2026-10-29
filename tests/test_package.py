@@ -74,6 +74,9 @@ class PackageTests(unittest.TestCase):
         self.assertIn('0x3d-0x180000', mappings)  # Cmd+Option+equals unfolds
         self.assertIn('0x6e-0x100000', mappings)  # Cmd+N creates a project file
         self.assertIn('0xd-0x20000', mappings)  # Shift+Enter inserts a line below
+        for key in ('0xf702-0x100000', '0xf702-0x20000', '0xf703-0x20000',
+                    '0xf700-0x20000', '0xf701-0x20000', '0xf702-0x2a0000', '0xf703-0x2a0000'):
+            self.assertIn(key, mappings, f'modified arrow transport missing: {key}')
 
     def test_url_app_registration_builds_metadata_without_opening_ui(self):
         calls = []
