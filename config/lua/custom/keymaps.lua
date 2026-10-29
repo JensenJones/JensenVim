@@ -240,7 +240,7 @@ local function toggle_project_tree()
   end
 end
 action({ '<F4>' }, toggle_project_tree, 'Toggle project tree')
-action({ '<F22>', '<S-F6>' }, vim.lsp.buf.rename, 'Rename symbol')
+action({ '<F22>', '<S-F6>' }, function() require('custom.rename').symbol() end, 'Rename symbol')
 action({ '<F23>', '<M-CR>' }, vim.lsp.buf.code_action, 'Quick fix')
 action({ '<F24>', '<C-M-l>', '<D-M-l>' }, function() require('conform').format { async = true, lsp_format = 'fallback' } end, 'Format file')
 action({ '<F26>', '<D-z>', '<C-z>' }, undo, 'Undo')

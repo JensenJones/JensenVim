@@ -494,7 +494,7 @@ require('lazy').setup({
 
       -- New Keybindings that I set:
       vim.keymap.set('n', '<leader>ca', vim.lsp.buf.code_action, { desc = 'Code Action' })
-      vim.keymap.set('n', '<leader>rn', vim.lsp.buf.rename, { desc = 'Rename Variable' })
+      vim.keymap.set('n', '<leader>rn', function() require('custom.rename').symbol() end, { desc = 'Rename symbol' })
 
       -- Override default behavior and theme when searching
       vim.keymap.set('n', '<leader>/', function()
@@ -591,7 +591,7 @@ require('lazy').setup({
 
           -- Rename the variable under your cursor.
           --  Most Language Servers support renaming across files, etc.
-          map('grn', vim.lsp.buf.rename, '[R]e[n]ame')
+          map('grn', function() require('custom.rename').symbol() end, '[R]e[n]ame')
 
           -- Execute a code action, usually your cursor needs to be on top of an error
           -- or a suggestion from your LSP for this to activate.
