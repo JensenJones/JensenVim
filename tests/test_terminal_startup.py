@@ -147,6 +147,7 @@ end })
         def mouse(button, action):
             lua(f"vim.api.nvim_input_mouse('{button}','{action}','',0,{row},{col})")
         if interaction == 'tree_toggle':
+            lua("assert(vim.fn.maparg('<S-F9>', 'n') ~= '', 'Cmd+1 fallback for terminal Shift+F9 was not installed')")
             lua("vim.cmd.startinsert()")
             time.sleep(0.05)
             os.write(master, b'\x1b[20;2~')
