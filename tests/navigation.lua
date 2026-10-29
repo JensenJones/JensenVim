@@ -143,6 +143,10 @@ elseif case == 'tree_click_mapping' then
     return vim.fn.maparg('<LeftMouse>', 'n', false, true)
   end)
   assert(mapping.desc ~= 'Open clicked project item', 'jvim overrode Neo-tree single-click handling')
+elseif case == 'new_header' then
+  require('custom.cpp_header').setup()
+  vim.cmd.edit(vim.fn.fnameescape(root .. '/manual.hpp'))
+  assert(vim.fn.getline(1) == '#pragma once', 'new .hpp buffer did not start with #pragma once')
 elseif case == 'recent_files' then
   vim.api.nvim_exec_autocmds('VimEnter', { group = 'clion-editing' })
   settle()
@@ -170,13 +174,15 @@ elseif case == 'add_file_from_editor' then
   local default_path
   inputs.input = function(_, default, callback)
     default_path = default
-    callback('created-from-editor.txt')
+    callback('created-from-editor.hpp')
   end
   press '<D-n>'
   inputs.input = original_input
   settle()
   assert(default_path ~= nil, 'Cmd+N did not open the tree add-file flow')
-  assert(vim.uv.fs_stat(root .. '/created-from-editor.txt'), 'Cmd+N did not create a file beside the selected file')
+  local header = root .. '/created-from-editor.hpp'
+  assert(vim.uv.fs_stat(header), 'Cmd+N did not create a file beside the selected file')
+  assert(vim.fn.readfile(header)[1] == '#pragma once', 'new .hpp file did not start with #pragma once')
 else
   error('unknown navigation case: ' .. tostring(case))
 end

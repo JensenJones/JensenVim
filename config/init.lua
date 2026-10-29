@@ -1055,5 +1055,6 @@ vim.api.nvim_create_autocmd('FileType', {
 })
 
 -- CLion-style editing and shortcuts; keep this after plugin setup.
+require('custom.cpp_header').setup()
 require 'custom.keymaps'
 require('custom.pdf_viewer').setup()

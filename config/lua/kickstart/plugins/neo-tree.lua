@@ -50,5 +50,11 @@ return {
         },
       },
     },
+    event_handlers = {
+      {
+        event = 'file_added',
+        handler = function(path) require('custom.cpp_header').initialize_file(path) end,
+      },
+    },
   },
 }
