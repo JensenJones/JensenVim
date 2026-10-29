@@ -60,3 +60,6 @@ class NavigationTests(unittest.TestCase):
 
     def test_control_tab_uses_recent_file_order(self):
         self.check_case('recent_files')
+
+    def test_create_file_from_opened_tree_file_without_reopening_folder(self):
+        self.check_case('add_file_from_editor')

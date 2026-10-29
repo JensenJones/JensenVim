@@ -72,6 +72,7 @@ class PackageTests(unittest.TestCase):
             self.assertEqual(mappings[key], binding)
         self.assertIn('0x2d-0x180000', mappings)  # Cmd+Option+minus folds
         self.assertIn('0x3d-0x180000', mappings)  # Cmd+Option+equals unfolds
+        self.assertIn('0x6e-0x100000', mappings)  # Cmd+N creates a project file
 
     def test_url_app_registration_builds_metadata_without_opening_ui(self):
         calls = []
@@ -140,6 +141,10 @@ assert(vim.fn.maparg('<F35>58', 'i', false, true).desc == 'Collapse code fold')
 assert(vim.fn.maparg('<D-M-->', 'i', false, true).desc == 'Collapse code fold')
 assert(vim.fn.maparg('<D-M-=>', 'i', false, true).desc == 'Expand code fold')
 assert(vim.fn.maparg('<F35>67', 'i', false, true).desc == 'Open terminal')
+assert(vim.fn.maparg('<C-F11>13', 'x') ~= '', 'missing iTerm Command+C transport in visual mode')
+assert(vim.fn.maparg('<C-F11>15', 'i') ~= '', 'missing iTerm Command+V transport in insert mode')
+assert(vim.fn.maparg('<C-F11>20', 't') ~= '', 'missing iTerm Command+W transport in terminal mode')
+assert(vim.fn.maparg('<F35>68', 'n', false, true).desc == 'New file in selected project folder')
 vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'saved on close' })
 vim.fn.maparg('<D-w>', 'i', false, true).callback()
 error('last-file close did not exit')

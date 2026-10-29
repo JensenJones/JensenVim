@@ -47,6 +47,7 @@ In another terminal, the editor can start but the Mac shortcut transport and nat
 | Cmd+W | Close file; exit after the last file |
 | Cmd+Shift+W | Exit, asking about unsaved buffers |
 | Cmd+1 | Toggle the project tree from the tree or editor |
+| Cmd+N | Add a file beside the selected tree file or inside the selected folder |
 | Cmd+Shift+A | Search actions and shortcuts |
 | Cmd+B / Ctrl-click | Go to definition (Cmd-click is optional) |
 | Cmd+Option+Left / Right | Navigate back / forward |

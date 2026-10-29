@@ -12,6 +12,7 @@ The editor stays in that pane. It does not create iTerm tabs or windows. Its ter
 - **Cmd+B:** keyboard navigation to a definition. Autosave preserves edits and undo without formatting or sorting imports; explicit saves can format.
 - **Cmd+Shift+A:** search editor actions and see their shortcuts.
 - **Cmd+1:** toggle the project tree from the tree or editor. `\\` also opens it.
+- **Cmd+N:** add a file beside the selected tree file or inside the selected folder, without toggling its expansion.
 - Named files autosave after 800 ms without typing, when switching files, when leaving the editor, and on exit. New unnamed files still need **Cmd+S** to choose a filename.
 - Stale swap files are backed up and recovered automatically; active editors keep Neovim's normal swap protection.
 - **Cmd+W:** close the current file; closing the last file exits jvim.

@@ -4,6 +4,7 @@ function M.open()
   local audit = vim.json.decode(table.concat(vim.fn.readfile(vim.fn.stdpath 'config' .. '/clion-keymap-audit.json'), '\n'))
   local entries = {}
   table.insert(entries, { name = 'Close editor (ask about unsaved files)', shortcut = 'Cmd+Shift+W', key = '<F35>63' })
+  table.insert(entries, { name = 'New file in selected project folder', shortcut = 'Cmd+N', key = '<F35>68' })
   table.insert(entries, { name = 'Open terminal', shortcut = 'Cmd+Option+;', key = '<F35>67' })
   table.insert(entries, { name = 'Toggle Markdown preview', shortcut = '', key = '<F35>65' })
   table.insert(entries, { name = 'Toggle Cmd-click code links (dashed underlines)', shortcut = '', key = '<F35>66' })

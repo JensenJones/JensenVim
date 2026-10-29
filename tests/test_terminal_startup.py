@@ -4,6 +4,7 @@ import os
 import re
 from pathlib import Path
 import shutil
+import shlex
 import struct
 import subprocess
 import tempfile
@@ -32,6 +33,13 @@ class TerminalStartupTests(unittest.TestCase):
             project = home/'Honours'
             project.mkdir()
             (project/'main.txt').write_text('alpha target omega\n' + ''.join(f'line_{row:03d} value_{row:03d}\n' for row in range(2, 301)))
+            clipboard_file = home/'clipboard'
+            clipboard_commands = home/'clipboard-bin'
+            clipboard_commands.mkdir()
+            (clipboard_commands/'pbcopy').write_text('#!/bin/sh\ncat > ' + shlex.quote(str(clipboard_file)) + '\n')
+            (clipboard_commands/'pbpaste').write_text('#!/bin/sh\ncat ' + shlex.quote(str(clipboard_file)) + '\n')
+            (clipboard_commands/'pbcopy').chmod(0o755)
+            (clipboard_commands/'pbpaste').chmod(0o755)
             init = home/'init.lua'
             init.write_text('''
 vim.o.swapfile = false
@@ -57,7 +65,8 @@ end })
 ''')
             env = dict(os.environ, HOME=str(home), TERM='xterm-256color',
                        JVIM_TEST_CONFIG=os.environ.get('JVIM_TERMINAL_CONFIG', str(ROOT/'config')),
-                       JVIM_TEST_PLUGINS=str(PLUGINS), JVIM_TEST_PROJECT=str(project))
+                       JVIM_TEST_PLUGINS=str(PLUGINS), JVIM_TEST_PROJECT=str(project),
+                       PATH=str(clipboard_commands)+os.pathsep+os.environ.get('PATH', ''))
             env.pop('JVIM_HOST_SOCKET', None)
             env.pop('JVIM_LINK_TOKEN', None)
             server = str(home/'nvim.sock')
@@ -156,6 +165,26 @@ end })
             lua("vim.api.nvim_input('echo JVIM_COMMAND_OK\\r')")
             self.assertEqual(lua("vim.wait(3000,function() for _,line in ipairs(vim.api.nvim_buf_get_lines(0,0,-1,false)) do if line:find('JVIM_COMMAND_OK',1,true) then return true end end return false end,25)"), 'true')
             return
+        if interaction == 'terminal_cmdw':
+            lua("require('custom.command_terminal').open()")
+            self.assertEqual(state('vim.bo.buftype'), 'terminal')
+            lua("vim.cmd.startinsert()")
+            time.sleep(0.05)
+            self.assertTrue(state('vim.fn.mode()').startswith('t'), 'test must send Cmd+W while terminal input is active')
+            lua("vim.api.nvim_input('<C-F11>20')")
+            time.sleep(0.1)
+            self.assertNotEqual(state('vim.bo.buftype'), 'terminal', 'iTerm Cmd+W sequence did not close only the terminal pane')
+            return
+        if interaction == 'clipboard_copy_paste':
+            lua("(function() vim.api.nvim_win_set_cursor(0,{1,6}); vim.cmd('normal! v'); vim.api.nvim_win_set_cursor(0,{1,12}); return true end)()")
+            lua("vim.api.nvim_feedkeys(vim.keycode('<C-F11>13'),'mxt',false)")
+            time.sleep(0.2)
+            self.assertEqual(state('vim.fn.getreg("+" )'), 'target', 'iTerm Cmd+C sequence did not copy the selection')
+            lua("(function() local b=vim.fn.bufadd(vim.env.JVIM_TEST_PROJECT..'/other.txt'); vim.fn.bufload(b); vim.api.nvim_buf_set_lines(b,0,-1,false,{'destination'}); require('custom.files').show(b); vim.api.nvim_win_set_cursor(0,{1,0}); return true end)()")
+            lua("vim.api.nvim_feedkeys(vim.keycode('<C-F11>15'),'mxt',false)")
+            time.sleep(0.2)
+            self.assertEqual(state('vim.fn.getline(1)'), 'targetdestination', 'iTerm Cmd+V sequence did not paste into another file')
+            return
         if interaction == 'code_action_undo':
             lua("(function() vim.api.nvim_buf_set_lines(0,0,1,false,{'before'}); vim.cmd('let &undolevels = &undolevels'); vim.lsp.util.apply_text_edits({{range={start={line=0,character=0},['end']={line=0,character=6}},newText='after'}},vim.api.nvim_get_current_buf(),'utf-16'); return true end)()")
             self.assertEqual(state('vim.fn.getline(1)'), 'after')
@@ -238,6 +267,12 @@ end })
 
     def test_command_terminal_runs_a_shell_command_in_project(self):
         self.check_startup(False, 'command_terminal')
+
+    def test_iterm_copy_and_paste_work_between_files(self):
+        self.check_startup(False, 'clipboard_copy_paste')
+
+    def test_iterm_command_w_closes_only_the_jvim_terminal_pane(self):
+        self.check_startup(False, 'terminal_cmdw')
 
     def test_horizontal_trackpad_scroll_follows_gesture_direction(self):
         self.check_startup(False, 'horizontal_scroll')

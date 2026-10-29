@@ -70,6 +70,16 @@ local function action(keys, fn, desc)
   end
 end
 action({ '<F35>67', '<D-M-;>' }, function() require('custom.command_terminal').open() end, 'Open terminal')
+action({ '<F35>68', '<D-n>' }, function()
+  local state = require('neo-tree.sources.manager').get_state 'filesystem'
+  if not state or not state.winid or not vim.api.nvim_win_is_valid(state.winid) then
+    require('neo-tree.command').execute { action = 'show', position = 'left' }
+    vim.notify('Use Cmd+N again after the project tree opens to add a file', vim.log.levels.INFO)
+    return
+  end
+  vim.api.nvim_set_current_win(state.winid)
+  vim.api.nvim_feedkeys(vim.keycode 'a', 'mxt', false)
+end, 'New file in selected project folder')
 local function telescope(name)
   return function() require('telescope.builtin')[name]() end
 end

@@ -147,6 +147,24 @@ elseif case == 'recent_files' then
   require('custom.files').show(mainbuf)
   press '<C-S-Tab>'
   assert(vim.api.nvim_get_current_buf() == otherbuf, 'Ctrl+Shift+Tab did not select the oldest file in recent order')
+elseif case == 'add_file_from_editor' then
+  vim.api.nvim_exec_autocmds('VimEnter', { group = 'clion-editing' })
+  settle()
+  focus_tree()
+  local mainbuf = open(main)
+  assert(vim.api.nvim_get_current_buf() == mainbuf and vim.bo.filetype ~= 'neo-tree', 'file click did not leave the editor focused')
+  local inputs = require('neo-tree.ui.inputs')
+  local original_input = inputs.input
+  local default_path
+  inputs.input = function(_, default, callback)
+    default_path = default
+    callback('created-from-editor.txt')
+  end
+  press '<D-n>'
+  inputs.input = original_input
+  settle()
+  assert(default_path ~= nil, 'Cmd+N did not open the tree add-file flow')
+  assert(vim.uv.fs_stat(root .. '/created-from-editor.txt'), 'Cmd+N did not create a file beside the selected file')
 else
   error('unknown navigation case: ' .. tostring(case))
 end
