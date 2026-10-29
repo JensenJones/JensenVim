@@ -41,6 +41,8 @@ local groups = {
   Normal = { fg = p.fg, bg = p.bg },
   NormalFloat = { fg = p.fg, bg = p.bg_float },
   FloatBorder = { fg = p.comment, bg = p.bg_float },
+  Cursor = { fg = p.bg, bg = p.type, bold = true },
+  lCursor = { fg = p.bg, bg = p.type, bold = true },
   CursorLine = { bg = p.line },
   CursorLineNr = { fg = p.fg, bold = true },
   LineNr = { fg = '#888888' },
@@ -48,7 +50,8 @@ local groups = {
   ColorColumn = { bg = p.bg_alt },
   Visual = { bg = p.select },
   Search = { bg = p.bg_float, underline = true },
-  JvimWord = { fg = p.bg, bg = p.warn, bold = true },
+  -- Underline matching words so their syntax colors and the cursor remain clear.
+  JvimWord = { underline = true, sp = p.warn },
   JvimFoldButton = { fg = p.type, bold = true },
   IncSearch = { bg = p.select },
   CurSearch = { bg = p.select },
