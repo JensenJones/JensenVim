@@ -1,5 +1,47 @@
 local map = vim.keymap.set
 
+local function identifier_spans(line)
+  local spans, offset = {}, 0
+  while offset < #line do
+    local match = vim.fn.matchstrpos(line, [[\k\+]], offset)
+    local first, after = match[2], match[3]
+    if first < 0 then break end
+    spans[#spans + 1] = { first, after }
+    offset = math.max(after, first + 1)
+  end
+  return spans
+end
+
+local function identifier_target(direction, insert_mode)
+  local cursor = vim.api.nvim_win_get_cursor(0)
+  local line = vim.api.nvim_get_current_line()
+  local col = cursor[2]
+  local spans = identifier_spans(line)
+  if direction > 0 then
+    for _, span in ipairs(spans) do
+      local first, after = span[1], span[2]
+      if insert_mode then
+        if col >= first and col < after then return after end
+        if first >= col then return after end
+      else
+        if col >= first and col < after - 1 then return after - 1 end
+        if first > col then return after - 1 end
+      end
+    end
+  else
+    for index = #spans, 1, -1 do
+      local first, after = spans[index][1], spans[index][2]
+      if insert_mode then
+        if col > first and col <= after then return first end
+        if after < col then return first end
+      else
+        if col > first then return first end
+      end
+    end
+  end
+  return col
+end
+
 -- Familiar selection: Shift+arrows select; typing replaces the selection.
 vim.o.keymodel = 'startsel,stopsel'
 vim.o.selectmode = 'mouse,key'
@@ -217,6 +259,30 @@ map('i', '<M-Left>', '<C-Left>')
 map('i', '<M-Right>', '<C-Right>')
 map('s', '<M-Left>', '<C-Left>')
 map('s', '<M-Right>', '<C-Right>')
+for _, key in ipairs { '<C-Left>', '<M-Left>' } do
+  map('n', key, function()
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    vim.api.nvim_win_set_cursor(0, { cursor[1], identifier_target(-1, false) })
+  end, { desc = 'Move to previous identifier' })
+  map('i', key, function()
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    local target = identifier_target(-1, true)
+    local distance = math.abs(target - cursor[2])
+    return distance == 0 and '' or '<C-o>' .. distance .. (target < cursor[2] and 'h' or 'l')
+  end, { expr = true, replace_keycodes = true, desc = 'Move to previous identifier' })
+end
+for _, key in ipairs { '<C-Right>', '<M-Right>' } do
+  map('n', key, function()
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    vim.api.nvim_win_set_cursor(0, { cursor[1], identifier_target(1, false) })
+  end, { desc = 'Move to next identifier' })
+  map('i', key, function()
+    local cursor = vim.api.nvim_win_get_cursor(0)
+    local target = identifier_target(1, true)
+    local distance = math.abs(target - cursor[2])
+    return distance == 0 and '' or '<C-o>' .. distance .. (target < cursor[2] and 'h' or 'l')
+  end, { expr = true, replace_keycodes = true, desc = 'Move to next identifier' })
+end
 
 for _, key in ipairs { '<C-_>', '<D-/>', '<F29>' } do
   map('n', key, 'gcc', { remap = true, desc = 'Toggle comment' })

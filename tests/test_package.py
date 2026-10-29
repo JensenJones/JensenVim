@@ -74,6 +74,7 @@ class PackageTests(unittest.TestCase):
         self.assertIn('0x3d-0x180000', mappings)  # Cmd+Option+equals unfolds
         self.assertIn('0x6e-0x100000', mappings)  # Cmd+N creates a project file
         self.assertIn('0xd-0x20000', mappings)  # Shift+Enter inserts a line below
+        self.assertEqual(mappings['0x31-0x100000']['Text'], '0x1b 0x5b 0x32 0x30 0x3b 0x32 0x7e')  # Cmd+1 sends terminal F21
         for key in ('0xf702-0x100000', '0xf702-0x20000', '0xf703-0x20000',
                     '0xf700-0x20000', '0xf701-0x20000', '0xf702-0x2a0000', '0xf703-0x2a0000'):
             self.assertIn(key, mappings, f'modified arrow transport missing: {key}')
@@ -342,6 +343,28 @@ vim.api.nvim_feedkeys(key, 'xt', false)
 local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
 assert(lines[1] == 'preserve me', 'insert mode changed current line')
 assert(lines[2] == '', 'insert mode did not create a blank line below')
+vim.cmd 'qall!'
+''')
+        env = dict(os.environ, HOME=str(self.home), JVIM_TEST_CONFIG=str(ROOT/'config'))
+        result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(script)],
+                                env=env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    @unittest.skipUnless(shutil.which('nvim'), 'Neovim needed for core behavior checks')
+    def test_option_right_advances_one_identifier_at_a_time(self):
+        script = self.home/'word_motion.lua'
+        script.write_text(r'''
+vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
+vim.o.swapfile = false
+require('custom.keymaps')
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'leftIt->timestamp, call()' })
+vim.api.nvim_win_set_cursor(0, { 1, 0 })
+vim.api.nvim_feedkeys(vim.keycode('<C-Right>'), 'xt', false)
+assert(vim.api.nvim_win_get_cursor(0)[2] == 5, 'first Option+Right should end at leftIt')
+vim.api.nvim_feedkeys(vim.keycode('<C-Right>'), 'xt', false)
+assert(vim.api.nvim_win_get_cursor(0)[2] == 16, 'second Option+Right should skip -> and end at timestamp')
+vim.api.nvim_feedkeys(vim.keycode('<C-Right>'), 'xt', false)
+assert(vim.api.nvim_win_get_cursor(0)[2] == 22, 'third Option+Right should skip comma and space and end at call')
 vim.cmd 'qall!'
 ''')
         env = dict(os.environ, HOME=str(self.home), JVIM_TEST_CONFIG=str(ROOT/'config'))

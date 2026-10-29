@@ -149,16 +149,16 @@ end })
         if interaction == 'tree_toggle':
             lua("vim.cmd.startinsert()")
             time.sleep(0.05)
-            os.write(master, b'\x1b[23;5~21')
+            os.write(master, b'\x1b[20;2~')
             time.sleep(0.1)
             self.assertEqual(state("vim.tbl_contains(vim.tbl_map(function(w) return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' end,vim.api.nvim_tabpage_list_wins(0)),true)"), False, 'Cmd+1 did not hide the tree from the editor')
-            os.write(master, b'\x1b[23;5~21')
+            os.write(master, b'\x1b[20;2~')
             time.sleep(0.1)
             self.assertEqual(state("vim.tbl_contains(vim.tbl_map(function(w) return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' end,vim.api.nvim_tabpage_list_wins(0)),true)"), True, 'Cmd+1 did not bring back the hidden tree')
-            os.write(master, b'\x1b[23;5~21')
+            os.write(master, b'\x1b[20;2~')
             time.sleep(0.1)
             self.assertEqual(state("vim.tbl_contains(vim.tbl_map(function(w) return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' end,vim.api.nvim_tabpage_list_wins(0)),true)"), False, 'Cmd+1 did not hide the tree while it had focus')
-            os.write(master, b'\x1b[23;5~21')
+            os.write(master, b'\x1b[20;2~')
             time.sleep(0.1)
             self.assertEqual(state("vim.tbl_contains(vim.tbl_map(function(w) return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' end,vim.api.nvim_tabpage_list_wins(0)),true)"), True, 'Cmd+1 did not restore the tree after hiding it from tree focus')
             return
@@ -217,6 +217,15 @@ end })
             time.sleep(0.1)
             self.assertEqual(state('vim.api.nvim_win_get_cursor(0)[2]'), 4, 'Cmd+Left in Insert mode should keep indentation')
             self.assertEqual(state('vim.fn.getline(1)'), '    indented value', 'Cmd+Left inserted key-sequence text')
+            return
+        if interaction == 'option_word_motion':
+            lua("(function() vim.api.nvim_buf_set_lines(0,0,1,false,{'leftIt->timestamp, call()'}); vim.api.nvim_win_set_cursor(0,{1,0}); vim.cmd.startinsert(); return true end)()")
+            for expected in (6, 17, 23):
+                os.write(master, b'\x1b[1;5C')
+                time.sleep(0.05)
+                actual = state('vim.api.nvim_win_get_cursor(0)[2]')
+                self.assertEqual(actual, expected, f'Option+Right should stop at the next identifier boundary, got {actual}')
+            self.assertEqual(state('vim.fn.getline(1)'), 'leftIt->timestamp, call()', 'Option+Right inserted text')
             return
         if interaction == 'terminal_cmdw':
             lua("require('custom.command_terminal').open()")
@@ -311,6 +320,9 @@ end })
 
     def test_command_left_moves_to_indentation(self):
         self.check_startup(False, 'cmd_left_indent')
+
+    def test_option_right_steps_over_identifiers_and_skips_separators(self):
+        self.check_startup(False, 'option_word_motion')
 
     def test_scrolling_hides_displaced_cursor_and_preserves_edit_location(self):
         self.check_startup(False, 'scroll')
