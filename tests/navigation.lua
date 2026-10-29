@@ -127,18 +127,16 @@ elseif case == 'tree_toggle' then
   vim.api.nvim_exec_autocmds('VimEnter', { group = 'clion-editing' })
   settle()
   local mainbuf = open(main)
-  vim.cmd.startinsert()
-  press_typed '<C-F11>21'
-  assert(vim.bo.filetype ~= 'neo-tree', 'Cmd+1 did not close tree while editing')
-  press_typed '<C-F11>21'
-  assert(vim.bo.filetype == 'neo-tree', 'Cmd+1 did not reopen a closed tree')
+  press_typed '\\'
+  assert(vim.bo.filetype ~= 'neo-tree', 'Backslash did not close tree from Normal mode')
+  press_typed '\\'
+  assert(vim.bo.filetype == 'neo-tree', 'Backslash did not reopen a closed tree')
   require('custom.files').show(mainbuf)
-  vim.cmd.startinsert()
-  press_typed '<C-F11>21'
-  assert(vim.bo.filetype ~= 'neo-tree', 'Cmd+1 did not close a visible tree from the editor')
+  press_typed '\\'
+  assert(vim.bo.filetype ~= 'neo-tree', 'Backslash did not close a visible tree from the editor')
   assert(vim.api.nvim_get_current_buf() == mainbuf, 'closing the tree lost the current file')
-  press_typed '<C-F11>21'
-  assert(vim.bo.filetype == 'neo-tree', 'Cmd+1 did not reopen a closed tree')
+  press_typed '\\'
+  assert(vim.bo.filetype == 'neo-tree', 'Backslash did not reopen a closed tree')
 elseif case == 'recent_files' then
   vim.api.nvim_exec_autocmds('VimEnter', { group = 'clion-editing' })
   settle()

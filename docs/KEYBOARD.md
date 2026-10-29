@@ -11,7 +11,8 @@ The editor stays in that pane. It does not create iTerm tabs or windows. Its ter
 - **Ctrl-click a code symbol:** jump to its definition, using the language server. Native Cmd-click is optional: search **Toggle Cmd-click code links (dashed underlines)** in the action menu.
 - **Cmd+B:** keyboard navigation to a definition. Autosave preserves edits and undo without formatting or sorting imports; explicit saves can format.
 - **Cmd+Shift+A:** search editor actions and see their shortcuts.
-- **Cmd+1:** toggle the project tree from the tree or editor. `\\` also opens it.
+- **\\:** toggle the project tree from Normal mode, including while the tree has focus.
+- **PDF viewer:** `[` previous page, `]` next page, `q` close.
 - **Cmd+N:** add a file beside the selected tree file or inside the selected folder, without toggling its expansion.
 - Named files autosave after 800 ms without typing, when switching files, when leaving the editor, and on exit. New unnamed files still need **Cmd+S** to choose a filename.
 - Stale swap files are backed up and recovered automatically; active editors keep Neovim's normal swap protection.
@@ -40,7 +41,6 @@ These bindings are generated from your active macOS copy keymap and its bundled 
 | Cmd+Shift+F | Search project |
 | Cmd+E | Recent files |
 | Cmd+W | Close file |
-| Cmd+1 | Project files |
 | Cmd+Option+minus/equal | Collapse / expand code fold |
 | Shift+F6 | Rename symbol |
 | Option+Return | Quick fix |

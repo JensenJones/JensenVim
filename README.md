@@ -8,10 +8,10 @@ A lightweight Neovim setup with ordinary typing, mouse selection, CLion-style Ma
 
 ## macOS installation
 
-Install Python 3, Neovim 0.12 or newer, ripgrep, Git and iTerm2. Development checks used Neovim 0.12.5. With Homebrew, for example:
+Install Python 3, Neovim 0.12 or newer, ripgrep, Git, Poppler, ImageMagick and iTerm2. Poppler renders PDF pages and ImageMagick displays them through the terminal graphics protocol. Development checks used Neovim 0.12.5. With Homebrew, for example:
 
 ```sh
-brew install neovim ripgrep python
+brew install neovim ripgrep python poppler imagemagick
 brew install --cask iterm2
 ```
 
@@ -46,7 +46,7 @@ In another terminal, the editor can start but the Mac shortcut transport and nat
 | Cmd+S | Save all; choose a filename for an unnamed buffer |
 | Cmd+W | Close file; exit after the last file |
 | Cmd+Shift+W | Exit, asking about unsaved buffers |
-| Cmd+1 | Toggle the project tree from the tree or editor |
+| `\\` in Normal mode | Toggle the project tree |
 | Cmd+N | Add a file beside the selected tree file or inside the selected folder |
 | Cmd+Shift+A | Search actions and shortcuts |
 | Cmd+B / Ctrl-click | Go to definition (Cmd-click is optional) |
@@ -59,7 +59,7 @@ Named writable files autosave after an 800 ms typing pause, on file switches, on
 
 If Neovim finds a stale swap file, jvim saves a backup and recovers its edits automatically. A file still open in a live editor keeps Neovim's normal protection.
 
-Markdown renders while typing; search **Toggle Markdown preview** in the action menu to view/edit raw source. Click once to open a tree file or expand a folder. After closing the tree with `q`, Cmd+1 brings it back without leaving ordinary typing. See [the full keymap](docs/KEYBOARD.md).
+Markdown renders while typing; search **Toggle Markdown preview** in the action menu to view/edit raw source. Click once to open a tree file or expand a folder. Press `\\` in Normal mode to toggle the project tree. PDFs open as rendered pages; use `]` and `[` to turn pages and `q` to close the viewer. See [the full keymap](docs/KEYBOARD.md).
 
 Ctrl+Tab switches to the most recently used open file; Ctrl+Shift+Tab moves to the oldest in that recent order. Cmd+Option+minus/equal collapse and expand code folds.
 

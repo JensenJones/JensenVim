@@ -1005,6 +1005,7 @@ require('lazy').setup({
   -- require 'kickstart.plugins.lint',
   -- require 'kickstart.plugins.autopairs',
   require 'kickstart.plugins.neo-tree',
+  require 'kickstart.plugins.image',
   -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommended keymaps
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
@@ -1056,3 +1057,4 @@ vim.api.nvim_create_autocmd('FileType', {
 
 -- CLion-style editing and shortcuts; keep this after plugin setup.
 require 'custom.keymaps'
+require('custom.pdf_viewer').setup()

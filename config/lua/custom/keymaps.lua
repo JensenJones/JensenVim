@@ -193,6 +193,10 @@ action({ '<F20>', '<D-w>' }, function()
     require('neo-tree.command').execute { action = 'close', position = 'left' }
     return
   end
+  if vim.b.jvim_pdf_viewer then
+    require('custom.pdf_viewer').close(vim.api.nvim_get_current_buf())
+    return
+  end
   require('custom.autosave').save_all()
   local buf, name = vim.api.nvim_get_current_buf(), vim.api.nvim_buf_get_name(0)
   local files = require 'custom.files'
@@ -207,9 +211,7 @@ action({ '<F20>', '<D-w>' }, function()
   vim.cmd('confirm bdelete ' .. buf)
   if name ~= '' and not vim.api.nvim_buf_is_loaded(buf) then table.insert(closed_files, name) end
 end, 'Close file')
--- iTerm sends plain F4 for Cmd+1: modified function keys are unreliable in
--- nested terminals such as Herdr. Keep the older aliases for existing setups.
-action({ '<F4>', '<F21>', '<S-F9>', '<D-1>', '<C-F11>31' }, function()
+local function toggle_project_tree()
   local tree = require 'neo-tree.command'
   local tree_open = vim.tbl_contains(
     vim.tbl_map(function(win) return vim.bo[vim.api.nvim_win_get_buf(win)].filetype == 'neo-tree' end, vim.api.nvim_tabpage_list_wins(0)),
@@ -221,7 +223,8 @@ action({ '<F4>', '<F21>', '<S-F9>', '<D-1>', '<C-F11>31' }, function()
     local name = vim.api.nvim_buf_get_name(0)
     tree.execute { action = 'focus', reveal = name ~= '' and vim.fn.isdirectory(name) == 0, reveal_force_cwd = true }
   end
-end, 'Project files')
+end
+map('n', '\\', toggle_project_tree, { desc = 'Toggle project tree' })
 action({ '<F22>', '<S-F6>' }, vim.lsp.buf.rename, 'Rename symbol')
 action({ '<F23>', '<M-CR>' }, vim.lsp.buf.code_action, 'Quick fix')
 action({ '<F24>', '<C-M-l>', '<D-M-l>' }, function() require('conform').format { async = true, lsp_format = 'fallback' } end, 'Format file')
