@@ -135,6 +135,9 @@ end })
     def test_bare_launch_opens_one_focused_tree_with_short_root(self):
         self.check_startup(False)
 
+    def test_single_click_in_tree_opens_file(self):
+        self.check_startup(True, 'tree_single_click')
+
     def check_mouse(self, interaction, remote, terminal_output, master):
         def lua(expression):
             return remote('luaeval(' + json.dumps(expression) + ')')
@@ -146,6 +149,13 @@ end })
         row, col = pos['row'] - 1, pos['col'] - 1
         def mouse(button, action):
             lua(f"vim.api.nvim_input_mouse('{button}','{action}','',0,{row},{col})")
+        if interaction == 'tree_single_click':
+            click_pos = state("(function() local s=require('neo-tree.sources.manager').get_state('filesystem'); for i,line in ipairs(vim.api.nvim_buf_get_lines(s.bufnr,0,-1,false)) do if line:find('main.txt',1,true) then local p=vim.fn.screenpos(s.winid,i,1); return {row=p.row-1,col=p.col-1,line=line} end end end)()")
+            self.assertIsNotNone(click_pos, 'main.txt is not visible in Neo-tree')
+            os.write(master, f"\x1b[<0;{click_pos['col'] + 1};{click_pos['row'] + 1}M\x1b[<0;{click_pos['col'] + 1};{click_pos['row'] + 1}m".encode())
+            time.sleep(0.1)
+            self.assertTrue(state('vim.api.nvim_buf_get_name(0)').endswith('/main.txt'), 'one click in Neo-tree did not open main.txt')
+            return
         if interaction == 'tree_toggle':
             lua("assert(vim.fn.maparg('\\\\', 'n') ~= '', 'project tree toggle was not installed')")
             os.write(master, b'\\')
@@ -222,6 +232,15 @@ end })
             self.assertIn(selected['mode'], ('s', 'v'), selected)
             self.assertEqual(selected['cursor'][0], 1, 'Option+Shift+Right crossed onto the next line: ' + repr(selected))
             self.assertEqual(selected['text'], ['word'], 'Option+Shift+Right selected trailing spaces with the word: ' + repr(selected))
+            return
+        if interaction == 'iterm_option_shift_right':
+            lua("(function() vim.api.nvim_buf_set_lines(0,0,-1,false,{'word    next'}); vim.api.nvim_win_set_cursor(0,{1,0}); vim.cmd.startinsert(); return true end)()")
+            os.write(master, b'\x1b[23;5~76')
+            time.sleep(0.1)
+            selected = state("{mode=vim.fn.mode(),line=vim.fn.getline(1),text=vim.fn.getregion(vim.fn.getpos('v'),vim.fn.getpos('.'),{type='v',exclusive=true})}")
+            self.assertEqual(selected['line'], 'word    next', 'iTerm Option+Shift+Right inserted shortcut transport bytes: ' + repr(selected))
+            self.assertIn(selected['mode'], ('s', 'v'), 'iTerm Option+Shift+Right did not select text: ' + repr(selected))
+            self.assertEqual(selected['text'], ['word'], 'iTerm Option+Shift+Right selected spaces or the wrong word: ' + repr(selected))
             return
         if interaction == 'cmd_left_indent':
             lua("(function() vim.api.nvim_buf_set_lines(0,0,1,false,{'    indented value'}); vim.api.nvim_win_set_cursor(0,{1,17}); vim.cmd.stopinsert(); return true end)()")
@@ -339,6 +358,9 @@ end })
 
     def test_option_shift_right_selects_word_without_trailing_spaces(self):
         self.check_startup(False, 'option_shift_right_word')
+
+    def test_iterm_option_shift_right_transport_selects_word(self):
+        self.check_startup(False, 'iterm_option_shift_right')
 
     def test_command_left_moves_to_indentation(self):
         self.check_startup(False, 'cmd_left_indent')

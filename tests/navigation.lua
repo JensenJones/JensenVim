@@ -137,12 +137,6 @@ elseif case == 'tree_toggle' then
   assert(vim.api.nvim_get_current_buf() == mainbuf, 'closing the tree lost the current file')
   press_typed '\\'
   assert(vim.bo.filetype == 'neo-tree', 'Backslash did not reopen a closed tree')
-elseif case == 'tree_click_mapping' then
-  focus_tree()
-  local mapping = vim.api.nvim_buf_call(vim.api.nvim_get_current_buf(), function()
-    return vim.fn.maparg('<LeftMouse>', 'n', false, true)
-  end)
-  assert(mapping.desc ~= 'Open clicked project item', 'jvim overrode Neo-tree single-click handling')
 elseif case == 'new_header' then
   require('custom.cpp_header').setup()
   vim.cmd.edit(vim.fn.fnameescape(root .. '/manual.hpp'))

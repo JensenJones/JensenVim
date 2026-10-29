@@ -40,13 +40,6 @@ return {
           ['<Left>'] = 'close_node',
           ['<Right>'] = 'open',
           ['<2-LeftMouse>'] = 'none',
-          ['<LeftMouse>'] = function(state)
-            local mouse = vim.fn.getmousepos()
-            if mouse.winid ~= state.winid or mouse.line < 1 or mouse.line > vim.api.nvim_buf_line_count(state.bufnr) then return end
-            vim.api.nvim_set_current_win(state.winid)
-            vim.api.nvim_win_set_cursor(state.winid, { mouse.line, 0 })
-            state.commands.open(state)
-          end,
         },
       },
     },

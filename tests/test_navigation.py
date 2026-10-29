@@ -58,9 +58,6 @@ class NavigationTests(unittest.TestCase):
     def test_project_tree_shortcut_toggles_tree_from_editor(self):
         self.check_case('tree_toggle')
 
-    def test_tree_click_uses_neotree_single_click_handler(self):
-        self.check_case('tree_click_mapping')
-
     def test_new_hpp_buffer_starts_with_pragma_once(self):
         self.check_case('new_header')
 

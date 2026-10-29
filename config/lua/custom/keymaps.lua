@@ -1,5 +1,23 @@
 local map = vim.keymap.set
 
+-- Neovim's modeless mouse selection bypasses buffer-local <LeftMouse>
+-- mappings. Open Neo-tree nodes after the mouse event has updated its row.
+vim.on_key(function(_, typed)
+  if typed == '' or vim.fn.keytrans(typed) ~= '<LeftMouse>' then return end
+  local mouse = vim.fn.getmousepos()
+  if mouse.winid == 0 or not vim.api.nvim_win_is_valid(mouse.winid) then return end
+  local buf = vim.api.nvim_win_get_buf(mouse.winid)
+  if vim.bo[buf].filetype ~= 'neo-tree' then return end
+  vim.schedule(function()
+    if not vim.api.nvim_win_is_valid(mouse.winid) then return end
+    local state = require('neo-tree.sources.manager').get_state 'filesystem'
+    if not state or state.winid ~= mouse.winid or mouse.line < 1 or mouse.line > vim.api.nvim_buf_line_count(state.bufnr) then return end
+    vim.api.nvim_set_current_win(mouse.winid)
+    vim.api.nvim_win_set_cursor(mouse.winid, { mouse.line, 0 })
+    state.commands.open(state)
+  end)
+end, vim.api.nvim_create_namespace 'jvim-tree-single-click')
+
 local function identifier_spans(line)
   local spans, offset = {}, 0
   while offset < #line do
