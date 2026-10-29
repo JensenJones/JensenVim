@@ -206,6 +206,14 @@ end })
             self.assertEqual(shifted['line'], 'alpha target omega', 'Shift+Left inserted terminal sequence text')
             self.assertEqual(shifted['text'], ['a'], 'Shift+Left should select exactly one character')
             return
+        if interaction == 'shift_left_across_line':
+            lua("(function() vim.api.nvim_buf_set_lines(0,0,-1,false,{'alpha target','    next'}); vim.api.nvim_win_set_cursor(0,{2,0}); vim.cmd('normal! v'); return true end)()")
+            os.write(master, b'\x1b[1;2D')
+            time.sleep(0.1)
+            state_after = state("{mode=vim.fn.mode(),cursor=vim.api.nvim_win_get_cursor(0),selection=vim.fn.getregion(vim.fn.getpos('v'),vim.fn.getpos('.'),{type='v',exclusive=true})}")
+            self.assertEqual(state_after['cursor'][0], 1, 'Shift+Left stopped on the next line instead of reaching the prior line end: ' + repr(state_after))
+            self.assertNotIn('    ', state_after['selection'], 'Shift+Left selected the next line indentation: ' + repr(state_after))
+            return
         if interaction == 'cmd_left_indent':
             lua("(function() vim.api.nvim_buf_set_lines(0,0,1,false,{'    indented value'}); vim.api.nvim_win_set_cursor(0,{1,17}); vim.cmd.stopinsert(); return true end)()")
             os.write(master, b'\x1b[23;5~70')
@@ -316,6 +324,9 @@ end })
 
     def test_option_shift_arrow_selects_word_without_inserting_key_sequence(self):
         self.check_startup(False, 'shift_word_selection')
+
+    def test_shift_left_crosses_line_boundary_without_selecting_indentation(self):
+        self.check_startup(False, 'shift_left_across_line')
 
     def test_command_left_moves_to_indentation(self):
         self.check_startup(False, 'cmd_left_indent')
