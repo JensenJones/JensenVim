@@ -46,7 +46,7 @@ In another terminal, the editor can start but the Mac shortcut transport and nat
 | Cmd+S | Save all; choose a filename for an unnamed buffer |
 | Cmd+W | Close file; exit after the last file |
 | Cmd+Shift+W | Exit, asking about unsaved buffers |
-| `\\` in Normal mode | Toggle the project tree |
+| F4 (Fn+F4 if needed) | Toggle the project tree from any editor mode |
 | Cmd+N | Add a file beside the selected tree file or inside the selected folder |
 | Cmd+Shift+A | Search actions and shortcuts |
 | Cmd+B / Ctrl-click | Go to definition (Cmd-click is optional) |
@@ -59,7 +59,7 @@ Named writable files autosave after an 800 ms typing pause, on file switches, on
 
 If Neovim finds a stale swap file, jvim saves a backup and recovers its edits automatically. A file still open in a live editor keeps Neovim's normal protection.
 
-Markdown renders while typing; search **Toggle Markdown preview** in the action menu to view/edit raw source. Click once to open a tree file or expand a folder. Press `\\` in Normal mode to toggle the project tree. PDFs open as rendered pages; use `]` and `[` to turn pages and `q` to close the viewer. See [the full keymap](docs/KEYBOARD.md).
+Markdown renders while typing; search **Toggle Markdown preview** in the action menu to view/edit raw source. Click once to open a tree file or expand a folder. Press **F4** (or **Fn+F4** if needed) to toggle the project tree from any editor mode. PDFs open as rendered pages; use `]` and `[` to turn pages and `q` to close the viewer. See [the full keymap](docs/KEYBOARD.md).
 
 Ctrl+Tab switches to the most recently used open file; Ctrl+Shift+Tab moves to the oldest in that recent order. Cmd+Option+minus/equal collapse and expand code folds.
 

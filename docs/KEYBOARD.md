@@ -11,7 +11,7 @@ The editor stays in that pane. It does not create iTerm tabs or windows. Its ter
 - **Ctrl-click a code symbol:** jump to its definition, using the language server. Native Cmd-click is optional: search **Toggle Cmd-click code links (dashed underlines)** in the action menu.
 - **Cmd+B:** keyboard navigation to a definition. Autosave preserves edits and undo without formatting or sorting imports; explicit saves can format.
 - **Cmd+Shift+A:** search editor actions and see their shortcuts.
-- **\\:** toggle the project tree from Normal mode, including while the tree has focus.
+- **F4:** toggle the project tree from any editor mode, including while the tree has focus. Use **Fn+F4** if the Mac reserves F4 for Launchpad.
 - **PDF viewer:** `[` previous page, `]` next page, `q` close.
 - **Cmd+N:** add a file beside the selected tree file or inside the selected folder, without toggling its expansion.
 - Named files autosave after 800 ms without typing, when switching files, when leaving the editor, and on exit. New unnamed files still need **Cmd+S** to choose a filename.

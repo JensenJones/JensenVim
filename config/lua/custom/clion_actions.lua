@@ -49,21 +49,32 @@ function M.setup(action, resume_editing)
   -- Record mouse locations and file departures in the same history used by
   -- definition jumps. Browsing backward must not create fresh history entries.
   local navigating = false
-  local function remember()
-    if not navigating and vim.bo.buftype == '' and vim.api.nvim_buf_get_name(0) ~= '' then
-      -- :normal respects Select mode: leave it before m' can replace text.
-      vim.cmd "normal! \27m'"
+  local function remember(buf, position)
+    if not buf or not vim.api.nvim_buf_is_valid(buf) or navigating then return end
+    if vim.bo[buf].buftype ~= '' or vim.api.nvim_buf_get_name(buf) == '' then return end
+    if not position then
+      local win = vim.fn.bufwinid(buf)
+      if win < 0 then return end
+      position = vim.api.nvim_win_get_cursor(win)
     end
+    -- Set the previous-context mark directly. Running :normal! Escape from
+    -- on_key re-enters Neovim's input loop while a mouse selection is active.
+    vim.api.nvim_buf_set_mark(buf, "'", position[1], position[2], {})
   end
   vim.on_key(function(_, typed)
-    -- Multi-clicks extend the native selection; injecting Escape on their
-    -- second/third press cancels it before Neovim can select the word/line.
+    -- Keep the pre-click cursor for jump history without injecting keys while
+    -- Neovim is still processing the mouse event.
     if typed ~= '' and vim.fn.keytrans(typed) == '<LeftMouse>' then
-      selections[vim.api.nvim_get_current_buf()] = nil
-      remember()
+      local buf = vim.api.nvim_get_current_buf()
+      local position = vim.api.nvim_win_get_cursor(0)
+      selections[buf] = nil
+      vim.schedule(function() remember(buf, position) end)
     end
   end, vim.api.nvim_create_namespace 'clion-mouse-history')
-  vim.api.nvim_create_autocmd('BufLeave', { group = group, callback = remember })
+  vim.api.nvim_create_autocmd('BufLeave', {
+    group = group,
+    callback = function(args) remember(args.buf) end,
+  })
   local function history(key)
     return function()
       navigating = true

@@ -224,7 +224,7 @@ local function toggle_project_tree()
     tree.execute { action = 'focus', reveal = name ~= '' and vim.fn.isdirectory(name) == 0, reveal_force_cwd = true }
   end
 end
-map('n', '\\', toggle_project_tree, { desc = 'Toggle project tree' })
+action({ '<F4>' }, toggle_project_tree, 'Toggle project tree')
 action({ '<F22>', '<S-F6>' }, vim.lsp.buf.rename, 'Rename symbol')
 action({ '<F23>', '<M-CR>' }, vim.lsp.buf.code_action, 'Quick fix')
 action({ '<F24>', '<C-M-l>', '<D-M-l>' }, function() require('conform').format { async = true, lsp_format = 'fallback' } end, 'Format file')
