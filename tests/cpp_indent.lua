@@ -1,5 +1,8 @@
 vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
 vim.opt.rtp:append(vim.env.JVIM_TEST_SITE)
+local ts = vim.fs.dirname(vim.env.JVIM_TEST_SITE) .. '/lazy/nvim-treesitter'
+vim.opt.rtp:append(ts)
+vim.opt.rtp:append(ts .. '/runtime')
 vim.o.autoindent = true
 vim.bo.filetype = 'cpp'
 vim.bo.shiftwidth = 4
@@ -31,5 +34,23 @@ local question = vim.api.nvim_buf_get_lines(0,2,3,false)[1]
 vim.api.nvim_win_set_cursor(0,{3,assert(question:find(':',1,true))-1})
 vim.api.nvim_feedkeys(vim.keycode('i<CR><Esc>'),'xt',false)
 assert(vim.fn.indent(3)==vim.fn.indent(4),'split ? and : did not align')
+-- Start a new field after a comma, before typing its name. Test both an
+-- existing closing suffix and an incomplete initializer still being written.
+for _, suffix in ipairs { '});', '' } do
+  local first = '    auto result = book.match(Aggressor{.id = message.id,'
+  local expected = assert(first:find('.id',1,true))-1
+  local second = string.rep(' ',expected)..'.quantity = remainingQuantity'
+  vim.api.nvim_buf_set_lines(0,0,-1,false,{'void f() {',first,second..suffix,'}'})
+  vim.api.nvim_win_set_cursor(0,{3,#second-1})
+  vim.api.nvim_feedkeys(vim.keycode('a,<CR>.next = value<Esc>'),'xt',false)
+  assert(vim.fn.indent(4)==expected, 'comma + Enter lost initializer alignment: '..vim.inspect(vim.api.nvim_buf_get_lines(0,0,-1,false)))
+end
+local call = '    consume(first, second);'
+vim.api.nvim_buf_set_lines(0,0,-1,false,{'void f() {',call,'}'})
+vim.api.nvim_win_set_cursor(0,{2,assert(call:find(');',1,true))-2})
+vim.api.nvim_feedkeys(vim.keycode('a,<CR>third<Esc>'),'xt',false)
+assert(vim.fn.indent(3)==assert(call:find('first',1,true))-1,'comma + Enter lost function argument alignment')
+vim.cmd 'normal! G=='
+assert(vim.fn.indent(vim.fn.line('$'))==0,'closing function brace should still dedent')
 print('Enter aligns initializer fields, arguments, commas, parameters, templates and ternary operators')
 vim.cmd 'qa!'

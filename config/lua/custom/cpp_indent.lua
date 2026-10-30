@@ -15,10 +15,18 @@ function M.indent()
   local row = vim.v.lnum - 1
   local line = vim.api.nvim_buf_get_lines(0, row, row + 1, false)[1] or ''
   local parser_ok, parser = pcall(vim.treesitter.get_parser, 0)
-  if parser_ok and line:find('%S') and not line:match('^%s*[%)%]%}]') then
+  local previous = row > 0 and vim.api.nvim_buf_get_lines(0, row - 1, row, false)[1] or ''
+  local comma = previous:find(',%s*$')
+  -- During Enter, the new line may be empty or contain only the old closing
+  -- suffix. Locate its list from the preceding comma instead of that suffix.
+  local pending = comma and (not line:find('%S')
+    or (vim.fn.mode():sub(1, 1) == 'i'
+      and vim.api.nvim_win_get_cursor(0)[2] <= #(line:match('^%s*') or '')))
+  if parser_ok and (pending or (line:find('%S') and not line:match('^%s*[%)%]%}]'))) then
     local trees = parser:parse()
     local col = #(line:match('^%s*') or '')
-    local node = trees[1]:root():named_descendant_for_range(row, col, row, col)
+    local lookup_row, lookup_col = pending and row - 1 or row, pending and comma - 1 or col
+    local node = trees[1]:root():named_descendant_for_range(lookup_row, lookup_col, lookup_row, lookup_col)
     while node do
       if node:type() == 'conditional_expression' and line:match('^%s*[?:]') then
         for child in node:iter_children() do
