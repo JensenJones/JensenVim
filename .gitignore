@@ -3,4 +3,5 @@ __pycache__/
 .DS_Store
 dist/
 .venv/
+.worktrees/
 *.log
