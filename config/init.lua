@@ -897,7 +897,9 @@ require('lazy').setup({
         end
 
         -- enables treesitter based indentation
-        vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
+        vim.bo[buf].indentexpr = (language == 'cpp' or language == 'c')
+            and "v:lua.require'custom.cpp_indent'.indent()"
+          or "v:lua.require'nvim-treesitter'.indentexpr()"
       end
 
       local available_parsers = require('nvim-treesitter').get_available()
@@ -1000,6 +1002,7 @@ vim.api.nvim_create_autocmd('FileType', {
     vim.opt_local.expandtab = true
     vim.opt_local.shiftwidth = 4
     vim.opt_local.tabstop = 4
+    vim.opt_local.indentexpr = "v:lua.require'custom.cpp_indent'.indent()"
   end,
 })
 
