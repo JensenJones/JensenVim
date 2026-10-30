@@ -1,4 +1,5 @@
 vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
+vim.opt.rtp:append(vim.env.JVIM_TEST_CONFIG .. '/after')
 vim.opt.rtp:append(vim.env.JVIM_TEST_SITE)
 local ts = vim.fs.dirname(vim.env.JVIM_TEST_SITE) .. '/lazy/nvim-treesitter'
 vim.opt.rtp:append(ts)
@@ -6,7 +7,7 @@ vim.opt.rtp:append(ts .. '/runtime')
 vim.o.autoindent = true
 vim.bo.filetype = 'cpp'
 vim.bo.shiftwidth = 4
-vim.bo.indentexpr = "v:lua.require'custom.cpp_indent'.indent()"
+vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
 
 local function split_before(line, fragment, anchor)
   vim.cmd 'normal! \27'
