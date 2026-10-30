@@ -340,6 +340,17 @@ for char in ('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.,;
   assert(vim.api.nvim_get_current_line() == 'before ' .. char .. ' after',
     'typing ' .. char .. ' executed a command: ' .. vim.api.nvim_get_current_line())
 end
+for _, mode in ipairs { 'v', 's' } do
+  for _, key in ipairs { '<BS>', '<Del>' } do
+    vim.cmd 'normal! \27'
+    vim.api.nvim_buf_set_lines(0,0,-1,false,{'before word after'})
+    vim.api.nvim_win_set_cursor(0,{1,7})
+    vim.cmd 'normal! v4l'
+    if mode == 's' then vim.cmd 'normal! \7' end
+    vim.api.nvim_feedkeys(vim.keycode(key) .. 'Z', 'xt', false)
+    assert(vim.api.nvim_get_current_line() == 'before Z after', mode .. ' ' .. key .. ' did not delete selection and resume typing')
+  end
+end
 vim.cmd 'qall!'
 ''')
         env = dict(os.environ, HOME=str(self.home), JVIM_TEST_CONFIG=str(ROOT/'config'))
@@ -398,6 +409,16 @@ local paren = assert(line:find('()', 1, true)) - 1
 vim.api.nvim_win_set_cursor(0, { 1, paren })
 local move = vim.fn.maparg('<M-Right>', 'i', false, true).callback()
 assert(move == '<C-o>3l', 'Insert-mode Option+Right should advance over ();, got ' .. move)
+line = 'listener->onFullyFilled(FullyFilledMessage message);'
+vim.api.nvim_buf_set_lines(0,0,-1,false,{line})
+local message = assert(line:find(' message',1,true))
+vim.api.nvim_win_set_cursor(0,{1,#line-2})
+vim.cmd 'normal! v'
+vim.api.nvim_win_set_cursor(0,{1,message})
+vim.cmd 'normal! \7'
+vim.api.nvim_feedkeys(vim.keycode('<M-S-Left>'), 'xt', false)
+local selected = vim.fn.getregion(vim.fn.getpos('v'),vim.fn.getpos('.'),{type='v',exclusive=true})
+assert(table.concat(selected,'\n') == 'FullyFilledMessage message', 'backward word selection jumped across call: ' .. vim.inspect(selected))
 vim.cmd 'qall!'
 ''')
         env = dict(os.environ, HOME=str(self.home), JVIM_TEST_CONFIG=str(ROOT/'config'))

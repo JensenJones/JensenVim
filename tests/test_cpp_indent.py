@@ -1,4 +1,4 @@
-"""Exercise a real Enter key inside a C++ designated initializer."""
+"""Exercise real Enter keys across common C++ continuation expressions."""
 import os
 from pathlib import Path
 import shutil

@@ -48,6 +48,10 @@ function M.setup(action, resume_editing)
     local key = char == '<' and '<lt>' or char
     map('x', key, '<C-g>' .. key, { remap = true, nowait = true, desc = 'Type over selection' })
   end
+  for _, key in ipairs { '<BS>', '<Del>' } do
+    map('x', key, '"_c', { desc = 'Delete highlighted text' })
+    map('s', key, '<C-g>"_c', { desc = 'Delete highlighted text' })
+  end
   map('n', '<Esc>', function()
     vim.cmd.nohlsearch()
     resume_editing()

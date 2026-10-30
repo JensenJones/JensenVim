@@ -101,10 +101,13 @@ for key, target in pairs {
   ['<M-b>'] = '<C-Left>',
   ['<M-Right>'] = '<C-Right>',
   ['<M-f>'] = '<C-Right>',
-  ['<M-S-Left>'] = '<C-S-Left>',
 } do
   map({ 'n', 'i', 's' }, key, target)
 end
+map({ 'n', 'i', 's', 'x' }, '<M-S-Left>', function() return select_identifier(-1) end,
+  { expr = true, replace_keycodes = true, desc = 'Select previous word' })
+map({ 'n', 'i', 's', 'x' }, '<C-S-Left>', function() return select_identifier(-1) end,
+  { expr = true, replace_keycodes = true, desc = 'Select previous word' })
 map({ 'n', 'i', 's', 'x' }, '<M-S-Right>', function() return select_identifier(1) end,
   { expr = true, replace_keycodes = true, desc = 'Select next word' })
 map({ 'n', 'i', 's', 'x' }, '<C-S-Right>', function() return select_identifier(1) end,
@@ -144,7 +147,8 @@ shortcut('<F35>71', '<S-Left>', '<S-Left>', '<S-Left>', '<S-Left>', 'Select left
 shortcut('<F35>72', '<S-Right>', '<S-Right>', '<S-Right>', '<S-Right>', 'Select right')
 shortcut('<F35>73', '<S-Up>', '<S-Up>', '<S-Up>', '<S-Up>', 'Select up')
 shortcut('<F35>74', '<S-Down>', '<S-Down>', '<S-Down>', '<S-Down>', 'Select down')
-shortcut('<F35>75', '<C-S-Left>', '<C-S-Left>', '<C-S-Left>', '<C-S-Left>', 'Select previous word')
+map({ 'n', 'i', 's', 'x' }, '<F35>75', function() return select_identifier(-1) end,
+  { expr = true, replace_keycodes = true, desc = 'Select previous word' })
 map({ 'n', 'i', 's', 'x' }, '<F35>76', function() return select_identifier(1) end,
   { expr = true, replace_keycodes = true, desc = 'Select next word' })
 
