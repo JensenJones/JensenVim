@@ -57,7 +57,10 @@ local function identifier_target(direction, insert_mode)
       end
     end
   end
-  return col
+  -- Once identifiers run out, consume the remaining punctuation instead of
+  -- trapping the cursor at the final word (for example, begin|();).
+  if direction > 0 then return insert_mode and #line or math.max(#line - 1, 0) end
+  return 0
 end
 
 local function select_identifier(direction)

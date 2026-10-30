@@ -365,6 +365,14 @@ vim.api.nvim_feedkeys(vim.keycode('<C-Right>'), 'xt', false)
 assert(vim.api.nvim_win_get_cursor(0)[2] == 16, 'second Option+Right should skip -> and end at timestamp')
 vim.api.nvim_feedkeys(vim.keycode('<C-Right>'), 'xt', false)
 assert(vim.api.nvim_win_get_cursor(0)[2] == 22, 'third Option+Right should skip comma and space and end at call')
+vim.api.nvim_feedkeys(vim.keycode('<C-Right>'), 'xt', false)
+assert(vim.api.nvim_win_get_cursor(0)[2] == 24, 'Option+Right got stuck before trailing parentheses')
+local line = 'auto [price, priveLevelIt] = *book.begin();'
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { line })
+local paren = assert(line:find('()', 1, true)) - 1
+vim.api.nvim_win_set_cursor(0, { 1, paren })
+local move = vim.fn.maparg('<M-Right>', 'i', false, true).callback()
+assert(move == '<C-o>3l', 'Insert-mode Option+Right should advance over ();, got ' .. move)
 vim.cmd 'qall!'
 ''')
         env = dict(os.environ, HOME=str(self.home), JVIM_TEST_CONFIG=str(ROOT/'config'))
