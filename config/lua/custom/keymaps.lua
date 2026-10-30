@@ -133,7 +133,7 @@ shortcut('<F25>', 'gg0vG$<C-g>', '<Esc>gg0vG$<C-g>', '<Esc>gg0vG$<C-g>', '<Esc>g
 map({ 'n', 'i', 's', 'x' }, '<D-a>', '<Esc>gg0vG$<C-g>', { desc = 'Select all' })
 -- iTerm sends Shift+Enter as the packaged F35 action 69. Open a line below
 -- without replacing the current line, in both normal and editing modes.
-shortcut('<F35>69', 'o', '<Esc>o', '<C-g><Esc>o', '<Esc>o', 'Insert line below')
+shortcut('<F35>69', 'o', '<C-o>o', '<C-g><Esc>o', '<Esc>o', 'Insert line below')
 -- Give modified arrows explicit iTerm transport codes so terminal escape
 -- parsing cannot turn them into literal text.
 shortcut('<F35>70', '^', '<C-o>^', '<C-g>^', '^', 'Move to first nonblank column')

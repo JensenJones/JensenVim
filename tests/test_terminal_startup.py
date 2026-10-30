@@ -21,7 +21,7 @@ except ImportError:
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGINS = Path.home()/'.local/share/nvim/lazy'
-DEPENDENCIES = ('neo-tree.nvim', 'plenary.nvim', 'nui.nvim', 'mini.nvim')
+DEPENDENCIES = ('neo-tree.nvim', 'plenary.nvim', 'nui.nvim', 'mini.nvim', 'telescope.nvim')
 
 
 @unittest.skipUnless(pty is not None and shutil.which('nvim') and all((PLUGINS/name).is_dir() for name in DEPENDENCIES),
@@ -40,12 +40,15 @@ class TerminalStartupTests(unittest.TestCase):
             (clipboard_commands/'pbpaste').write_text('#!/bin/sh\ncat ' + shlex.quote(str(clipboard_file)) + '\n')
             (clipboard_commands/'pbcopy').chmod(0o755)
             (clipboard_commands/'pbpaste').chmod(0o755)
+            jvim_config = home/'.config/jvim'
+            jvim_config.mkdir(parents=True)
+            shutil.copy2(ROOT/'config/clion-keymap-audit.json', jvim_config/'clion-keymap-audit.json')
             init = home/'init.lua'
             init.write_text('''
 vim.o.swapfile = false
 vim.o.termguicolors = true
 vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
-for _, plugin in ipairs { 'plenary.nvim', 'nui.nvim', 'neo-tree.nvim', 'mini.nvim' } do
+for _, plugin in ipairs { 'plenary.nvim', 'nui.nvim', 'neo-tree.nvim', 'mini.nvim', 'telescope.nvim' } do
   vim.opt.rtp:append(vim.env.JVIM_TEST_PLUGINS .. '/' .. plugin)
 end
 vim.fn.mkdir(vim.fn.stdpath('data'), 'p')
@@ -63,7 +66,7 @@ vim.api.nvim_create_autocmd('VimEnter', { callback = function()
   vim.defer_fn(function() _G.jvim_test_started = true end, 300)
 end })
 ''')
-            env = dict(os.environ, HOME=str(home), TERM='xterm-256color',
+            env = dict(os.environ, HOME=str(home), NVIM_APPNAME='jvim', TERM='xterm-256color',
                        JVIM_TEST_CONFIG=os.environ.get('JVIM_TERMINAL_CONFIG', str(ROOT/'config')),
                        JVIM_TEST_PLUGINS=str(PLUGINS), JVIM_TEST_PROJECT=str(project),
                        PATH=str(clipboard_commands)+os.pathsep+os.environ.get('PATH', ''))
@@ -138,6 +141,12 @@ end })
     def test_single_click_in_tree_opens_file(self):
         self.check_startup(True, 'tree_single_click')
 
+    def test_theme_action_opens_picker(self):
+        self.check_startup(True, 'theme_picker')
+
+    def test_shift_enter_transport_opens_line_below(self):
+        self.check_startup(True, 'shift_enter')
+
     def check_mouse(self, interaction, remote, terminal_output, master):
         def lua(expression):
             return remote('luaeval(' + json.dumps(expression) + ')')
@@ -155,6 +164,29 @@ end })
             os.write(master, f"\x1b[<0;{click_pos['col'] + 1};{click_pos['row'] + 1}M\x1b[<0;{click_pos['col'] + 1};{click_pos['row'] + 1}m".encode())
             time.sleep(0.1)
             self.assertTrue(state('vim.api.nvim_buf_get_name(0)').endswith('/main.txt'), 'one click in Neo-tree did not open main.txt')
+            return
+        if interaction == 'theme_picker':
+            lua("(function() require('custom.theme').setup(); require('custom.action_picker').open(); return true end)()")
+            time.sleep(0.2)
+            def picker_state():
+                return state("{theme=vim.g.colors_name,mode=vim.fn.mode(),windows=vim.tbl_map(function(w) local b=vim.api.nvim_win_get_buf(w); return {ft=vim.bo[b].filetype,lines=vim.api.nvim_buf_get_lines(b,0,3,false)} end,vim.api.nvim_list_wins())}")
+            self.assertTrue(any(w['ft'] == 'TelescopePrompt' for w in picker_state()['windows']), 'action picker did not open: ' + repr(picker_state()))
+            os.write(master, b'Choose color theme')
+            time.sleep(0.2)
+            self.assertTrue(any('Choose color theme' in line for w in picker_state()['windows'] for line in w['lines']), 'action picker did not receive its filter: ' + repr(picker_state()))
+            os.write(master, b'\r')
+            time.sleep(0.2)
+            self.assertTrue(any(w['ft'] == 'TelescopePrompt' for w in picker_state()['windows']), 'theme picker did not open after choosing its action: ' + repr(picker_state()))
+            lua("require('custom.theme').apply('dark-ubuntu')")
+            self.assertEqual(state('vim.g.colors_name'), 'dark-ubuntu', 'theme picker could not switch to Dark Ubuntu')
+            return
+        if interaction == 'shift_enter':
+            lua("(function() vim.api.nvim_buf_set_lines(0,0,-1,false,{'    preserve this line','next line'}); vim.api.nvim_win_set_cursor(0,{1,8}); vim.cmd.startinsert(); return true end)()")
+            os.write(master, b'\x1b[23;5~69')
+            time.sleep(0.1)
+            actual = state("vim.api.nvim_buf_get_lines(0,0,-1,false)")
+            self.assertEqual(actual[0], '    preserve this line', 'Shift+Enter changed the current line: ' + repr(actual))
+            self.assertEqual(actual[1].strip(), '', 'Shift+Enter did not create a blank line below: ' + repr(actual))
             return
         if interaction == 'tree_toggle':
             lua("assert(vim.fn.maparg('\\\\', 'n') ~= '', 'project tree toggle was not installed')")

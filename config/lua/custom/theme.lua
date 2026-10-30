@@ -54,4 +54,34 @@ function M.setup()
   return M.apply('jvim-charcoal')
 end
 
+function M.pick()
+  local pickers, finders = require 'telescope.pickers', require 'telescope.finders'
+  local actions, state = require 'telescope.actions', require 'telescope.actions.state'
+  pickers
+    .new({}, {
+      prompt_title = 'jvim color theme',
+      finder = finders.new_table {
+        results = M.names(),
+        entry_maker = function(theme)
+          return { value = theme, display = theme.label, ordinal = theme.label }
+        end,
+      },
+      sorter = require('telescope.config').values.generic_sorter {},
+      attach_mappings = function(buf)
+        actions.select_default:replace(function()
+          local entry = state.get_selected_entry()
+          actions.close(buf)
+          if entry then
+            vim.schedule(function()
+              local ok, err = M.apply(entry.value.name)
+              if not ok then vim.notify(err, vim.log.levels.ERROR) end
+            end)
+          end
+        end)
+        return true
+      end,
+    })
+    :find()
+end
+
 return M

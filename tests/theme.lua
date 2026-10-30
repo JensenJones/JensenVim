@@ -70,6 +70,43 @@ elseif case == 'picker_groups' then
     assert(group.fg and group.bg, name .. ' needs explicit foreground and background colors')
     assert_text_contrast(name, group.fg, group.bg)
   end
+elseif case == 'action_entry' then
+  local before = vim.api.nvim_get_keymap 'n'
+  local entries = require('custom.action_picker').entries()
+  local entry
+  for _, item in ipairs(entries) do
+    if item.name == 'Choose color theme' then entry = item; break end
+  end
+  assert(entry, 'theme action is missing from the action picker')
+  assert(entry.shortcut == '', 'theme action unexpectedly has a shortcut')
+  assert(entry.key == nil, 'theme action is dispatched as a key instead of a menu callback')
+  assert(type(entry.action) == 'function', 'theme action has no menu callback')
+  assert(vim.deep_equal(before, vim.api.nvim_get_keymap 'n'), 'building the theme action added a normal-mode keymap')
+elseif case == 'picker_selection' then
+  theme.setup()
+  local select_callback
+  package.loaded['telescope.pickers'] = {
+    new = function(_, options)
+      return {
+        find = function()
+          options.attach_mappings(1)
+          assert(select_callback, 'theme picker did not register its select action')
+          select_callback()
+        end,
+      }
+    end,
+  }
+  package.loaded['telescope.finders'] = { new_table = function(options) return options end }
+  package.loaded['telescope.actions'] = {
+    select_default = { replace = function(_, callback) select_callback = callback end },
+    close = function() end,
+  }
+  package.loaded['telescope.actions.state'] = {
+    get_selected_entry = function() return { value = { name = 'dark-ubuntu' } } end,
+  }
+  package.loaded['telescope.config'] = { values = { generic_sorter = function() return {} end } }
+  theme.pick()
+  assert(vim.wait(1000, function() return vim.g.colors_name == 'dark-ubuntu' end), 'selecting Dark Ubuntu did not apply it')
 else
   error('unknown theme test case: ' .. tostring(case))
 end

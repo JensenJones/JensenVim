@@ -41,13 +41,13 @@
 - `require('custom.theme').apply(name: string) -> boolean, string?` accepts only `jvim-charcoal` and `dark-ubuntu`, loads the requested scheme, and reapplies jvim focus highlights.
 - `require('custom.theme').names() -> { { name: string, label: string } }` returns the supported switcher entries in display order.
 
-- [ ] **Step 1: Write failing tests** named `test_default_theme_is_charcoal`, `test_apply_switches_between_supported_themes`, `test_invalid_theme_does_not_change_current_scheme`, `test_required_highlight_groups_are_defined`, `test_contrast_floor_for_text_selection_and_cursor`, and `test_theme_groups_remain_legible_with_picker_groups`.
-- [ ] **Step 2: Run the targeted theme tests** and confirm they fail because the theme module and colorscheme do not exist.
-- [ ] **Step 3: Implement the custom palette** in `config/colors/jvim-charcoal.lua`; define base editor, Tree-sitter, diagnostics, folds, cursor, selection, bracket/current-word, statusline, Neo-tree, Telescope, and Blink groups.
-- [ ] **Step 4: Implement `custom.theme`** with the whitelist, `names`, shared application path, and stable jvim-specific focus highlights after every `ColorScheme` event.
-- [ ] **Step 5: Make `jvim-charcoal` the startup scheme** in `config/init.lua` using the shared application function.
-- [ ] **Step 6: Run the targeted theme tests** and confirm the required groups and contrast checks pass.
-- [ ] **Step 7: Commit** the colorscheme, loader, startup change, and tests.
+- [x] **Step 1: Write failing tests** named `test_default_theme_is_charcoal`, `test_apply_switches_between_supported_themes`, `test_invalid_theme_does_not_change_current_scheme`, `test_required_highlight_groups_are_defined`, `test_contrast_floor_for_text_selection_and_cursor`, and `test_theme_groups_remain_legible_with_picker_groups`.
+- [x] **Step 2: Run the targeted theme tests** and confirm they fail because the theme module and colorscheme do not exist.
+- [x] **Step 3: Implement the custom palette** in `config/colors/jvim-charcoal.lua`; define base editor, Tree-sitter, diagnostics, folds, cursor, selection, bracket/current-word, statusline, Neo-tree, Telescope, and Blink groups.
+- [x] **Step 4: Implement `custom.theme`** with the whitelist, `names`, shared application path, and stable jvim-specific focus highlights after every `ColorScheme` event.
+- [x] **Step 5: Make `jvim-charcoal` the startup scheme** in `config/init.lua` using the shared application function.
+- [x] **Step 6: Run the targeted theme tests** and confirm the required groups and contrast checks pass.
+- [x] **Step 7: Commit** the colorscheme, loader, startup change, and tests. Task 1 was committed as `821cc85`.
 
 ### Task 2: Add the hidden theme submenu to the action picker
 
@@ -55,19 +55,25 @@
 - Modify: `config/lua/custom/action_picker.lua`
 - Modify: `config/lua/custom/theme.lua`
 - Test: `tests/test_theme.py`
+- Test: `tests/test_terminal_startup.py`
 
 **Interfaces:**
 - Consumes `custom.theme.names()` and `custom.theme.apply(name)` from Task 1.
 - `require('custom.theme').pick()` opens a compact Telescope picker for supported themes; selecting one applies it immediately and closes the picker.
 
-- [ ] **Step 1: Write failing tests** named `test_theme_action_has_no_shortcut_or_keymap` and `test_theme_action_opens_picker_and_selection_applies` to confirm the hidden action has no shortcut or new keymap, opens the theme list, and applies the selected scheme.
-- [ ] **Step 2: Run the picker test** and confirm the entry/action behavior is missing.
-- [ ] **Step 3: Implement `custom.theme.pick()`** with a Telescope list of the charcoal and `dark-ubuntu` themes.
-- [ ] **Step 4: Add the `Choose color theme` action** to `custom.action_picker`; let entries support a callback as well as existing key dispatch, and invoke the callback after closing the picker.
-- [ ] **Step 5: Run the picker and theme tests** and confirm immediate switching, fallback selection, and absence of a new keybind.
-- [ ] **Step 6: Commit** the menu and its tests.
+- [x] **Step 1: Write failing tests** for the hidden action and no-keymap behavior; exercise action-to-theme-picker opening in a terminal.
+- [x] **Step 2: Run the picker test** and confirm the entry/action behavior is missing.
+- [x] **Step 3: Implement `custom.theme.pick()`** with a Telescope list of supported themes.
+- [x] **Step 4: Add the `Choose color theme` action** to `custom.action_picker`; let entries support a callback as well as existing key dispatch, and invoke the callback after closing the picker.
+- [x] **Step 5: Run the picker and theme tests** and confirm picker opening, supported theme switching, and absence of a new keybind.
+- [x] **Step 6: Commit** the menu and its tests.
+
+### Independent fix: Shift+Enter
+
+- [x] In Insert mode, run Normal `o` as a one-shot command (`<C-o>o`) so the current line remains intact and a line opens below it.
+- [x] Verify both the mapped behavior and iTerm's `ESC[23;5~69` terminal input; autoindent remains on the new line.
 
 ## Self-review
 
 - Spec coverage: default theme, contrast, focus highlights, current theme fallback, hidden manual menu, and no new shortcut are assigned to Tasks 1–2.
-- The separate Shift+Enter bug is intentionally excluded so it can be debugged and tested independently after this theme change.
+- Shift+Enter is handled as an independent keymap fix and verified through actual terminal input.

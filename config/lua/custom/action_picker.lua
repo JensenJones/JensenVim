@@ -1,8 +1,13 @@
 local M = {}
 
-function M.open()
+function M.entries()
   local audit = vim.json.decode(table.concat(vim.fn.readfile(vim.fn.stdpath 'config' .. '/clion-keymap-audit.json'), '\n'))
   local entries = {}
+  table.insert(entries, {
+    name = 'Choose color theme',
+    shortcut = '',
+    action = function() require('custom.theme').pick() end,
+  })
   table.insert(entries, { name = 'Close editor (ask about unsaved files)', shortcut = 'Cmd+Shift+W', key = '<F35>63' })
   table.insert(entries, { name = 'New file in selected project folder', shortcut = 'Cmd+N', key = '<F35>68' })
   table.insert(entries, { name = 'Open terminal', shortcut = 'Cmd+Option+;', key = '<F35>67' })
@@ -21,6 +26,11 @@ function M.open()
     end
   end
   table.sort(entries, function(a, b) return a.name:lower() < b.name:lower() end)
+  return entries
+end
+
+function M.open()
+  local entries = M.entries()
   local name_width = 0
   for _, entry in ipairs(entries) do
     name_width = math.max(name_width, vim.fn.strdisplaywidth(entry.name))
@@ -49,7 +59,15 @@ function M.open()
         actions.select_default:replace(function()
           local entry = state.get_selected_entry()
           actions.close(buf)
-          if entry then vim.schedule(function() vim.api.nvim_feedkeys(vim.keycode(entry.value.key), 'm', false) end) end
+          if entry then
+            vim.schedule(function()
+              if entry.value.action then
+                entry.value.action()
+              elseif entry.value.key then
+                vim.api.nvim_feedkeys(vim.keycode(entry.value.key), 'm', false)
+              end
+            end)
+          end
         end)
         return true
       end,
