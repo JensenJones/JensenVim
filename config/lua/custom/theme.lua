@@ -59,7 +59,7 @@ function M.pick()
   local actions, state = require 'telescope.actions', require 'telescope.actions.state'
   pickers
     .new({}, {
-      prompt_title = 'jvim color theme',
+      prompt_title = 'jvim colour theme',
       finder = finders.new_table {
         results = M.names(),
         entry_maker = function(theme)

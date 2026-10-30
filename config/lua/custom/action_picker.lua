@@ -4,7 +4,7 @@ function M.entries()
   local audit = vim.json.decode(table.concat(vim.fn.readfile(vim.fn.stdpath 'config' .. '/clion-keymap-audit.json'), '\n'))
   local entries = {}
   table.insert(entries, {
-    name = 'Choose color theme',
+    name = 'Choose colour theme',
     shortcut = '',
     action = function() require('custom.theme').pick() end,
   })

@@ -75,7 +75,7 @@ elseif case == 'action_entry' then
   local entries = require('custom.action_picker').entries()
   local entry
   for _, item in ipairs(entries) do
-    if item.name == 'Choose color theme' then entry = item; break end
+    if item.name == 'Choose colour theme' then entry = item; break end
   end
   assert(entry, 'theme action is missing from the action picker')
   assert(entry.shortcut == '', 'theme action unexpectedly has a shortcut')
