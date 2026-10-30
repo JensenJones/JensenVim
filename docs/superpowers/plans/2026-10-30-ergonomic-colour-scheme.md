@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship a soft-charcoal default jvim theme with a hidden, immediate switcher for the existing `dark-ubuntu` theme.
+**Goal:** Ship a CoderPad-inspired default jvim theme with a hidden, immediate switcher for the existing `dark-ubuntu` theme.
 
 **Architecture:** Implement one project-owned Neovim colorscheme and a small `custom.theme` module that validates theme names and opens a Telescope submenu. Make startup and manual switching use the same application function, and define jvim-specific focus highlights after each switch.
 
@@ -14,7 +14,7 @@
 
 - Keep the existing `dark-ubuntu` scheme as a manual fallback.
 - Add no keybind for switching themes.
-- Use a charcoal background and warm foreground without pure black or glaring white.
+- Follow the user's CoderPad screenshot: charcoal background, soft grey text, mauve keywords, blue types, cyan identifiers, peach strings, gold functions, and green comments.
 - Check normal text and key UI pairs against a 4.5:1 contrast floor.
 - Keep cursor, selection, matching brackets, diagnostics, current-word highlight, file tree, completion menu, and statusline visually distinct.
 - Distinguish syntax roles by hue and lightness; do not rely on red/green differences alone.
@@ -64,7 +64,7 @@
 - [x] **Step 1: Write failing tests** for the hidden action and no-keymap behavior; exercise action-to-theme-picker opening in a terminal.
 - [x] **Step 2: Run the picker test** and confirm the entry/action behavior is missing.
 - [x] **Step 3: Implement `custom.theme.pick()`** with a Telescope list of supported themes.
-- [x] **Step 4: Add the `Choose color theme` action** to `custom.action_picker`; let entries support a callback as well as existing key dispatch, and invoke the callback after closing the picker.
+- [x] **Step 4: Add the `Choose colour theme` action** to `custom.action_picker`; let entries support a callback as well as existing key dispatch, and invoke the callback after closing the picker.
 - [x] **Step 5: Run the picker and theme tests** and confirm picker opening, supported theme switching, and absence of a new keybind.
 - [x] **Step 6: Commit** the menu and its tests.
 

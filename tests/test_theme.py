@@ -44,6 +44,9 @@ class ThemeTests(unittest.TestCase):
     def test_theme_groups_remain_legible_with_picker_groups(self):
         self.check_case('picker_groups')
 
+    def test_coderpad_inspired_palette_roles(self):
+        self.check_case('coderpad_palette')
+
     def test_theme_action_has_no_shortcut_or_keymap(self):
         self.check_case('action_entry')
 

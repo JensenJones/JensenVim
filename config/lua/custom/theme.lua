@@ -1,7 +1,7 @@
 local M = {}
 
 local themes = {
-  { name = 'jvim-charcoal', label = 'Soft Charcoal (default)' },
+  { name = 'jvim-charcoal', label = 'CoderPad-inspired (default)' },
   { name = 'dark-ubuntu', label = 'Dark Ubuntu (previous)' },
 }
 
@@ -10,12 +10,12 @@ for _, theme in ipairs(themes) do allowed[theme.name] = true end
 
 local focus_groups = {
   ['jvim-charcoal'] = {
-    Cursor = { fg = '#20252b', bg = '#f2cc60', bold = true },
-    lCursor = { fg = '#20252b', bg = '#f2cc60', bold = true },
-    Visual = { fg = '#e8e3da', bg = '#43566a' },
-    MatchParen = { underline = true, sp = '#85c7ff', bold = true },
-    JvimWord = { underline = true, sp = '#f2cc60' },
-    JvimFoldButton = { fg = '#85c7ff', bold = true },
+    Cursor = { fg = '#202126', bg = '#e6cc00', bold = true },
+    lCursor = { fg = '#202126', bg = '#e6cc00', bold = true },
+    Visual = { fg = '#d6d6d8', bg = '#454957' },
+    MatchParen = { underline = true, sp = '#69a9df', bold = true },
+    JvimWord = { underline = true, sp = '#e6cc00' },
+    JvimFoldButton = { fg = '#69a9df', bold = true },
   },
   ['dark-ubuntu'] = {
     Cursor = { fg = '#252321', bg = '#66d9ef', bold = true },

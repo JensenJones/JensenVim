@@ -70,6 +70,25 @@ elseif case == 'picker_groups' then
     assert(group.fg and group.bg, name .. ' needs explicit foreground and background colors')
     assert_text_contrast(name, group.fg, group.bg)
   end
+elseif case == 'coderpad_palette' then
+  theme.setup()
+  local expected = {
+    Normal = { bg = 0x202126 },
+    Comment = { fg = 0x7e9f68 },
+    String = { fg = 0xd28e76 },
+    Type = { fg = 0x589bd6 },
+    Function = { fg = 0xe6cc00 },
+    Statement = { fg = 0xc17cbf },
+    PreProc = { fg = 0xcd7bc1 },
+    ['@variable'] = { fg = 0x56b8df },
+    ['@keyword.return'] = { fg = 0x95b86d },
+  }
+  for group, values in pairs(expected) do
+    local actual = highlight(group)
+    for key, value in pairs(values) do
+      assert(actual[key] == value, string.format('%s.%s should be #%06x, got %s', group, key, value, tostring(actual[key])))
+    end
+  end
 elseif case == 'action_entry' then
   local before = vim.api.nvim_get_keymap 'n'
   local entries = require('custom.action_picker').entries()
