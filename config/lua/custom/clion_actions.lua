@@ -40,6 +40,14 @@ function M.setup(action, resume_editing)
       vim.cmd.startinsert()
     end, { desc = 'Surround selection with ' .. opener .. closer })
   end
+  -- Some selection paths leave Visual mode active. Printable input must still
+  -- replace the selection, rather than execute operators or text objects.
+  -- Remap the character in Select mode so delimiter-surround actions also work.
+  for byte = 32, 126 do
+    local char = string.char(byte)
+    local key = char == '<' and '<lt>' or char
+    map('x', key, '<C-g>' .. key, { remap = true, nowait = true, desc = 'Type over selection' })
+  end
   map('n', '<Esc>', function()
     vim.cmd.nohlsearch()
     resume_editing()

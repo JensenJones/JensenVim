@@ -322,6 +322,31 @@ vim.cmd 'qall!'
                                 env=env, capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    @unittest.skipUnless(shutil.which('nvim'), 'Neovim needed for selection checks')
+    def test_typing_over_visual_selection_replaces_instead_of_running_commands(self):
+        script = self.home/'visual_overwrite.lua'
+        script.write_text(r'''
+vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
+vim.o.swapfile = false
+vim.o.selection = 'exclusive'
+require('custom.clion_actions').setup(function() end, function() end)
+for char in ('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.,;!?'):gmatch('.') do
+  vim.cmd 'normal! \27'
+  vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'before word after' })
+  vim.api.nvim_win_set_cursor(0, { 1, 7 })
+  vim.cmd 'normal! v4l'
+  assert(vim.fn.mode() == 'v', 'fixture must exercise Visual mode')
+  vim.api.nvim_feedkeys(char, 'xt', false)
+  assert(vim.api.nvim_get_current_line() == 'before ' .. char .. ' after',
+    'typing ' .. char .. ' executed a command: ' .. vim.api.nvim_get_current_line())
+end
+vim.cmd 'qall!'
+''')
+        env = dict(os.environ, HOME=str(self.home), JVIM_TEST_CONFIG=str(ROOT/'config'))
+        result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(script)],
+                                env=env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     @unittest.skipUnless(shutil.which('nvim'), 'Neovim needed for core behavior checks')
     def test_shift_enter_opens_line_below_without_changing_current_line(self):
         script = self.home/'shift_enter.lua'
