@@ -54,4 +54,18 @@ assert(vim.fn.indent(3)==assert(call:find('first',1,true))-1,'comma + Enter lost
 vim.cmd 'normal! G=='
 assert(vim.fn.indent(vim.fn.line('$'))==0,'closing function brace should still dedent')
 print('Enter aligns initializer fields, arguments, commas, parameters, templates and ternary operators')
+vim.api.nvim_buf_set_lines(0,0,-1,false,{
+  '#include <matchingEngine/OrderBookSide.hpp>', '', 'namespace {',
+  '    using namespace book;', '', '    void storeOrderSavesOrder() {',
+  '        OrderBookSide<Side::BUY> buySide;',
+  '        buySide.storeOrder({.id = 1, .quantity = 10, .price = 100});',
+  '    }', '}',
+})
+vim.api.nvim_win_set_cursor(0,{8,0})
+vim.api.nvim_feedkeys(vim.keycode('A<CR>nextStatement();<Esc>'),'xt',false)
+assert(vim.fn.indent(9)==8, 'Enter after storeOrder should stay inside function: '..vim.inspect(vim.api.nvim_buf_get_lines(0,0,-1,false)))
+vim.cmd 'normal! G=='
+assert(vim.fn.indent(11)==0,'namespace closing brace should dedent')
+vim.cmd '10normal! =='
+assert(vim.fn.indent(10)==4,'function closing brace should stay inside namespace')
 vim.cmd 'qa!'
