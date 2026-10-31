@@ -28,6 +28,17 @@ local focus_groups = {
 }
 
 local function apply_focus(name)
+  for group, colour in pairs {
+    RainbowDelimiterYellow = '#e6cc00',
+    RainbowDelimiterBlue = '#69a9df',
+    RainbowDelimiterViolet = '#c17cbf',
+    RainbowDelimiterCyan = '#56b8df',
+    RainbowDelimiterOrange = '#d28e76',
+    RainbowDelimiterGreen = '#95b86d',
+    RainbowDelimiterRed = '#e88a85',
+  } do
+    vim.api.nvim_set_hl(0, group, { fg = colour })
+  end
   for group, spec in pairs(focus_groups[name] or {}) do
     vim.api.nvim_set_hl(0, group, spec)
   end

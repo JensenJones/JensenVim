@@ -867,6 +867,21 @@ require('lazy').setup({
     end,
   },
 
+  {
+    'HiPhish/rainbow-delimiters.nvim',
+    lazy = false,
+    dependencies = { 'nvim-treesitter/nvim-treesitter' },
+    init = function()
+      vim.g.rainbow_delimiters = {
+        highlight = {
+          'RainbowDelimiterYellow', 'RainbowDelimiterBlue', 'RainbowDelimiterViolet',
+          'RainbowDelimiterCyan', 'RainbowDelimiterOrange', 'RainbowDelimiterGreen',
+          'RainbowDelimiterRed',
+        },
+      }
+    end,
+  },
+
   { -- Highlight, edit, and navigate code
     'nvim-treesitter/nvim-treesitter',
     lazy = false,
