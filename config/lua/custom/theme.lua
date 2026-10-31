@@ -66,6 +66,10 @@ function M.setup()
 end
 
 function M.pick()
+  -- Cancel a pending modeless startinsert from returning to the editor.
+  -- Telescope queues its own append command to enter its new prompt; an
+  -- outstanding startinsert would turn that command into a literal 'A'.
+  vim.cmd.stopinsert()
   local pickers, finders = require 'telescope.pickers', require 'telescope.finders'
   local actions, state = require 'telescope.actions', require 'telescope.actions.state'
   pickers
