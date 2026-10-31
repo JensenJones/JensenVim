@@ -116,13 +116,18 @@ map('i', '<M-BS>', '<C-w>', { desc = 'Delete previous word' })
 map('i', '<M-d>', '<C-o>de', { desc = 'Delete next word' })
 -- iTerm Natural Text Editing sends these for Command+Backspace/Left/Right.
 map('i', '<C-u>', '<C-g>u<C-u>', { desc = 'Delete to line start' })
-map({ 'n', 'i', 's' }, '<C-a>', '<Home>')
 map({ 'n', 'i', 's' }, '<C-e>', '<End>')
 
 local function shortcut(key, normal, insert, select, visual, desc)
   for mode, rhs in pairs { n = normal, i = insert, s = select, x = visual } do
     map(mode, key, rhs, { desc = desc })
   end
+end
+
+-- Command+Left can arrive as Home, Find (CSI 1~), or Ctrl+A in terminals,
+-- or as a direct Command key in a GUI. All should stop after indentation.
+for _, key in ipairs { '<Home>', '<Find>', '<C-a>', '<D-Left>' } do
+  shortcut(key, '^', '<C-o>^', '<C-g>^', '^', 'Move to first nonblank column')
 end
 
 -- F13-F37 and F35-prefixed sequences carry actions from the iTerm profile.

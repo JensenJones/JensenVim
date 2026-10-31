@@ -280,14 +280,15 @@ end })
             self.assertEqual(selected['text'], ['word'], 'iTerm Option+Shift+Right selected spaces or the wrong word: ' + repr(selected))
             return
         if interaction == 'cmd_left_indent':
-            lua("(function() vim.api.nvim_buf_set_lines(0,0,1,false,{'    indented value'}); vim.api.nvim_win_set_cursor(0,{1,17}); vim.cmd.stopinsert(); return true end)()")
-            os.write(master, b'\x1b[23;5~70')
-            time.sleep(0.1)
-            self.assertEqual(state('vim.api.nvim_win_get_cursor(0)[2]'), 4, 'Cmd+Left should move to first nonblank column')
-            lua('vim.cmd.startinsert()')
-            os.write(master, b'\x1b[23;5~70')
-            time.sleep(0.1)
-            self.assertEqual(state('vim.api.nvim_win_get_cursor(0)[2]'), 4, 'Cmd+Left in Insert mode should keep indentation')
+            for payload in (b'\x1b[23;5~70', b'\x1b[1~', b'\x1b[H', b'\x01'):
+                lua("(function() vim.api.nvim_buf_set_lines(0,0,1,false,{'    indented value'}); vim.api.nvim_win_set_cursor(0,{1,17}); vim.cmd.stopinsert(); return true end)()")
+                os.write(master, payload)
+                time.sleep(0.1)
+                self.assertEqual(state('vim.api.nvim_win_get_cursor(0)[2]'), 4, 'Cmd+Left should move to first nonblank column: ' + repr(payload))
+                lua('(function() vim.api.nvim_win_set_cursor(0,{1,17}); vim.cmd.startinsert(); return true end)()')
+                os.write(master, payload)
+                time.sleep(0.1)
+                self.assertEqual(state('vim.api.nvim_win_get_cursor(0)[2]'), 4, 'Cmd+Left in Insert mode should keep indentation: ' + repr(payload))
             self.assertEqual(state('vim.fn.getline(1)'), '    indented value', 'Cmd+Left inserted key-sequence text')
             return
         if interaction == 'option_word_motion':
