@@ -108,7 +108,15 @@ end
 function M.choose(root, execute)
   root = vim.fs.normalize(root or M.root())
   local entries, err = M.load(root)
-  if not entries then return error_message(err) end
+  if not entries then
+    local path = root .. '/.jvim/run.json'
+    if vim.fn.filereadable(path) == 0 then
+      M.edit(root)
+      vim.notify('Created .jvim/run.json. Add a command, save it, then choose Run or Config again.', vim.log.levels.INFO)
+      return
+    end
+    return error_message(err .. '\nEdit .jvim/run.json to correct this configuration.')
+  end
   if #entries == 0 then return error_message('No run configurations in ' .. root .. '/.jvim/run.json') end
   vim.ui.select(entries, { prompt = execute and 'Run configuration' or 'Choose run configuration', format_item = function(item) return item.name end }, function(entry)
     if not entry then return end
