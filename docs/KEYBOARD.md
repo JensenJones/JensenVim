@@ -82,11 +82,13 @@ These bindings are generated from your active macOS copy keymap and its bundled 
 | Cmd+Shift+Backspace | Last edit location |
 | Cmd+Shift+E | Recent locations |
 
-**Cmd+plus/minus** keep their normal terminal font zoom behaviour. When a Tree-sitter parser is available, **Cmd+Option+minus** collapses the fold at the cursor and **Cmd+Option+equal** expands it. Matching brackets use a cyan background when the cursor is on a bracket or immediately after it in Insert mode.
+**Cmd+plus/minus** keep their normal terminal font zoom behaviour. When a Tree-sitter parser is available, **Cmd+Option+minus** collapses the fold at the cursor and **Cmd+Option+equal** expands it. Matching brackets use an underline so the cursor remains visible; nested brackets use rainbow colours when a parser is available.
 
 The status line also has clickable **[- Fold]** and **[+ Fold]** controls. **Cmd+Option+semicolon** opens a shell in the current project; close its pane with **Cmd+W**. Horizontal trackpad swipes move the text with your finger.
 
-Extra conveniences: **Cmd+Shift+W closes the editor**, asking about unsaved files. Ctrl+Tab / Ctrl+Shift+Tab switch files; F12 also jumps to a definition. Home/End move to line boundaries; Cmd+Left goes to the first nonblank column, and Cmd+Right to the line end. Option+Left/Right move between identifier ends, skipping punctuation and spaces; Shift+Option extends selection by identifier. Tab/Shift+Tab indent/unindent selections. Copy/cut uses the current line when no text is selected. Cmd+D duplicates selected text or the current line. Cmd+S saves modified named files and asks for a path for a new unnamed file.
+Extra conveniences: **Cmd+Shift+W closes the editor**, asking about unsaved files. Ctrl+Tab / Ctrl+Shift+Tab switch files; F12 also jumps to a definition. Home/End move to line boundaries; Cmd+Left goes to the first nonblank column, and Cmd+Right to the line end. Option+Left/Right move between identifier ends, skipping punctuation and spaces; Shift+Option extends selection by identifier. Tab/Shift+Tab indent/unindent ordinary selections; inside a completion's argument placeholders they move to the next/previous argument. Copy/cut uses the current line when no text is selected. Cmd+D duplicates selected text or the current line. Cmd+S saves modified named files and asks for a path for a new unnamed file.
+
+Tab or Enter accepts a function suggestion and selects the first argument for typing over. Continue through arguments with Tab, or go back with Shift+Tab; the final Tab exits after `)`. Escape, switching files or moving outside the call abandons the placeholder session.
 
 Find in file uses a literal query shared by next/previous search. File and project replacement treat search/replacement text literally and ask before replacing matches. Project replacement first offers a matching-file review and leaves edits unsaved until Save All.
 
@@ -96,27 +98,22 @@ Wheel/trackpad browsing keeps a stationary marker at the editing position and hi
 
 C/C++ uses your installed clangd for completion, diagnostics while typing, definitions, types, implementations, references, rename, fixes, documentation, and parameter information. Accurate includes and project symbols depend on the project's compiler flags or compilation database.
 
-The supported actions cover editing and code navigation. CLion's project model, debugger, build/run configurations, and every language-specific refactoring are not reproduced by these bindings.
+Successful C/C++ renames also trigger asynchronous syntax-only compiler checks using `compile_commands.json`, so errors in instantiated header templates appear in the editor. Checked projects recheck after saved edits. Use **Cmd+Shift+A → Check C++ project (syntax only)** to start a check manually. Include test sources in the database. Some dependent template references remain outside clangd's rename support; uninstantiated templates may need review even when compiler checks pass.
+
+Run configurations and merge-conflict controls are available in the action picker and status line. See [Project workflows](WORKFLOWS.md). CLion's debugger and full refactoring engine are not reproduced.
 
 ## Configuration and validation
 
-- lua/custom/keymaps.lua: ordinary editing and main actions; loaded once after plugin setup.
-- lua/custom/clion_actions.lua: selection, navigation history, find/replace and code actions.
-- clion-keymap-audit.json: imported keybindings and action inventory.
-- scripts/clion_profile.py: regenerate shortcut mappings from installed CLion settings.
-- ~/Library/Application Support/iTerm2/DynamicProfiles/neovim-clion.json: separate terminal profile.
-- ~/.local/bin/jvim: launcher in the current terminal pane.
+Personal settings live outside the managed configuration, in `~/.config/jvim-user/init.lua` (or `%LOCALAPPDATA%/jvim-user/init.lua` on Windows). **Edit personal jvim configuration** opens this file. See [Configuration and company integrations](CONFIGURATION.md) for profiles, tool policies, offline startup and the company overlay API.
 
-Original backup: ~/.local/state/nvim-config-backups/20261025-122543/. Follow-up backup: ~/.local/state/nvim-config-backups/20261025-131701/. Git metadata was not copied, and the original iTerm profile was not edited.
+Implementation modules live in `config/lua/jvim/`; `config/init.lua` is the standalone entry. The Mac launcher is `~/.local/bin/jvim`, and its dynamic profile is `~/Library/Application Support/iTerm2/DynamicProfiles/jvim.json`.
 
-Tests require Python with pynvim. clion_editing.py is isolated from plugins and uses an in-memory clipboard. clion_startup.py, clion_tree.py, and clion_workflows.py exercise installed plugins and may perform Git reads. clion_terminal.py checks terminal escape sequences. The Herdr checks used genuine macOS key and mouse events in an isolated pane, checking actions, clipboard, undo/redo, file operations, definition links, and keyboard restoration.
+Run `python3 scripts/check.py` for syntax and isolated tests. Optional plugin/parser checks report skips when their local dependencies are unavailable. See [Validation](VALIDATION.md) for coverage and limitations.
 
 ## Herdr integration
 
 jvim uses your already-enabled iTerm scripting API to apply only keyboard mappings, through a small local helper that exits with the editor. It does not change the default profile or font settings. Profile focus ownership is shared safely between jvim panes.
 
 Native Cmd-click uses invisible terminal hyperlink metadata attached to code identifiers. The local JvimLinks helper opens a definition in the same running editor. The original files and syntax colours are unchanged. A language server must support definition navigation for the current file.
-
-Follow-up backup: ~/.local/state/nvim-config-backups/20261025-141724/.
 
 The terminal integration uses iTerm's [local scripting API](https://iterm2.com/python-api/) and [dynamic-profile format](https://iterm2.com/documentation-dynamic-profiles.html).

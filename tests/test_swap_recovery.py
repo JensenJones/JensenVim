@@ -43,7 +43,7 @@ class SwapRecoveryTests(unittest.TestCase):
             script = home/'recover.lua'
             script.write_text('''\
 vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
-require('custom.swap_recovery').setup()
+require('jvim.swap_recovery').setup()
 vim.cmd.edit(vim.fn.fnameescape(vim.env.JVIM_TEST_FILE))
 local backups = vim.fn.glob(vim.fn.stdpath('state') .. '/jvim/recovered-swaps/*.swp', false, true)
 assert(vim.fn.getline(1) == 'recovered edit', 'stale swap content was not recovered: ' .. vim.inspect({line=vim.fn.getline(1),swap=vim.v.swapname,backups=backups}))

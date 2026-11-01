@@ -29,7 +29,7 @@ def main():
     info = socket.stat()
     if info.st_uid != os.getuid() or not stat.S_ISSOCK(info.st_mode):
         return
-    expr = f'luaeval("require([[custom.definition_links]]).jump(_A[1], _A[2], _A[3], _A[4])", [{win},{buf},{row},{col}])'
+    expr = f'luaeval("require([[jvim.definition_links]]).jump(_A[1], _A[2], _A[3], _A[4])", [{win},{buf},{row},{col}])'
     runtime = json.loads((Path.home()/'.local/share/jvim/runtime.json').read_text())
     subprocess.run([runtime['nvim'],'--server',str(socket),'--remote-expr',expr], stdout=subprocess.DEVNULL, timeout=10, check=True)
 

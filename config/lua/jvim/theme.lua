@@ -70,7 +70,16 @@ function M.pick()
   -- Telescope queues its own append command to enter its new prompt; an
   -- outstanding startinsert would turn that command into a literal 'A'.
   vim.cmd.stopinsert()
-  local pickers, finders = require 'telescope.pickers', require 'telescope.finders'
+  local available, pickers = pcall(require, 'telescope.pickers')
+  if not available then
+    return vim.ui.select(M.names(), { prompt = 'Choose colour theme:', format_item = function(theme) return theme.label end }, function(theme)
+      if theme then
+        local ok, err = M.apply(theme.name)
+        if not ok then vim.notify(err, vim.log.levels.ERROR) end
+      end
+    end)
+  end
+  local finders = require 'telescope.finders'
   local actions, state = require 'telescope.actions', require 'telescope.actions.state'
   pickers
     .new({}, {

@@ -1,4 +1,16 @@
 local M = {}
+local original_rename_handler
+
+function M.setup()
+  require('jvim.cpp_check').setup()
+  original_rename_handler = original_rename_handler or vim.lsp.handlers['textDocument/rename']
+  vim.lsp.handlers['textDocument/rename'] = function(err, result, ctx, config)
+    original_rename_handler(err, result, ctx, config)
+    if err or not result or not vim.api.nvim_buf_is_valid(ctx.bufnr) then return end
+    local filetype = vim.bo[ctx.bufnr].filetype
+    if filetype == 'cpp' or filetype == 'c' then require('jvim.cpp_check').run(ctx.bufnr) end
+  end
+end
 
 local function node_at_cursor(buf)
   local filetype = vim.bo[buf].filetype
@@ -63,7 +75,7 @@ function M.symbol()
   if not candidate_name then return standard_rename() end
   local root = project_root(buf)
   if declared_name then
-    return require('custom.project_replace').rename_namespace(declared_name, root)
+    return require('jvim.project_replace').rename_namespace(declared_name, root)
   end
 
   local clients = vim.lsp.get_clients { bufnr = buf, method = 'textDocument/definition' }
@@ -75,7 +87,7 @@ function M.symbol()
       local locations = result and (result.uri and { result } or result) or {}
       for _, location in ipairs(locations) do
         if location_is_namespace(location, client.offset_encoding) then
-          require('custom.project_replace').rename_namespace(candidate_name, root)
+          require('jvim.project_replace').rename_namespace(candidate_name, root)
           return
         end
       end

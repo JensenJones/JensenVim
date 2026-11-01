@@ -94,7 +94,7 @@ local function close_viewer(buf)
     return
   end
 
-  local files = require('custom.files').list()
+  local files = require('jvim.files').list()
   for _, candidate in ipairs(files) do
     if candidate ~= buf then
       vim.api.nvim_set_current_buf(candidate)

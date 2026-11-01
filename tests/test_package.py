@@ -5,9 +5,11 @@ import json
 import os
 from pathlib import Path
 import plistlib
+import shlex
 import shutil
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import unittest
@@ -32,6 +34,114 @@ class PackageTests(unittest.TestCase):
     def test_preview_does_not_write(self):
         self.install()
         self.assertEqual(list(self.home.iterdir()), [])
+
+    def test_reinstall_preserves_tool_caches_and_external_settings(self):
+        sentinels = [self.home/path for path in (
+            '.local/share/jvim/lazy/example/plugin.lua',
+            '.local/share/jvim/mason/bin/clangd',
+            '.local/share/jvim/site/parser/cpp.so',
+            '.config/jvim-user/init.lua',
+        )]
+        for path in sentinels:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('keep me')
+        with patch.object(installer.shutil, 'which', return_value='/test/nvim'):
+            self.install(apply=True, runtime=False, registration=False)
+        for path in sentinels:
+            self.assertEqual(path.read_text() if path.exists() else None, 'keep me', str(path))
+
+    def test_invalid_terminal_preferences_preserve_active_installation(self):
+        existing = self.home/'.config/jvim/init.lua'
+        existing.parent.mkdir(parents=True)
+        existing.write_text('active editor')
+        prefs = self.home/'Library/Preferences/com.googlecode.iterm2.plist'
+        prefs.parent.mkdir(parents=True)
+        prefs.write_bytes(b'not a plist')
+        with patch.object(installer.shutil, 'which', return_value='/test/nvim'):
+            with self.assertRaises((RuntimeError, plistlib.InvalidFileException)):
+                self.install(apply=True, runtime=False, registration=False)
+        self.assertEqual(existing.read_text() if existing.exists() else None, 'active editor')
+
+    def test_failed_runtime_preparation_preserves_active_installation(self):
+        existing = self.home/'.config/jvim/init.lua'
+        existing.parent.mkdir(parents=True)
+        existing.write_text('active editor')
+        with patch.object(installer.shutil, 'which', return_value='/test/nvim'), \
+                patch.object(installer.venv.EnvBuilder, 'create'), \
+                patch.object(installer.subprocess, 'run', side_effect=subprocess.CalledProcessError(1, 'pip')):
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.install(apply=True, registration=False)
+        self.assertEqual(existing.read_text() if existing.exists() else None, 'active editor')
+
+    def test_failed_app_preparation_preserves_active_installation(self):
+        existing = self.home/'.config/jvim/init.lua'
+        existing.parent.mkdir(parents=True)
+        existing.write_text('active editor')
+        with patch.object(installer.shutil, 'which', return_value='/test/nvim'), \
+                patch.object(installer.subprocess, 'run', side_effect=subprocess.CalledProcessError(1, 'osacompile')):
+            with self.assertRaises(subprocess.CalledProcessError):
+                self.install(apply=True, runtime=False)
+        self.assertEqual(existing.read_text(), 'active editor')
+
+    def test_published_python_runtime_keeps_its_original_location(self):
+        builder = installer.venv.EnvBuilder
+        with patch.object(installer.shutil, 'which', return_value='/test/nvim'), \
+                patch.object(installer.venv, 'EnvBuilder', side_effect=lambda **kwargs: builder(with_pip=False)), \
+                patch.object(installer.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0)):
+            self.install(apply=True, registration=False)
+        runtime = self.home/'.local/share/jvim/runtime'
+        self.assertTrue(runtime.is_symlink())
+        self.assertEqual(runtime.resolve().parent, (self.home/'.local/share/jvim/runtimes').resolve())
+        result = subprocess.run([str(runtime/'bin/python3'), '-c', 'import sys; print(sys.prefix)'],
+                                capture_output=True, text=True, check=True)
+        self.assertEqual(Path(result.stdout.strip()).resolve(), runtime.resolve())
+
+    def test_xdg_override_is_rejected_before_writing(self):
+        with patch.dict(os.environ, {'XDG_CONFIG_HOME': str(self.home/'elsewhere')}):
+            with self.assertRaisesRegex(RuntimeError, 'XDG_CONFIG_HOME'):
+                self.install(apply=True, runtime=False, registration=False)
+        self.assertEqual(list(self.home.iterdir()), [])
+
+    def test_failed_publish_restores_all_replaced_files(self):
+        paths = [self.home/'.config/jvim/init.lua', self.home/'.local/bin/jvim']
+        for path in paths:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text('old '+path.name)
+        real_move = installer.shutil.move
+        failed = False
+        def move(source, destination, *args, **kwargs):
+            nonlocal failed
+            if Path(destination).resolve() == (self.home/'.local/bin/jvim').resolve() and not failed:
+                failed = True
+                raise OSError('simulated publish failure')
+            return real_move(source, destination, *args, **kwargs)
+        with patch.object(installer.shutil, 'which', return_value='/test/nvim'), \
+                patch.object(installer.shutil, 'move', side_effect=move):
+            with self.assertRaisesRegex(OSError, 'simulated publish failure'):
+                self.install(apply=True, runtime=False, registration=False)
+        for path in paths:
+            self.assertEqual(path.read_text() if path.exists() else None, 'old '+path.name)
+
+    def test_incomplete_recovery_reports_retained_backups(self):
+        existing = self.home/'.config/jvim/init.lua'
+        existing.parent.mkdir(parents=True)
+        existing.write_text('old settings')
+        real_move = installer.shutil.move
+        def move(source, destination, *args, **kwargs):
+            if Path(destination).resolve() == (self.home/'.local/bin/jvim').resolve():
+                raise OSError('publish unavailable')
+            if 'backups' in Path(source).parts:
+                raise OSError('restore unavailable')
+            return real_move(source, destination, *args, **kwargs)
+        with patch.object(installer.shutil, 'which', return_value='/test/nvim'), \
+                patch.object(installer.shutil, 'move', side_effect=move):
+            with self.assertRaises(Exception) as failure:
+                self.install(apply=True, runtime=False, registration=False)
+        self.assertIsInstance(failure.exception, RuntimeError)
+        self.assertRegex(str(failure.exception), 'recovery incomplete.*backups')
+        backups = list((self.home/'.local/state/jvim/backups').glob('*/.config/jvim/init.lua'))
+        self.assertEqual(len(backups), 1)
+        self.assertEqual(backups[0].read_text(), 'old settings')
 
     def test_install_isolated_and_repeat_install_backs_up_edits(self):
         existing = self.home/'.config/nvim/init.lua'
@@ -117,6 +227,75 @@ class PackageTests(unittest.TestCase):
         result = subprocess.run([shutil.which('python3'), str(ROOT/'bin/jvim')], env=env, capture_output=True, text=True, check=True)
         self.assertEqual(result.stdout, 'jvim')
 
+    def test_installed_launcher_uses_exact_python_with_spaces_and_quotes(self):
+        executable = self.home/'nvim'
+        executable.write_text('#!/bin/sh\nprintf "%s:%s" "$NVIM_APPNAME" "$1"\nexit 17\n')
+        executable.chmod(0o755)
+        marker = self.home/'python-used'
+        special_interpreter = self.home/"Python With Spaces and 'quotes'"/'python3'
+        special_interpreter.parent.mkdir()
+        special_interpreter.write_text('#!/bin/sh\n: > '+shlex.quote(str(marker))+'\nexec '
+                                       +shlex.quote(sys.executable)+' "$@"\n')
+        special_interpreter.chmod(0o755)
+        for interpreter in (Path(sys.executable), special_interpreter):
+            with self.subTest(interpreter=str(interpreter)):
+                with patch.object(installer.sys, 'executable', str(interpreter)), \
+                        patch.object(installer.shutil, 'which', return_value=str(executable)):
+                    self.install(apply=True, runtime=False, registration=False)
+                env = dict(os.environ, HOME=str(self.home), JVIM_NVIM=str(executable), PATH='')
+                try:
+                    result = subprocess.run([str(self.home/'.local/bin/jvim'), 'file with spaces.cpp'],
+                                            env=env, capture_output=True, text=True)
+                except OSError as error:
+                    self.fail(f'Installed launcher could not execute: {error}')
+                self.assertEqual(result.returncode, 17, result.stderr)
+                self.assertEqual(result.stdout, 'jvim:file with spaces.cpp')
+                if interpreter == special_interpreter:
+                    self.assertTrue(marker.is_file(), 'installed interpreter was bypassed')
+
+    def test_launcher_resolves_path_override_and_forwards_arguments_and_status(self):
+        directory = self.home/'tools with spaces'
+        directory.mkdir()
+        executable = directory/'company-nvim'
+        executable.write_text('#!/bin/sh\nprintf "%s:%s" "$NVIM_APPNAME" "$1"\nexit 17\n')
+        executable.chmod(0o755)
+        for override in ('company-nvim', str(executable)):
+            env = dict(os.environ, HOME=str(self.home), JVIM_NVIM=override,
+                       PATH=str(directory)+os.pathsep+os.environ.get('PATH', ''))
+            result = subprocess.run([sys.executable, str(ROOT/'bin/jvim'), 'file with spaces.cpp'],
+                                    env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 17, result.stderr)
+            self.assertEqual(result.stdout, 'jvim:file with spaces.cpp')
+
+    def test_launcher_reports_bad_metadata_and_missing_override_without_traceback(self):
+        metadata = self.home/'.local/share/jvim/runtime.json'
+        metadata.parent.mkdir(parents=True)
+        metadata.write_text('{invalid')
+        for override in ('', 'missing-company-nvim'):
+            env = dict(os.environ, HOME=str(self.home), JVIM_NVIM=override)
+            result = subprocess.run([sys.executable, str(ROOT/'bin/jvim')], env=env,
+                                    capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('jvim:', result.stderr)
+            self.assertNotIn('Traceback', result.stderr)
+
+    def test_launcher_reports_missing_override_with_valid_metadata(self):
+        env = dict(os.environ, HOME=str(self.home), JVIM_NVIM='missing-company-nvim')
+        result = subprocess.run([sys.executable, str(ROOT/'bin/jvim')], env=env,
+                                capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('missing-company-nvim', result.stderr)
+        self.assertIn('JVIM_NVIM', result.stderr)
+        self.assertNotIn('Traceback', result.stderr)
+
+    def test_launcher_rejects_unsupported_xdg_paths(self):
+        env = dict(os.environ, HOME=str(self.home), XDG_DATA_HOME=str(self.home/'elsewhere'),
+                   JVIM_NVIM='missing-company-nvim')
+        result = subprocess.run([sys.executable, str(ROOT/'bin/jvim')], env=env,
+                                capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('XDG_DATA_HOME', result.stderr)
+
     @unittest.skipUnless(shutil.which('nvim'), 'Neovim needed for core behavior checks')
     def test_autosave_and_windows_shortcuts_without_plugins(self):
         target = self.home/'sample.txt'
@@ -125,7 +304,7 @@ class PackageTests(unittest.TestCase):
         script.write_text('''
 vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
 vim.o.swapfile = false
-require('custom.keymaps')
+require('jvim.keymaps')
 vim.cmd.edit(vim.env.JVIM_TEST_FILE)
 vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'autosaved' })
 vim.cmd 'doautocmd TextChangedI'
@@ -133,9 +312,9 @@ assert(vim.wait(2000, function() return not vim.bo.modified end, 20), 'idle auto
 assert(vim.fn.readfile(vim.env.JVIM_TEST_FILE)[1] == 'autosaved')
 local has = vim.fn.has
 vim.fn.has = function(feature) if feature == 'win32' then return 1 end return has(feature) end
-require('custom.windows_keys').setup()
+require('jvim.windows_keys').setup()
 vim.fn.has = has
-for _, key in ipairs { '<C-b>', '<C-1>', '<C-w>', '<C-S-w>', '<C-M-Left>', '<C-LeftMouse>' } do
+for _, key in ipairs { '<C-b>', '<F4>', '<C-w>', '<C-S-w>', '<C-M-Left>', '<C-LeftMouse>' } do
   assert(vim.fn.maparg(key, 'i') ~= '', 'missing Windows shortcut: ' .. key)
 end
 assert(vim.fn.maparg('<C-M-Right>', 'i', false, true).desc == 'Navigate forward')
@@ -190,7 +369,7 @@ error('last-file close did not exit')
         script = self.home/'reconnect.lua'
         script.write_text('''
 vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
-require('custom.herdr_host').setup()
+require('jvim.herdr_host').setup()
 assert(vim.wait(3000, function() return vim.fn.filereadable(vim.env.JVIM_TEST_MARKER)==1 end, 20), 'bridge did not reconnect')
 assert(vim.v.errmsg=='', vim.v.errmsg)
 vim.cmd 'qall'
@@ -211,7 +390,7 @@ vim.diagnostic.config({underline=true})
 local provider
 vim.api.nvim_set_decoration_provider=function(_, value) provider=value end
 vim.lsp.get_clients=function() return {{}} end
-local links=require('custom.definition_links')
+local links=require('jvim.definition_links')
 links.setup()
 assert(provider.on_win(nil,nil,0)==false, 'code hyperlinks should default off')
 assert(vim.fn.maparg('<C-LeftMouse>','i')~='', 'Ctrl-click mapping missing')
@@ -234,8 +413,8 @@ vim.cmd 'qall'
         script.write_text('''
 vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
 vim.o.swapfile = false
-local autosave = require('custom.autosave')
-local policy = require('custom.formatting')
+local autosave = require('jvim.autosave')
+local policy = require('jvim.formatting')
 autosave.setup()
 vim.cmd.edit(vim.env.JVIM_TEST_FILE)
 vim.api.nvim_create_autocmd('BufWritePre', { callback = function(ev)
@@ -266,7 +445,7 @@ vim.cmd 'qall'
         script.write_text(r'''
 vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
 vim.o.swapfile = false
-require('custom.keymaps')
+require('jvim.keymaps')
 vim.api.nvim_buf_set_name(0, vim.env.JVIM_TEST_FILE)
 local lines = { 'hello world', 'another line', 'last line' }
 for _, selection in ipairs { 'v4l\7', 'V\7', '\22j2l\7', 'v4l' } do
@@ -304,7 +483,7 @@ vim.cmd 'qall!'
 vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
 vim.o.swapfile = false
 vim.o.selection = 'exclusive'
-require('custom.clion_actions').setup(function() end, function() end)
+require('jvim.clion_actions').setup(function() end, function() end)
 local cases = { { '(', ')' }, { '[', ']' }, { '{', '}' }, { '"', '"' }, { "'", "'" }, { '`', '`' } }
 for _, pair in ipairs(cases) do
   vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'before word after' })
@@ -329,7 +508,7 @@ vim.cmd 'qall!'
 vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
 vim.o.swapfile = false
 vim.o.selection = 'exclusive'
-require('custom.clion_actions').setup(function() end, function() end)
+require('jvim.clion_actions').setup(function() end, function() end)
 for char in ('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.,;!?'):gmatch('.') do
   vim.cmd 'normal! \27'
   vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'before word after' })
@@ -364,7 +543,7 @@ vim.cmd 'qall!'
         script.write_text(r'''
 vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
 vim.o.swapfile = false
-require('custom.keymaps')
+require('jvim.keymaps')
 local key = vim.keycode('<C-F11>69')
 vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'keep this text', 'following line' })
 vim.api.nvim_win_set_cursor(0, { 1, 4 })
@@ -392,7 +571,7 @@ vim.cmd 'qall!'
         script.write_text(r'''
 vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
 vim.o.swapfile = false
-require('custom.keymaps')
+require('jvim.keymaps')
 vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'leftIt->timestamp, call()' })
 vim.api.nvim_win_set_cursor(0, { 1, 0 })
 vim.api.nvim_feedkeys(vim.keycode('<C-Right>'), 'xt', false)
@@ -432,7 +611,7 @@ vim.cmd 'qall!'
         script.write_text(r'''
 vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
 vim.o.swapfile = false
-require('custom.keymaps')
+require('jvim.keymaps')
 -- Headless runs have no desktop UI or project-tree plugin.
 vim.api.nvim_list_uis = function() return { {} } end
 local opened
@@ -466,7 +645,7 @@ vim.cmd 'qall!'
         script = self.home/'close.lua'
         script.write_text('''
 vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
-require('custom.keymaps')
+require('jvim.keymaps')
 vim.fn.maparg('<D-w>', 'i', false, true).callback()
 error('empty editor did not exit')
 ''')

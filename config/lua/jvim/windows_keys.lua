@@ -24,7 +24,7 @@ function M.setup()
   vim.keymap.set({ 'n', 'i' }, '<C-LeftMouse>', function()
     local mouse = vim.fn.getmousepos()
     if mouse.winid ~= 0 and vim.api.nvim_win_is_valid(mouse.winid) then
-      require('custom.definition_links').jump(mouse.winid, vim.api.nvim_win_get_buf(mouse.winid), mouse.line, math.max(0, mouse.column - 1))
+      require('jvim.definition_links').jump(mouse.winid, vim.api.nvim_win_get_buf(mouse.winid), mouse.line, math.max(0, mouse.column - 1))
     end
   end, { desc = 'Go to clicked symbol definition' })
 end

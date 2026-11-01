@@ -1,20 +1,17 @@
-"""Completion expands placeholders without injected commands or tab-stop sessions."""
-import os
+"""Accept real completion items and fill their arguments through terminal keys."""
 from pathlib import Path
 import shutil
-import subprocess
 import unittest
+from tests import test_terminal_startup as terminal
 
 ROOT = Path(__file__).resolve().parents[1]
 BLINK = Path.home()/'.local/share/jvim/lazy/blink.cmp'
+LUASNIP = BLINK.parent/'LuaSnip'
 
 
 class CompletionTests(unittest.TestCase):
-    @unittest.skipUnless(shutil.which('nvim') and BLINK.is_dir(), 'Neovim and Blink required')
-    def test_expansion_preserves_text_mode_and_cursor_without_snippet_jumps(self):
-        env = dict(os.environ, JVIM_TEST_CONFIG=str(ROOT/'config'), JVIM_TEST_BLINK=str(BLINK))
-        result = subprocess.run(
-            ['nvim', '--headless', '-u', 'NONE', '-i', 'NONE', '-l', str(ROOT/'tests/completion.lua')],
-            env=env, capture_output=True, text=True, timeout=10,
-        )
-        self.assertEqual(result.returncode, 0, result.stderr)
+    @unittest.skipUnless(shutil.which('nvim') and BLINK.is_dir() and LUASNIP.is_dir()
+                         and all((terminal.PLUGINS/name).is_dir() for name in terminal.DEPENDENCIES),
+                         'Neovim, Blink, LuaSnip and tree dependencies required')
+    def test_completion_arguments_are_selected_and_sessions_end_cleanly(self):
+        terminal.TerminalStartupTests().check_startup(True, 'completion_placeholders')

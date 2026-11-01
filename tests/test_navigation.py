@@ -66,3 +66,9 @@ class NavigationTests(unittest.TestCase):
 
     def test_create_file_from_opened_tree_file_without_reopening_folder(self):
         self.check_case('add_file_from_editor')
+
+    def test_create_file_opens_closed_tree_in_one_invocation(self):
+        self.check_case('add_file_closed_tree')
+
+    def test_save_as_callback_retains_initiating_buffer(self):
+        self.check_case('save_as_origin')

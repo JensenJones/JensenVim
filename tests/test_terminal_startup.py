@@ -61,7 +61,7 @@ opts.filesystem.filtered_items = { hide_gitignored = false }
 require('neo-tree').setup(opts)
 require('mini.tabline').setup()
 require('mini.statusline').setup { use_icons = false }
-require('custom.keymaps')
+require('jvim.keymaps')
 vim.api.nvim_create_autocmd('VimEnter', { callback = function()
   vim.defer_fn(function() _G.jvim_test_started = true end, 300)
 end })
@@ -144,8 +144,22 @@ end })
     def test_theme_action_opens_picker(self):
         self.check_startup(True, 'theme_picker')
 
+    @unittest.skipUnless((Path.home()/'.local/share/jvim/lazy/snacks.nvim').is_dir(), 'Snacks input required')
+    def test_rename_input_supports_word_selection_and_deletion(self):
+        self.check_startup(True, 'rename_input')
+
+    def test_copy_paste_preserves_block_indentation(self):
+        self.check_startup(True, 'clipboard_indentation')
+
+    @unittest.skipUnless((PLUGINS/'telescope-ui-select.nvim').is_dir(), 'Telescope UI select required')
+    def test_code_action_picker_starts_with_empty_query(self):
+        self.check_startup(True, 'code_action_picker')
+
     def test_shift_enter_transport_opens_line_below(self):
         self.check_startup(True, 'shift_enter')
+
+    def test_option_up_selection_keeps_typing_modeless(self):
+        self.check_startup(True, 'option_up_selection')
 
     def check_mouse(self, interaction, remote, terminal_output, master):
         def lua(expression):
@@ -158,6 +172,71 @@ end })
         row, col = pos['row'] - 1, pos['col'] - 1
         def mouse(button, action):
             lua(f"vim.api.nvim_input_mouse('{button}','{action}','',0,{row},{col})")
+        if interaction == 'surround_selection':
+            for lines, start, sequence, expected in (
+                (['αβ tail'], [1,0], b'\x1b[1;2C' * 2, ['(αβ) tail']),
+                (['first','second tail'], [1,0], b'\x1b[1;2B' + b'\x1b[1;2C' * 6, ['(first','second) tail']),
+                (['first','second tail'], [2,6], b'\x1b[1;2D' * 6 + b'\x1b[1;2A', ['(first','second) tail']),
+            ):
+                lua("vim.cmd.stopinsert()")
+                time.sleep(0.05)
+                lua("(function() vim.cmd.normal({args={string.char(27)},bang=true}); vim.api.nvim_buf_set_lines(0,0,-1,false,vim.json.decode([=[" + json.dumps(lines) + "]=])); vim.api.nvim_win_set_cursor(0," + json.dumps(start).replace("[","{").replace("]","}") + "); vim.cmd.startinsert(); return true end)()")
+                os.write(master, sequence)
+                time.sleep(0.1)
+                self.assertEqual(state('vim.fn.mode()'), 's')
+                before_selection = state("{a=vim.fn.getpos('v'),b=vim.fn.getpos('.'),text=vim.fn.getregion(vim.fn.getpos('v'),vim.fn.getpos('.'),{type='v',exclusive=true})}")
+                os.write(master, b'(')
+                time.sleep(0.1)
+                self.assertEqual(state('vim.api.nvim_buf_get_lines(0,0,-1,false)'), expected, repr(before_selection))
+                self.assertEqual(state('vim.fn.mode()'), 'i')
+                os.write(master, b'X')
+                time.sleep(0.1)
+                expected[-1] = expected[-1].replace(')', 'X)', 1)
+                self.assertEqual(state('vim.api.nvim_buf_get_lines(0,0,-1,false)'), expected, 'typing after surround must precede its closing delimiter')
+            return
+        if interaction == 'unicode_word':
+            lua("(function() vim.api.nvim_buf_set_lines(0,0,-1,false,{'αβ next'}); vim.api.nvim_win_set_cursor(0,{1,0}); vim.cmd.startinsert(); return true end)()")
+            os.write(master, b'\x1b[1;3C')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.api.nvim_win_get_cursor(0)'), [1,4])
+            os.write(master, b'\x1b[1;3D')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.api.nvim_win_get_cursor(0)'), [1,0])
+            os.write(master, b'\x1b[1;4C')
+            time.sleep(0.1)
+            self.assertEqual(state("vim.fn.getregion(vim.fn.getpos('v'),vim.fn.getpos('.'),{type='v',exclusive=true})"), ['αβ'])
+            os.write(master, b'X')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.fn.getline(1)'), 'X next')
+            return
+        if interaction == 'mouse_history':
+            lua("vim.api.nvim_win_set_cursor(0,{1,0})")
+            point = state('vim.fn.screenpos(vim.api.nvim_get_current_win(),8,4)')
+            os.write(master, f"\x1b[<0;{point['col']};{point['row']}M\x1b[<0;{point['col']};{point['row']}m".encode())
+            time.sleep(0.1)
+            self.assertEqual(state('vim.api.nvim_win_get_cursor(0)'), [8,3])
+            os.write(master, b'\x1b[23;5~33')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.api.nvim_win_get_cursor(0)'), [1,0])
+            os.write(master, b'\x1b[23;5~34')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.api.nvim_win_get_cursor(0)'), [8,3])
+            return
+        if interaction == 'tree_new_file_modes':
+            lua("(function() _G.jvim_add_count=0; require('neo-tree.ui.inputs').input=function(_,_,callback) _G.jvim_add_count=_G.jvim_add_count+1; callback(nil) end; return true end)()")
+            for select in (False, True):
+                lua("(function() vim.cmd.stopinsert(); vim.cmd.normal({args={string.char(27)},bang=true}); require('jvim.files').show(vim.fn.bufnr(vim.env.JVIM_TEST_PROJECT..'/main.txt')); vim.api.nvim_win_set_cursor(0,{1,0}); vim.cmd.startinsert(); return true end)()")
+                if select:
+                    os.write(master, b'\x1b[1;2C')
+                    time.sleep(0.1)
+                    self.assertEqual(state('vim.fn.mode()'), 's')
+                os.write(master, b'\x1b[23;5~68')
+                time.sleep(0.15)
+                self.assertEqual(state('vim.bo.filetype'), 'neo-tree')
+                self.assertEqual(state('vim.fn.mode()'), 'n')
+            self.assertEqual(state('_G.jvim_add_count'), 2)
+            self.assertEqual(state("vim.api.nvim_buf_get_lines(vim.fn.bufnr(vim.env.JVIM_TEST_PROJECT..'/main.txt'),0,1,false)[1]"), 'alpha target omega')
+            return
         if interaction == 'tree_single_click':
             click_pos = state("(function() local s=require('neo-tree.sources.manager').get_state('filesystem'); for i,line in ipairs(vim.api.nvim_buf_get_lines(s.bufnr,0,-1,false)) do if line:find('main.txt',1,true) then local p=vim.fn.screenpos(s.winid,i,1); return {row=p.row-1,col=p.col-1,line=line} end end end)()")
             self.assertIsNotNone(click_pos, 'main.txt is not visible in Neo-tree')
@@ -165,8 +244,149 @@ end })
             time.sleep(0.1)
             self.assertTrue(state('vim.api.nvim_buf_get_name(0)').endswith('/main.txt'), 'one click in Neo-tree did not open main.txt')
             return
+        if interaction == 'completion_placeholders':
+            plugins = json.dumps(str(Path.home()/'.local/share/jvim/lazy'))
+            lua("(function() vim.opt.rtp:append(" + plugins + "..'/LuaSnip'); vim.opt.rtp:append(" + plugins + "..'/blink.cmp'); local completion=require('jvim.completion'); package.preload.jvim_test_completion=function() return {new=function() return {get_completions=function(_,_,callback) callback({is_incomplete_forward=false,is_incomplete_backward=false,items={{label='consume',kind=3,insertTextFormat=2,insertText='consume(${1:int first}, ${2:double second})$0'}}}) end,resolve=function(_,item,callback) vim.defer_fn(function() callback(item) end,vim.g.jvim_test_resolve_ms or 0) end} end} end; require('blink.cmp').setup({keymap=completion.keymap(),snippets=completion.snippets(),fuzzy={implementation='lua'},sources={default={'test'},providers={test={name='test',module='jvim_test_completion'}}},signature={enabled=false}}); vim.api.nvim_buf_set_lines(0,0,-1,false,{'    cons','unrelated'}); vim.api.nvim_win_set_cursor(0,{1,8}); return true end)()")
+            time.sleep(0.2)
+            def selected_text():
+                return state("table.concat(vim.fn.getregion(vim.fn.getpos('v'),vim.fn.getpos('.'),{type='v',exclusive=true}),'\\n')")
+            def accept(key=b'\t'):
+                lua("require('blink.cmp').show({providers={'test'}})")
+                time.sleep(0.2)
+                self.assertTrue(state("require('blink.cmp').is_menu_visible()"), 'test completion menu did not open')
+                os.write(master, key)
+                time.sleep(0.2)
+                self.assertEqual(state('vim.fn.mode()'), 's', 'accepting a function did not select the first argument: ' + repr(state("{line=vim.fn.getline(1),cursor=vim.api.nvim_win_get_cursor(0),tab=vim.fn.maparg('<Tab>','i',false,true).desc,active=require('jvim.completion').snippets().active()}")))
+                self.assertEqual(selected_text(), 'int first')
+            accept()
+            os.write(master, b'42')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.fn.getline(1)'), '    consume(42, double second)')
+            lua("require('blink.cmp').hide()")
+            os.write(master, b'\t')
+            time.sleep(0.1)
+            self.assertEqual(selected_text(), 'double second', 'Tab did not select the second argument')
+            os.write(master, b'\x1b[Z')
+            time.sleep(0.1)
+            self.assertEqual(selected_text(), '42', 'Shift+Tab did not select the previous argument')
+            os.write(master, b'\t')
+            time.sleep(0.1)
+            os.write(master, b'3.5')
+            time.sleep(0.1)
+            lua("require('blink.cmp').hide()")
+            os.write(master, b'\t')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.fn.getline(1)'), '    consume(42, 3.5)')
+            self.assertEqual(state('vim.fn.mode()'), 'i', 'finishing arguments did not resume typing')
+            self.assertFalse(state("require('jvim.completion').snippets().active()"), 'finished snippet still captures Tab')
+            self.assertFalse(state("require('jvim.completion').snippets().active({direction=-1})"), 'finished snippet still captures Shift+Tab')
+            os.write(master, b';')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.fn.getline(1)'), '    consume(42, 3.5);')
+            lua("(function() vim.api.nvim_buf_set_lines(0,0,-1,false,{'    cons','unrelated'}); vim.api.nvim_win_set_cursor(0,{1,8}); return true end)()")
+            accept()
+            os.write(master, b'\x1b')
+            time.sleep(0.3)
+            self.assertEqual(state('vim.fn.mode()'), 'i', 'Escape left snippet editing in command mode')
+            self.assertFalse(state("require('jvim.completion').snippets().active()"), 'Escape did not end argument navigation')
+            lua("(function() vim.api.nvim_buf_set_lines(0,0,-1,false,{'    cons','unrelated'}); vim.api.nvim_win_set_cursor(0,{1,8}); return true end)()")
+            accept()
+            point=state('vim.fn.screenpos(vim.api.nvim_get_current_win(),2,3)')
+            os.write(master, f"\x1b[<0;{point['col']};{point['row']}M\x1b[<0;{point['col']};{point['row']}m".encode())
+            time.sleep(0.15)
+            self.assertFalse(state("require('jvim.completion').snippets().active()"), 'clicking outside the call kept old argument navigation')
+            self.assertEqual(state('vim.fn.mode()'), 'i', 'clicking outside an argument left command mode active')
+            os.write(master, b'\t')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.api.nvim_win_get_cursor(0)[1]'), 2, 'Tab jumped back into an abandoned function call')
+            lua("(function() require('jvim.completion').stop(); require('blink.cmp').hide(); vim.g.jvim_test_resolve_ms=1000; vim.api.nvim_buf_set_lines(0,0,-1,false,{'    cons','unrelated'}); vim.api.nvim_win_set_cursor(0,{1,8}); require('blink.cmp').show({providers={'test'}}); return true end)()")
+            time.sleep(0.2)
+            os.write(master, b'\t42')
+            time.sleep(0.2)
+            try:
+                rapid_line=state('vim.fn.getline(1)')
+            except subprocess.TimeoutExpired:
+                self.fail('rapid completion blocked editor input: ' + b''.join(terminal_output)[-3500:].decode(errors='replace'))
+            self.assertEqual(rapid_line, '    consume(42, double second)', 'rapid typing after Tab missed the selected argument')
+            lua("require('blink.cmp').hide()")
+            os.write(master, b'\t3.5')
+            time.sleep(0.2)
+            self.assertEqual(state('vim.fn.getline(1)'), '    consume(42, 3.5)', 'rapid typing after jumping arguments corrupted text')
+            lua("require('blink.cmp').hide()")
+            for sequence in (b'\x1b[1;2D', b'\x1b[1;2C', b'\x1b[23;5~75', b'\x1b[23;5~76') * 2:
+                os.write(master,sequence)
+                time.sleep(0.05)
+                self.assertEqual(state('vim.fn.getline(1)'), '    consume(42, 3.5)', 'selection key ' + repr(sequence) + ' after a snippet inserted command text; mode=' + str(state('vim.fn.mode()')))
+                self.assertIn(state('vim.fn.mode()'), ('i','s','v'), 'selection keys after a snippet left command mode active')
+            lua("vim.api.nvim_exec_autocmds('User',{pattern='JvimTestExternalUpdate'})")
+            time.sleep(0.1)
+            self.assertEqual(state('vim.fn.getline(1)'), '    consume(42, 3.5)', 'an unrelated plugin event restored snippet command text')
+            os.write(master,b'\x1b')
+            time.sleep(0.15)
+            lua("(function() require('blink.cmp').hide(); vim.api.nvim_buf_set_lines(0,0,-1,false,{'    cons','unrelated'}); vim.api.nvim_win_set_cursor(0,{1,8}); return true end)()")
+            accept(b'\r')
+            os.write(master,b'd')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.fn.getline(1)'), '    consume(d, double second)', 'Enter acceptance did not leave editable argument placeholders')
+            lua("(function() local b=vim.fn.bufadd(vim.env.JVIM_TEST_PROJECT..'/other.txt'); vim.fn.bufload(b); require('jvim.files').show(b); return true end)()")
+            time.sleep(0.15)
+            self.assertFalse(state("require('jvim.completion').snippets().active()"), 'switching files kept the previous argument session')
+            os.write(master,b'\t')
+            time.sleep(0.1)
+            self.assertTrue(state('vim.api.nvim_buf_get_name(0)').endswith('/other.txt'), 'Tab returned to a previous file snippet')
+            lua("(function() require('blink.cmp').hide(); vim.api.nvim_buf_set_lines(0,0,-1,false,{'before cons after'}); vim.api.nvim_win_set_cursor(0,{1,11}); return true end)()")
+            accept()
+            point=state('vim.fn.screenpos(vim.api.nvim_get_current_win(),1,2)')
+            os.write(master, f"\x1b[<0;{point['col']};{point['row']}M\x1b[<0;{point['col']};{point['row']}m".encode())
+            time.sleep(0.15)
+            self.assertFalse(state("require('jvim.completion').snippets().active()"), 'same-line click outside the call kept old argument navigation')
+            self.assertEqual(state('vim.fn.mode()'), 'i')
+            return
+        if interaction == 'option_up_selection':
+            lua('vim.api.nvim_win_set_cursor(0,{1,8})')
+            os.write(master, b'\x1b[23;5~49')
+            time.sleep(0.15)
+            self.assertEqual(state('vim.fn.mode()'), 's', 'Option+Up left ordinary typing in command mode')
+            os.write(master, b'd')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.fn.getline(1)'), 'alpha d omega', 'typing after Option+Up ran a Vim command instead of replacing the word')
+            self.assertEqual(state('vim.fn.mode()'), 'i')
+            site = json.dumps(str(Path.home()/'.local/share/jvim/site'))
+            lua("(function() vim.opt.rtp:append(" + site + "); vim.api.nvim_buf_set_lines(0,0,-1,false,{'void f() {','    auto value = call(argument);','}'}); vim.bo.filetype='cpp'; vim.treesitter.start(0,'cpp'); vim.api.nvim_win_set_cursor(0,{2,24}); return true end)()")
+            for index, sequence in enumerate((b'\x1b[23;5~49', b'\x1b[1;3A') * 4):
+                os.write(master, sequence)
+                time.sleep(0.08)
+                self.assertEqual(state('vim.fn.mode()'), 's', 'repeated Option+Up entered command mode')
+                if index == 2:
+                    lua('require("jvim.autosave").save_all()')
+            shrink_states = []
+            for sequence in (b'\x1b[23;5~50', b'\x1b[1;3B') * 5:
+                os.write(master, sequence)
+                time.sleep(0.08)
+                shrink_states.append(state('{mode=vim.fn.mode(),cursor=vim.api.nvim_win_get_cursor(0),tick=vim.b.changedtick}'))
+                self.assertIn(state('vim.fn.mode()'), ('i', 's'), 'Option+Down entered command mode')
+            self.assertEqual(state('vim.fn.mode()'), 'i', 'shrinking the selection did not return to typing')
+            self.assertEqual(state('vim.api.nvim_win_get_cursor(0)'), [2,24], 'shrink lost original edit position: ' + repr(shrink_states))
+            self.assertEqual(state('vim.api.nvim_buf_get_lines(0,0,-1,false)'), ['void f() {', '    auto value = call(argument);', '}'], 'expanding/shrinking syntax selections changed source text')
+            os.write(master, b'\x1b[23;5~49')
+            time.sleep(0.1)
+            os.write(master, b'd')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.fn.getline(2)'), '    auto value = call(d);', 'typing over a syntax selection ran a Vim command')
+            self.assertEqual(state('vim.fn.mode()'), 'i')
+            for line in ('', '    '):
+                lua('(function() vim.api.nvim_buf_set_lines(0,0,-1,false,{' + json.dumps(line) + '}); vim.api.nvim_win_set_cursor(0,{1,0}); return true end)()')
+                os.write(master, b'\x1b[23;5~49')
+                time.sleep(0.1)
+                self.assertIn(state('vim.fn.mode()'), ('i', 's'), 'Option+Up on a blank line entered command mode')
+                self.assertEqual(state('vim.api.nvim_buf_get_lines(0,0,-1,false)'), [line], 'Option+Up on a blank line changed text')
+                os.write(master, b'd')
+                time.sleep(0.1)
+                self.assertIn('d', state('vim.fn.getline(1)'), 'typing after Option+Up on a blank line ran a Vim command')
+                self.assertEqual(state('vim.fn.mode()'), 'i')
+            return
         if interaction == 'theme_picker':
-            lua("(function() require('custom.theme').setup(); require('custom.action_picker').open(); return true end)()")
+            lua("(function() require('jvim.theme').setup(); require('jvim.action_picker').open(); return true end)()")
             time.sleep(0.2)
             def picker_state():
                 return state("{theme=vim.g.colors_name,mode=vim.fn.mode(),windows=vim.tbl_map(function(w) local b=vim.api.nvim_win_get_buf(w); return {ft=vim.bo[b].filetype,lines=vim.api.nvim_buf_get_lines(b,0,3,false)} end,vim.api.nvim_list_wins())}")
@@ -185,6 +405,73 @@ end })
             self.assertEqual(state('vim.g.colors_name'), 'dark-ubuntu', 'selecting Dark Ubuntu through the theme picker did not apply it')
             self.assertEqual(state('vim.fn.getline(1)'), 'alpha target omega', 'picker handoff inserted text into the editor')
             return
+        if interaction == 'code_action_picker':
+            plugin = json.dumps(str(PLUGINS/'telescope-ui-select.nvim'))
+            lua("(function() vim.opt.rtp:append(" + plugin + "); require('jvim.ui_select').setup(); vim.keymap.set({'n','i'},'<F23>',function() vim.ui.select({{ctx={client_id=-1},action={title='Add missing include'}}},{kind='codeaction',prompt='Code actions:'},function(value) vim.g.code_action_chosen=value and value.action.title end) end,{desc='Quick fix'}); require('jvim.action_picker').open(); return true end)()")
+            time.sleep(0.2)
+            os.write(master, b'Quick fix')
+            time.sleep(0.2)
+            os.write(master, b'\r')
+            time.sleep(0.2)
+            self.assertEqual(state('vim.bo.filetype'), 'TelescopePrompt')
+            self.assertEqual(state("require('telescope.actions.state').get_current_picker(vim.api.nvim_get_current_buf()):_get_prompt()"), '', 'code action picker started with unwanted text')
+            os.write(master, b'\r')
+            time.sleep(0.2)
+            self.assertEqual(state('vim.g.code_action_chosen'), 'Add missing include')
+            self.assertEqual(state('vim.fn.getline(1)'), 'alpha target omega', 'code action picker changed the source text')
+            lua('vim.cmd.stopinsert()')
+            time.sleep(0.1)
+            lua("(function() vim.cmd.startinsert(); vim.ui.select({'Add missing include'},{prompt='Code actions:'},function() end); return true end)()")
+            time.sleep(0.2)
+            self.assertEqual(state("require('telescope.actions.state').get_current_picker(vim.api.nvim_get_current_buf()):_get_prompt()"), '', 'pending typing mode leaked text into the code action picker')
+            return
+        if interaction == 'rename_input':
+            plugin = json.dumps(str(Path.home()/'.local/share/jvim/lazy/snacks.nvim'))
+            lua("(function() vim.opt.rtp:append(" + plugin + "); require('snacks').setup(require('jvim.plugins.input').opts); require('snacks').input.enable(); vim.ui.input({prompt='Rename to:',default='oldName'},function(value) vim.g.rename_result=value or 'cancelled' end); return true end)()")
+            time.sleep(0.2)
+            self.assertEqual(state('vim.bo.filetype'), 'snacks_input')
+            os.write(master, b'\x1b[1;5D')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.api.nvim_win_get_cursor(0)[2]'), 0, 'Option+Left did not move to word start in rename input')
+            os.write(master, b'\x1b[1;5C')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.api.nvim_win_get_cursor(0)[2]'), 7, 'Option+Right did not move to word end in rename input')
+            self.assertEqual(state('vim.fn.mode(1)'), 'i', 'word movement left rename input outside typing mode')
+            os.write(master, b'\x1b\x7f')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.api.nvim_get_current_line()'), '', 'Option+Delete did not delete the word in rename input')
+            os.write(master, b'oldName')
+            time.sleep(0.1)
+            os.write(master, b'\x1b[23;5~75')
+            time.sleep(0.1)
+            self.assertIn(state('vim.fn.mode()'), ('s','v'), 'Option+Shift+Left did not select the rename word')
+            os.write(master, b'newName')
+            time.sleep(0.1)
+            self.assertEqual(state('vim.api.nvim_get_current_line()'), 'newName', 'typing did not replace the rename selection')
+            os.write(master, b'\r')
+            time.sleep(0.2)
+            self.assertEqual(state('vim.g.rename_result'), 'newName', 'typing over selection did not submit the new name')
+            self.assertEqual(state('vim.fn.getline(1)'), 'alpha target omega', 'rename input editing changed source text')
+            lua("(function() vim.ui.input({prompt='Rename to:',default='unchanged'},function(value) vim.g.rename_cancel=value or 'cancelled' end); return true end)()")
+            time.sleep(0.1)
+            os.write(master, b'\x1b')
+            time.sleep(0.3)
+            self.assertEqual(state('vim.g.rename_cancel'), 'cancelled', 'Escape should cancel rename directly')
+            return
+        if interaction == 'clipboard_indentation':
+            expected = ['    if (ready) {', '\t\twork();', '    }']
+            lua('vim.cmd.stopinsert()')
+            time.sleep(0.1)
+            lua("(function() vim.api.nvim_buf_set_lines(0,0,-1,false,{ '    if (ready) {', '\\t\\twork();', '    }' }); vim.cmd('normal! gg0v'); vim.api.nvim_win_set_cursor(0,{3,5}); return true end)()")
+            os.write(master, b'\x1b[23;5~13')
+            time.sleep(0.2)
+            self.assertEqual(state('vim.fn.getreg("+")'), '\n'.join(expected), 'copy changed leading spaces or tabs')
+            lua("(function() local b=vim.fn.bufadd(vim.env.JVIM_TEST_PROJECT..'/pasted.txt'); vim.fn.bufload(b); vim.api.nvim_buf_set_lines(b,0,-1,false,{''}); require('jvim.files').show(b); vim.api.nvim_win_set_cursor(0,{1,0}); return true end)()")
+            time.sleep(0.1)
+            os.write(master, b'\x1b[23;5~15')
+            time.sleep(0.2)
+            self.assertEqual(state('vim.api.nvim_buf_get_lines(0,0,-1,false)'), expected, 'paste changed block indentation')
+            return
         if interaction == 'shift_enter':
             lua("(function() vim.api.nvim_buf_set_lines(0,0,-1,false,{'    preserve this line','next line'}); vim.api.nvim_win_set_cursor(0,{1,8}); vim.cmd.startinsert(); return true end)()")
             os.write(master, b'\x1b[23;5~69')
@@ -194,19 +481,19 @@ end })
             self.assertEqual(actual[1].strip(), '', 'Shift+Enter did not create a blank line below: ' + repr(actual))
             return
         if interaction == 'tree_toggle':
-            lua("assert(vim.fn.maparg('\\\\', 'n') ~= '', 'project tree toggle was not installed')")
-            os.write(master, b'\\')
+            lua("assert(vim.fn.maparg('<F4>', 'n') ~= '', 'project tree toggle was not installed')")
+            os.write(master, b'\x1bOS')
             time.sleep(0.1)
-            self.assertEqual(state("vim.tbl_contains(vim.tbl_map(function(w) return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' end,vim.api.nvim_tabpage_list_wins(0)),true)"), False, 'Backslash did not hide the tree from the editor')
-            os.write(master, b'\\')
+            self.assertEqual(state("vim.tbl_contains(vim.tbl_map(function(w) return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' end,vim.api.nvim_tabpage_list_wins(0)),true)"), False, 'F4 did not hide the tree from the editor')
+            os.write(master, b'\x1bOS')
             time.sleep(0.1)
-            self.assertEqual(state("vim.tbl_contains(vim.tbl_map(function(w) return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' end,vim.api.nvim_tabpage_list_wins(0)),true)"), True, 'Backslash did not bring back the hidden tree')
-            os.write(master, b'\\')
+            self.assertEqual(state("vim.tbl_contains(vim.tbl_map(function(w) return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' end,vim.api.nvim_tabpage_list_wins(0)),true)"), True, 'F4 did not bring back the hidden tree')
+            os.write(master, b'\x1bOS')
             time.sleep(0.1)
-            self.assertEqual(state("vim.tbl_contains(vim.tbl_map(function(w) return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' end,vim.api.nvim_tabpage_list_wins(0)),true)"), False, 'Backslash did not hide the tree while it had focus')
-            os.write(master, b'\\')
+            self.assertEqual(state("vim.tbl_contains(vim.tbl_map(function(w) return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' end,vim.api.nvim_tabpage_list_wins(0)),true)"), False, 'F4 did not hide the tree while it had focus')
+            os.write(master, b'\x1bOS')
             time.sleep(0.1)
-            self.assertEqual(state("vim.tbl_contains(vim.tbl_map(function(w) return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' end,vim.api.nvim_tabpage_list_wins(0)),true)"), True, 'Backslash did not restore the tree after hiding it from tree focus')
+            self.assertEqual(state("vim.tbl_contains(vim.tbl_map(function(w) return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == 'neo-tree' end,vim.api.nvim_tabpage_list_wins(0)),true)"), True, 'F4 did not restore the tree after hiding it from tree focus')
             return
         if interaction == 'fold_buttons':
             lua("(function() vim.api.nvim_buf_set_lines(0,0,-1,false,{'function start','  first','  second','end','after'}); vim.wo.foldmethod='manual'; vim.wo.foldenable=true; vim.wo.foldlevel=99; vim.cmd('1,4fold'); vim.cmd('normal! zo'); vim.api.nvim_win_set_cursor(0,{1,0}); return true end)()")
@@ -221,7 +508,7 @@ end })
             self.assertEqual(state('vim.fn.foldclosed(1)'), -1, 'clicking [+ Fold] did not expand code')
             return
         if interaction == 'command_terminal':
-            lua("require('custom.command_terminal').open()")
+            lua("require('jvim.command_terminal').open()")
             self.assertEqual(state('vim.bo.buftype'), 'terminal')
             self.assertTrue(state('vim.fn.getcwd()').endswith('/Honours'))
             lua("vim.api.nvim_input('echo JVIM_COMMAND_OK\\r')")
@@ -300,8 +587,21 @@ end })
                 self.assertEqual(actual, expected, f'Option+Right should stop at the next identifier boundary, got {actual}')
             self.assertEqual(state('vim.fn.getline(1)'), 'leftIt->timestamp, call()', 'Option+Right inserted text')
             return
+        if interaction == 'terminal_normal_cmdw':
+            lua("(function() _G.jvim_test_terminal=require('jvim.command_terminal').open(); return true end)()")
+            lua("vim.api.nvim_feedkeys(vim.keycode('<C-\\\\><C-n>'),'mxt',false)")
+            time.sleep(0.1)
+            self.assertEqual(state('vim.fn.mode()'), 'n')
+            self.assertEqual(state('vim.bo.buftype'), 'terminal')
+            lua("vim.api.nvim_input('<C-F11>20')")
+            time.sleep(0.1)
+            self.assertNotEqual(state('vim.bo.buftype'), 'terminal')
+            self.assertTrue(state('vim.api.nvim_buf_is_valid(_G.jvim_test_terminal.buf)'))
+            self.assertEqual(state('vim.fn.jobwait({_G.jvim_test_terminal.job},0)[1]'), -1)
+            lua("vim.fn.jobstop(_G.jvim_test_terminal.job)")
+            return
         if interaction == 'terminal_cmdw':
-            lua("require('custom.command_terminal').open()")
+            lua("require('jvim.command_terminal').open()")
             self.assertEqual(state('vim.bo.buftype'), 'terminal')
             lua("vim.cmd.startinsert()")
             time.sleep(0.05)
@@ -315,7 +615,7 @@ end })
             lua("vim.api.nvim_feedkeys(vim.keycode('<C-F11>13'),'mxt',false)")
             time.sleep(0.2)
             self.assertEqual(state('vim.fn.getreg("+" )'), 'target', 'iTerm Cmd+C sequence did not copy the selection')
-            lua("(function() local b=vim.fn.bufadd(vim.env.JVIM_TEST_PROJECT..'/other.txt'); vim.fn.bufload(b); vim.api.nvim_buf_set_lines(b,0,-1,false,{'destination'}); require('custom.files').show(b); vim.api.nvim_win_set_cursor(0,{1,0}); return true end)()")
+            lua("(function() local b=vim.fn.bufadd(vim.env.JVIM_TEST_PROJECT..'/other.txt'); vim.fn.bufload(b); vim.api.nvim_buf_set_lines(b,0,-1,false,{'destination'}); require('jvim.files').show(b); vim.api.nvim_win_set_cursor(0,{1,0}); return true end)()")
             lua("vim.api.nvim_feedkeys(vim.keycode('<C-F11>15'),'mxt',false)")
             time.sleep(0.2)
             self.assertEqual(state('vim.fn.getline(1)'), 'targetdestination', 'iTerm Cmd+V sequence did not paste into another file')
@@ -438,7 +738,7 @@ end })
     def test_iterm_copy_and_paste_work_between_files(self):
         self.check_startup(False, 'clipboard_copy_paste')
 
-    def test_iterm_command_one_hides_and_restores_the_tree(self):
+    def test_f4_hides_and_restores_the_tree(self):
         self.check_startup(False, 'tree_toggle')
 
     def test_iterm_command_w_closes_only_the_jvim_terminal_pane(self):
@@ -449,3 +749,18 @@ end })
 
     def test_undo_reverses_a_suggested_code_action(self):
         self.check_startup(False, 'code_action_undo')
+
+    def test_unicode_word_movement_and_selection(self):
+        self.check_startup(False, 'unicode_word')
+
+    def test_mouse_history_back_and_forward(self):
+        self.check_startup(False, 'mouse_history')
+
+    def test_new_file_leaves_insert_and_select_in_one_invocation(self):
+        self.check_startup(False, 'tree_new_file_modes')
+
+    def test_surround_selection_preserves_unicode_multiline_and_reverse_ranges(self):
+        self.check_startup(False, 'surround_selection')
+
+    def test_command_w_hides_normal_mode_terminal_without_stopping_job(self):
+        self.check_startup(False, 'terminal_normal_cmdw')

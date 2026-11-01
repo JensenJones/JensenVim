@@ -14,7 +14,7 @@ opts.filesystem.filtered_items = { hide_gitignored = false }
 require('neo-tree').setup(opts)
 vim.cmd 'runtime plugin/neo-tree.lua'
 require('mini.tabline').setup()
-require 'custom.keymaps'
+require 'jvim.keymaps'
 vim.v.errmsg = ''
 -- Exercise desktop startup without starting a desktop UI or plugin manager.
 vim.api.nvim_list_uis = function() return { {} } end
@@ -127,18 +127,32 @@ elseif case == 'tree_toggle' then
   vim.api.nvim_exec_autocmds('VimEnter', { group = 'clion-editing' })
   settle()
   local mainbuf = open(main)
-  press_typed '\\'
-  assert(vim.bo.filetype ~= 'neo-tree', 'Backslash did not close tree from Normal mode')
-  press_typed '\\'
-  assert(vim.bo.filetype == 'neo-tree', 'Backslash did not reopen a closed tree')
-  require('custom.files').show(mainbuf)
-  press_typed '\\'
-  assert(vim.bo.filetype ~= 'neo-tree', 'Backslash did not close a visible tree from the editor')
+  press_typed '<F4>'
+  assert(vim.bo.filetype ~= 'neo-tree', 'F4 did not close tree from Normal mode')
+  press_typed '<F4>'
+  assert(vim.bo.filetype == 'neo-tree', 'F4 did not reopen a closed tree')
+  require('jvim.files').show(mainbuf)
+  press_typed '<F4>'
+  assert(vim.bo.filetype ~= 'neo-tree', 'F4 did not close a visible tree from the editor')
   assert(vim.api.nvim_get_current_buf() == mainbuf, 'closing the tree lost the current file')
-  press_typed '\\'
-  assert(vim.bo.filetype == 'neo-tree', 'Backslash did not reopen a closed tree')
+  press_typed '<F4>'
+  assert(vim.bo.filetype == 'neo-tree', 'F4 did not reopen a closed tree')
+elseif case == 'save_as_origin' then
+  vim.cmd.enew()
+  local origin = vim.api.nvim_get_current_buf()
+  vim.api.nvim_buf_set_lines(origin, 0, -1, false, { 'saved from origin' })
+  local answer
+  vim.ui.input = function(_, callback) answer = callback end
+  press '<F16>'
+  vim.cmd.edit(vim.fn.fnameescape(main))
+  local other_buf = vim.api.nvim_get_current_buf()
+  answer(root .. '/saved-origin.txt')
+  assert(vim.api.nvim_get_current_buf() == other_buf, 'Save as changed the active file')
+  assert(vim.api.nvim_buf_get_name(other_buf) == main, 'Save as renamed the wrong buffer')
+  assert(vim.api.nvim_buf_get_name(origin) == root .. '/saved-origin.txt', 'Save as lost its origin')
+  assert(vim.fn.readfile(root .. '/saved-origin.txt')[1] == 'saved from origin')
 elseif case == 'new_header' then
-  require('custom.cpp_header').setup()
+  require('jvim.cpp_header').setup()
   vim.cmd.edit(vim.fn.fnameescape(root .. '/manual.hpp'))
   assert(vim.fn.getline(1) == '#pragma once', 'new .hpp buffer did not start with #pragma once')
 elseif case == 'recent_files' then
@@ -148,21 +162,22 @@ elseif case == 'recent_files' then
   local mainbuf = open(main)
   local otherbuf = open(other)
   local thirdbuf = open(third)
-  require('custom.files').show(mainbuf)
+  require('jvim.files').show(mainbuf)
   press '<C-Tab>'
   assert(vim.api.nvim_get_current_buf() == thirdbuf,
     'Ctrl+Tab did not select the most recently used other file: ' .. vim.inspect({ current = vim.api.nvim_get_current_buf(), expected = thirdbuf }))
   press '<C-Tab>'
   assert(vim.api.nvim_get_current_buf() == otherbuf, 'repeated Ctrl+Tab did not continue through older recent files')
-  require('custom.files').show(mainbuf)
+  require('jvim.files').show(mainbuf)
   press '<C-S-Tab>'
   assert(vim.api.nvim_get_current_buf() == thirdbuf, 'Ctrl+Shift+Tab did not move backward in the recent-file cycle')
-elseif case == 'add_file_from_editor' then
+elseif case == 'add_file_from_editor' or case == 'add_file_closed_tree' then
   vim.api.nvim_exec_autocmds('VimEnter', { group = 'clion-editing' })
   settle()
   focus_tree()
   local mainbuf = open(main)
   assert(vim.api.nvim_get_current_buf() == mainbuf and vim.bo.filetype ~= 'neo-tree', 'file click did not leave the editor focused')
+  if case == 'add_file_closed_tree' then require('neo-tree.command').execute { action = 'close', position = 'left' } end
   local inputs = require('neo-tree.ui.inputs')
   local original_input = inputs.input
   local default_path
@@ -170,7 +185,7 @@ elseif case == 'add_file_from_editor' then
     default_path = default
     callback('created-from-editor.hpp')
   end
-  press '<D-n>'
+  press_typed '<D-n>'
   inputs.input = original_input
   settle()
   assert(default_path ~= nil, 'Cmd+N did not open the tree add-file flow')

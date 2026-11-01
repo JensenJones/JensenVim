@@ -25,10 +25,23 @@ def request(path, operation):
 
 def main():
     args = sys.argv[1:]
-    installed = json.loads((ROOT/'runtime.json').read_text()) if (ROOT/'runtime.json').exists() else {}
-    NVIM = os.environ.get('JVIM_NVIM') or shutil.which('nvim') or installed.get('nvim')
+    overrides = [name for name in ('XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_CACHE_HOME') if os.environ.get(name)]
+    if overrides:
+        raise RuntimeError('Custom XDG paths are not supported: '+', '.join(overrides)+'. Unset them before launching jvim.')
+    metadata = ROOT/'runtime.json'
+    try:
+        installed = json.loads(metadata.read_text()) if metadata.exists() else {}
+        if not isinstance(installed, dict):
+            raise ValueError('expected a JSON object')
+    except (OSError, ValueError) as error:
+        raise RuntimeError(f'Cannot read {metadata}; rerun the installer or repair this file: {error}') from error
+    requested = os.environ.get('JVIM_NVIM') or shutil.which('nvim') or installed.get('nvim')
+    if requested and not isinstance(requested, str):
+        raise RuntimeError(f'Invalid Neovim path in {metadata}; rerun the installer.')
+    NVIM = shutil.which(os.path.expanduser(requested)) if requested else None
     if not NVIM:
-        raise SystemExit('jvim: install Neovim and put nvim on PATH first')
+        raise RuntimeError('Cannot find an executable Neovim'+(f': {requested}' if requested else '')+'. Install nvim on PATH or set JVIM_NVIM to its executable.')
+    NVIM = os.path.abspath(NVIM)
     env = os.environ.copy()
     env['NVIM_APPNAME'] = 'jvim'
     if not sys.stdout.isatty():
@@ -73,4 +86,7 @@ def main():
                 pass
 
 if __name__ == '__main__':
-    raise SystemExit(main())
+    try:
+        raise SystemExit(main())
+    except (OSError, RuntimeError, ValueError) as error:
+        raise SystemExit('jvim: '+str(error))

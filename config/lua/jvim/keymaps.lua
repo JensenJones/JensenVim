@@ -1,4 +1,5 @@
 local map = vim.keymap.set
+local settings = require('jvim.config').get()
 
 -- Neovim's modeless mouse selection bypasses buffer-local <LeftMouse>
 -- mappings. Open Neo-tree nodes after the mouse event has updated its row.
@@ -18,58 +19,10 @@ vim.on_key(function(_, typed)
   end)
 end, vim.api.nvim_create_namespace 'jvim-tree-single-click')
 
-local function identifier_spans(line)
-  local spans, offset = {}, 0
-  while offset < #line do
-    local match = vim.fn.matchstrpos(line, [[\k\+]], offset)
-    local first, after = match[2], match[3]
-    if first < 0 then break end
-    spans[#spans + 1] = { first, after }
-    offset = math.max(after, first + 1)
-  end
-  return spans
-end
-
-local function identifier_target(direction, insert_mode)
-  local cursor = vim.api.nvim_win_get_cursor(0)
-  local line = vim.api.nvim_get_current_line()
-  local col = cursor[2]
-  local spans = identifier_spans(line)
-  if direction > 0 then
-    for _, span in ipairs(spans) do
-      local first, after = span[1], span[2]
-      if insert_mode then
-        if col >= first and col < after then return after end
-        if first >= col then return after end
-      else
-        if col >= first and col < after - 1 then return after - 1 end
-        if first > col then return after - 1 end
-      end
-    end
-  else
-    for index = #spans, 1, -1 do
-      local first, after = spans[index][1], spans[index][2]
-      if insert_mode then
-        if col > first and col <= after then return first end
-        if after < col then return first end
-      else
-        if col > first then return first end
-      end
-    end
-  end
-  -- Once identifiers run out, consume the remaining punctuation instead of
-  -- trapping the cursor at the final word (for example, begin|();).
-  if direction > 0 then return insert_mode and #line or math.max(#line - 1, 0) end
-  return 0
-end
-
-local function select_identifier(direction)
-  local cursor = vim.api.nvim_win_get_cursor(0)
-  local target = identifier_target(direction, true)
-  local distance = math.abs(target - cursor[2])
-  if distance == 0 then return '' end
-  return string.rep(direction > 0 and '<S-Right>' or '<S-Left>', distance)
-end
+local selection = require 'jvim.selection'
+local identifier_target = selection.target
+local select_identifier = selection.select
+local editing = require 'jvim.editing'
 
 -- Familiar selection: Shift+arrows select; typing replaces the selection.
 vim.o.keymodel = 'startsel,stopsel'
@@ -112,7 +65,7 @@ map({ 'n', 'i', 's', 'x' }, '<M-S-Right>', function() return select_identifier(1
   { expr = true, replace_keycodes = true, desc = 'Select next word' })
 map({ 'n', 'i', 's', 'x' }, '<C-S-Right>', function() return select_identifier(1) end,
   { expr = true, replace_keycodes = true, desc = 'Select next word' })
-map('i', '<M-BS>', '<C-w>', { desc = 'Delete previous word' })
+map('i', '<M-BS>', '<C-S-w>', { desc = 'Delete previous word' })
 map('i', '<M-d>', '<C-o>de', { desc = 'Delete next word' })
 -- iTerm Natural Text Editing sends these for Command+Backspace/Left/Right.
 map('i', '<C-u>', '<C-g>u<C-u>', { desc = 'Delete to line start' })
@@ -135,11 +88,11 @@ end
 for _, prefix in ipairs { 'D', 'C' } do
   shortcut('<' .. prefix .. '-c>', '"+yy', '<C-o>"+yy', '<C-g>"+ygv<C-g>', '"+ygv', 'Copy')
   shortcut('<' .. prefix .. '-x>', '"+ddi', '<C-o>"+dd', '<C-g>"+di', '"+di', 'Cut')
-  shortcut('<' .. prefix .. '-v>', 'i<C-r><C-p>+', '<C-r><C-p>+', '<C-g>"_c<C-r><C-p>+', '"_c<C-r><C-p>+', 'Paste')
+  shortcut('<' .. prefix .. '-v>', 'i<C-r><C-o>+', '<C-r><C-o>+', '<C-g>"_c<C-r><C-o>+', '"_c<C-r><C-o>+', 'Paste')
 end
 shortcut('<F13>', '"+yy', '<C-o>"+yy', '<C-g>"+ygv<C-g>', '"+ygv', 'Copy')
 shortcut('<F14>', '"+ddi', '<C-o>"+dd', '<C-g>"+di', '"+di', 'Cut')
-shortcut('<F15>', 'i<C-r><C-p>+', '<C-r><C-p>+', '<C-g>"_c<C-r><C-p>+', '"_c<C-r><C-p>+', 'Paste')
+shortcut('<F15>', 'i<C-r><C-o>+', '<C-r><C-o>+', '<C-g>"_c<C-r><C-o>+', '"_c<C-r><C-o>+', 'Paste')
 shortcut('<F25>', 'gg0vG$<C-g>', '<Esc>gg0vG$<C-g>', '<Esc>gg0vG$<C-g>', '<Esc>gg0vG$<C-g>', 'Select all')
 map({ 'n', 'i', 's', 'x' }, '<D-a>', '<Esc>gg0vG$<C-g>', { desc = 'Select all' })
 -- iTerm sends Shift+Enter as the packaged F35 action 69. Open a line below
@@ -159,7 +112,7 @@ map({ 'n', 'i', 's', 'x' }, '<F35>76', function() return select_identifier(1) en
 
 map('c', '<F15>', '<C-r>+', { desc = 'Paste into command line' })
 map('c', '<D-v>', '<C-r>+', { desc = 'Paste into command line' })
-local close_terminal = '<C-\\><C-n><cmd>close<CR>'
+local close_terminal = '<C-\\><C-n><Cmd>lua require("jvim.command_terminal").hide()<CR>'
 map('t', '<F20>', close_terminal, { desc = 'Close terminal pane' })
 map('t', '<D-w>', close_terminal, { desc = 'Close terminal pane' })
 
@@ -168,28 +121,15 @@ local function action(keys, fn, desc)
     map({ 'n', 'i', 's', 'x' }, key, fn, { desc = desc })
   end
 end
-action({ '<F35>67', '<D-M-;>' }, function() require('custom.command_terminal').open() end, 'Open terminal')
-action({ '<F35>68', '<D-n>' }, function()
-  local state = require('neo-tree.sources.manager').get_state 'filesystem'
-  if not state or not state.winid or not vim.api.nvim_win_is_valid(state.winid) then
-    require('neo-tree.command').execute { action = 'show', position = 'left' }
-    vim.notify('Use Cmd+N again after the project tree opens to add a file', vim.log.levels.INFO)
-    return
-  end
-  vim.api.nvim_set_current_win(state.winid)
-  vim.api.nvim_feedkeys(vim.keycode 'a', 'mxt', false)
-end, 'New file in selected project folder')
+action({ '<F35>67', '<D-M-;>' }, function() require('jvim.command_terminal').open() end, 'Open terminal')
+for _, key in ipairs { '<F35>68', '<D-n>' } do
+  map({ 'n', 'i', 's', 'x' }, key, '<C-\\><C-n><Cmd>lua require("jvim.files").new_file()<CR>',
+    { desc = 'New file in selected project folder' })
+end
 local function telescope(name)
-  return function() require('telescope.builtin')[name]() end
+  return function() require('jvim.pickers').open(name) end
 end
-local function resume_editing()
-  local buf = vim.api.nvim_get_current_buf()
-  if vim.bo[buf].filetype == 'neo-tree' then
-    vim.cmd.stopinsert()
-  elseif vim.bo[buf].buftype == '' and vim.bo[buf].modifiable and vim.fn.isdirectory(vim.api.nvim_buf_get_name(buf)) == 0 then
-    vim.cmd.startinsert()
-  end
-end
+local resume_editing = editing.resume
 local undo_cursors = {}
 local function undo()
   local buf = vim.api.nvim_get_current_buf()
@@ -217,10 +157,13 @@ action({ '<F16>', '<D-s>', '<C-s>' }, function()
     end
   end
   if vim.api.nvim_buf_get_name(0) == '' then
+    local context = editing.capture()
     vim.ui.input({ prompt = 'Save as: ', completion = 'file' }, function(name)
       if name and name ~= '' then
-        vim.cmd('confirm saveas ' .. vim.fn.fnameescape(name))
-        save()
+        context:apply(function()
+          vim.cmd('confirm saveas ' .. vim.fn.fnameescape(name))
+          save()
+        end)
       end
     end)
   else
@@ -230,21 +173,25 @@ end, 'Save all')
 action({ '<F17>', '<D-S-o>' }, telescope 'find_files', 'Find file')
 action({ '<F18>', '<D-S-f>', '<C-S-f>' }, telescope 'live_grep', 'Search project')
 action({ '<F19>', '<D-e>' }, telescope 'oldfiles', 'Recent files')
-action({ '<F35>38', '<C-S-a>', '<D-S-a>' }, function() require('custom.action_picker').open() end, 'Find action or shortcut')
-vim.api.nvim_create_user_command('Shortcuts', function() require('custom.action_picker').open() end, { desc = 'Find an editor action or shortcut' })
+action({ '<F35>38', '<C-S-a>', '<D-S-a>' }, function() require('jvim.action_picker').open() end, 'Find action or shortcut')
+vim.api.nvim_create_user_command('Shortcuts', function() require('jvim.action_picker').open() end, { desc = 'Find an editor action or shortcut' })
 local closed_files = {}
 action({ '<F20>', '<D-w>' }, function()
+  if vim.b.jvim_command_terminal then
+    require('jvim.command_terminal').hide()
+    return
+  end
   if vim.bo.filetype == 'neo-tree' then
     require('neo-tree.command').execute { action = 'close', position = 'left' }
     return
   end
   if vim.b.jvim_pdf_viewer then
-    require('custom.pdf_viewer').close(vim.api.nvim_get_current_buf())
+    require('jvim.pdf_viewer').close(vim.api.nvim_get_current_buf())
     return
   end
-  require('custom.autosave').save_all()
+  if settings.features.autosave then require('jvim.autosave').save_all() end
   local buf, name = vim.api.nvim_get_current_buf(), vim.api.nvim_buf_get_name(0)
-  local files = require 'custom.files'
+  local files = require 'jvim.files'
   local remaining = vim.tbl_filter(function(other) return other ~= buf end, files.list())
   if #remaining == 0 then
     vim.cmd 'confirm qall'
@@ -257,7 +204,8 @@ action({ '<F20>', '<D-w>' }, function()
   if name ~= '' and not vim.api.nvim_buf_is_loaded(buf) then table.insert(closed_files, name) end
 end, 'Close file')
 local function toggle_project_tree()
-  local tree = require 'neo-tree.command'
+  local available, tree = pcall(require, 'neo-tree.command')
+  if not available then vim.notify('The project tree requires Neo-tree; enable it through your plugin manager', vim.log.levels.WARN); return end
   local tree_open = vim.tbl_contains(
     vim.tbl_map(function(win) return vim.bo[vim.api.nvim_win_get_buf(win)].filetype == 'neo-tree' end, vim.api.nvim_tabpage_list_wins(0)),
     true
@@ -270,9 +218,13 @@ local function toggle_project_tree()
   end
 end
 action({ '<F4>' }, toggle_project_tree, 'Toggle project tree')
-action({ '<F22>', '<S-F6>' }, function() require('custom.rename').symbol() end, 'Rename symbol')
+action({ '<F22>', '<S-F6>' }, function() require('jvim.rename').symbol() end, 'Rename symbol')
 action({ '<F23>', '<M-CR>' }, vim.lsp.buf.code_action, 'Quick fix')
-action({ '<F24>', '<C-M-l>', '<D-M-l>' }, function() require('conform').format { async = true, lsp_format = 'fallback' } end, 'Format file')
+action({ '<F24>', '<C-M-l>', '<D-M-l>' }, function()
+  local available, conform = pcall(require, 'conform')
+  if available then conform.format { async = true, lsp_format = 'fallback' }
+  else vim.lsp.buf.format { async = true } end
+end, 'Format file')
 action({ '<F26>', '<D-z>', '<C-z>' }, undo, 'Undo')
 action({ '<F27>', '<D-S-z>' }, redo, 'Redo')
 action({ '<F28>', '<D-d>' }, function()
@@ -300,8 +252,8 @@ action({ '<F30>', '<D-f>', '<C-f>' }, telescope 'current_buffer_fuzzy_find', 'Fi
 action({ '<F35>45', '<D-o>' }, telescope 'lsp_dynamic_workspace_symbols', 'Find class')
 action({ '<F31>', '<D-b>', '<F12>' }, vim.lsp.buf.definition, 'Go to definition')
 action({ '<F32>', '<M-F7>' }, telescope 'lsp_references', 'Find usages')
-action({ '<F36>', '<C-Tab>' }, function() require('custom.files').cycle(1) end, 'Next file')
-action({ '<F37>', '<C-S-Tab>' }, function() require('custom.files').cycle(-1) end, 'Previous file')
+action({ '<F36>', '<C-Tab>' }, function() require('jvim.files').cycle(1) end, 'Next file')
+action({ '<F37>', '<C-S-Tab>' }, function() require('jvim.files').cycle(-1) end, 'Previous file')
 action({ '<F2>' }, function() vim.diagnostic.jump { count = 1, float = true } end, 'Next problem')
 action({ '<S-F2>' }, function() vim.diagnostic.jump { count = -1, float = true } end, 'Previous problem')
 -- Keep Option+arrows for word movement, as on macOS.
@@ -317,7 +269,7 @@ for _, key in ipairs { '<C-Left>', '<M-Left>' } do
   map('i', key, function()
     local cursor = vim.api.nvim_win_get_cursor(0)
     local target = identifier_target(-1, true)
-    local distance = math.abs(target - cursor[2])
+    local distance = selection.distance(vim.api.nvim_get_current_line(), target, cursor[2])
     return distance == 0 and '' or '<C-o>' .. distance .. (target < cursor[2] and 'h' or 'l')
   end, { expr = true, replace_keycodes = true, desc = 'Move to previous identifier' })
 end
@@ -329,7 +281,7 @@ for _, key in ipairs { '<C-Right>', '<M-Right>' } do
   map('i', key, function()
     local cursor = vim.api.nvim_win_get_cursor(0)
     local target = identifier_target(1, true)
-    local distance = math.abs(target - cursor[2])
+    local distance = selection.distance(vim.api.nvim_get_current_line(), target, cursor[2])
     return distance == 0 and '' or '<C-o>' .. distance .. (target < cursor[2] and 'h' or 'l')
   end, { expr = true, replace_keycodes = true, desc = 'Move to next identifier' })
 end
@@ -351,6 +303,17 @@ action({ '<F35>35', '<D-S-t>' }, function()
 end, 'Reopen closed file')
 
 local group = vim.api.nvim_create_augroup('clion-editing', { clear = true })
+vim.api.nvim_create_autocmd({ 'BufWinEnter', 'FileType' }, {
+  group = group,
+  callback = function(args)
+    local name = vim.fs.basename(vim.api.nvim_buf_get_name(args.buf)):lower()
+    local wrap = vim.bo[args.buf].filetype == 'markdown' or name == 'readme' or name:match('^readme%.') ~= nil
+    for _, win in ipairs(vim.fn.win_findbuf(args.buf)) do
+      vim.wo[win].wrap = wrap
+      vim.wo[win].linebreak = wrap
+    end
+  end,
+})
 vim.api.nvim_create_autocmd({ 'VimEnter', 'BufEnter', 'WinEnter' }, {
   group = group,
   callback = function() vim.schedule(resume_editing) end,
@@ -359,7 +322,7 @@ vim.api.nvim_create_autocmd({ 'VimEnter', 'BufEnter', 'WinEnter' }, {
 local original_paste = vim.paste
 vim.paste = function(lines, phase)
   -- Bracketed paste bypasses on_key, so restore the edit point explicitly.
-  require('custom.scroll').resume()
+  require('jvim.scroll').resume()
   local clipboard = vim.o.clipboard
   vim.o.clipboard = ''
   local ok, result = pcall(original_paste, lines, phase)
@@ -367,24 +330,24 @@ vim.paste = function(lines, phase)
   if not ok then error(result) end
   return result
 end
-require('custom.scroll').setup()
+require('jvim.scroll').setup()
 
-require('custom.files').setup(group)
+require('jvim.files').setup(group, { tree = settings.features.project_tree, tabline = settings.ui.tabline })
 
-require('custom.clion_actions').setup(action, resume_editing)
+require('jvim.clion_actions').setup(action, resume_editing)
 
-require('custom.herdr_host').setup()
+require('jvim.herdr_host').setup()
 
-require('custom.definition_links').setup()
+require('jvim.definition_links').setup()
 
-require('custom.shortcut_transport').setup()
+require('jvim.shortcut_transport').setup()
 
-require('custom.autosave').setup()
+if settings.features.autosave then require('jvim.autosave').setup() end
 
-require('custom.windows_keys').setup()
+require('jvim.windows_keys').setup()
 
-require('custom.swap_recovery').setup()
+require('jvim.swap_recovery').setup()
 
-require('custom.word_highlight').setup()
+if settings.features.word_highlight then require('jvim.word_highlight').setup() end
 
-if package.loaded['mini.statusline'] then require('custom.fold_controls').setup(require('mini.statusline')) end
+if settings.ui.statusline and package.loaded['mini.statusline'] then require('jvim.fold_controls').setup(require('mini.statusline')) end

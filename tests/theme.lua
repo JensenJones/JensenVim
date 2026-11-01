@@ -1,5 +1,5 @@
 vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
-local theme = require 'custom.theme'
+local theme = require 'jvim.theme'
 local case = vim.env.JVIM_TEST_CASE
 
 local function contrast(fg, bg)
@@ -91,7 +91,7 @@ elseif case == 'coderpad_palette' then
   end
 elseif case == 'action_entry' then
   local before = vim.api.nvim_get_keymap 'n'
-  local entries = require('custom.action_picker').entries()
+  local entries = require('jvim.action_picker').entries()
   local entry
   for _, item in ipairs(entries) do
     if item.name == 'Choose colour theme' then entry = item; break end

@@ -17,7 +17,7 @@ return {
   opts = {
     window = { width = 30 },
     filesystem = {
-      -- custom.files owns directory startup and removes its placeholder.
+      -- jvim.files owns directory startup and removes its placeholder.
       hijack_netrw_behavior = 'disabled',
       components = {
         name = function(config, node, state)
@@ -46,7 +46,7 @@ return {
     event_handlers = {
       {
         event = 'file_added',
-        handler = function(path) require('custom.cpp_header').initialize_file(path) end,
+        handler = function(path) require('jvim.cpp_header').initialize_file(path) end,
       },
     },
   },

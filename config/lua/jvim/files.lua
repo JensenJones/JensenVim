@@ -62,9 +62,19 @@ function M.cycle(direction)
   if vim.bo.filetype == 'neo-tree' then current = last_file end
   recent = vim.tbl_filter(function(buf) return vim.tbl_contains(files, buf) end, recent)
   local continuing = cycle_order and cycle_order[cycle_index] == current
+    and #cycle_order == #files
+    and vim.tbl_contains(files, current)
+  if continuing then
+    for _, buf in ipairs(cycle_order) do
+      if not vim.tbl_contains(files, buf) then continuing = false break end
+    end
+  end
   if not continuing then
     if current and vim.tbl_contains(files, current) then remember(current) end
     cycle_order = vim.deepcopy(recent)
+    for _, buf in ipairs(files) do
+      if not vim.tbl_contains(cycle_order, buf) then table.insert(cycle_order, buf) end
+    end
     cycle_index = nil
     for index, buf in ipairs(cycle_order) do
       if buf == current then
@@ -83,23 +93,64 @@ function M.cycle(direction)
   M.show(target, true)
 end
 
+-- Tree commands are explicit actions, never simulated printable keys.
+function M.focus_tree()
+  vim.cmd.stopinsert()
+  local available, manager = pcall(require, 'neo-tree.sources.manager')
+  local loaded, command = pcall(require, 'neo-tree.command')
+  if not available or not loaded then
+    vim.notify('The project tree requires Neo-tree; enable it through your plugin manager', vim.log.levels.WARN)
+    return nil
+  end
+  command.execute { action = 'focus', source = 'filesystem', position = 'left', reveal = false }
+  local state
+  local ready = vim.wait(1000, function()
+    state = manager.get_state 'filesystem'
+    if not state or not state.winid or not vim.api.nvim_win_is_valid(state.winid) or not state.tree then return false end
+    local ok, node = pcall(state.tree.get_node, state.tree)
+    return ok and node ~= nil
+  end, 10)
+  if not ready then
+    vim.notify('Project tree did not become ready', vim.log.levels.WARN)
+    return nil
+  end
+  vim.api.nvim_set_current_win(state.winid)
+  return state
+end
+
+local function tree_command(name)
+  local state = M.focus_tree()
+  if state then
+    -- Neo-tree normally supplies per-mapping config through its renderer.
+    state.config = {}
+    state.commands[name](state)
+  end
+end
+function M.new_file() tree_command('add') end
+function M.new_folder() tree_command('add_directory') end
+function M.cut() tree_command('cut_to_clipboard') end
+function M.paste() tree_command('paste_from_clipboard') end
+
 function M.setup_tabline()
   vim.api.nvim_exec2(
     [[
     function! MiniTablineSwitchBuffer(buf_id, clicks, button, mod)
-      call luaeval("require('custom.files').show(_A)", a:buf_id)
+      call luaeval("require('jvim.files').show(_A)", a:buf_id)
     endfunction
   ]],
     {}
   )
 end
 
-function M.setup(group)
+function M.setup(group, opts)
+  opts = opts or {}
   -- Neo-tree is the only directory browser. Disabling its netrw hijack alone
   -- leaves the built-in explorer free to open a second window at startup.
-  vim.g.loaded_netrw = 1
-  vim.g.loaded_netrwPlugin = 1
-  vim.api.nvim_create_augroup('FileExplorer', { clear = true })
+  if opts.tree ~= false then
+    vim.g.loaded_netrw = 1
+    vim.g.loaded_netrwPlugin = 1
+    vim.api.nvim_create_augroup('FileExplorer', { clear = true })
+  end
   local history_group = vim.api.nvim_create_augroup('JvimFileHistory', { clear = true })
   vim.api.nvim_create_autocmd('BufEnter', {
     group = history_group,
@@ -107,7 +158,8 @@ function M.setup(group)
       if remember(args.buf) then last_file = args.buf end
     end,
   })
-  if package.loaded['mini.tabline'] then M.setup_tabline() end
+  if opts.tabline ~= false and package.loaded['mini.tabline'] then M.setup_tabline() end
+  if opts.tree == false then return end
   vim.api.nvim_create_autocmd('VimEnter', {
     group = group,
     callback = function()

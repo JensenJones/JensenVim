@@ -4,7 +4,7 @@ By Jensen Jones.
 
 A lightweight Neovim setup with ordinary typing, mouse selection, CLion-style Mac shortcuts, a single-click project tree, Markdown rendering and autosave. Based on kickstart.nvim; the original MIT license is preserved in LICENSE.
 
-**Mac + iTerm2, including existing Herdr panes, is the primary setup. Windows + Neovide support is experimental and has not been tested on a Windows machine.** This does not reproduce CLion's debugger, build system or full refactoring engine.
+**Mac + iTerm2, including existing Herdr panes, is the primary setup. Windows + Neovide support is experimental and has not been tested on a Windows machine.** Run configurations and conflict resolution use Neovim's terminal and diff engine. CLion's debugger and full refactoring engine are not reproduced.
 
 ## macOS installation
 
@@ -33,7 +33,7 @@ jvim path/to/file.cpp
 
 The first editor launch downloads plugins and language tools, including Git reads/writes for plugin installation. The installer does not invoke Git itself. Python dependencies are pinned; Neovim plugins are pinned in `config/lazy-lock.json`. Mason's language server versions are not pinned.
 
-The configuration installs separately at `~/.config/jvim` using `NVIM_APPNAME=jvim`. It leaves `~/.config/nvim` in place. The Mac integration manages `~/.local/bin/jvim*`, `~/.local/share/jvim` and iTerm's `DynamicProfiles/jvim.json`. Existing managed destinations move into a timestamped backup under `~/.local/state/jvim/backups`. Inspect the preview before applying. Custom XDG directory overrides are not supported by these installers.
+The configuration installs separately at `~/.config/jvim` using `NVIM_APPNAME=jvim`. It leaves `~/.config/nvim` in place. The Mac integration manages `~/.local/bin/jvim*`, selected integration files under `~/.local/share/jvim` and iTerm's `DynamicProfiles/jvim.json`. Updates stage files before replacement and restore the old installation if publication fails. Existing managed files move into a timestamped backup under `~/.local/state/jvim/backups`; plugin, parser and Mason caches stay in place. Python runtimes use versioned directories for rollback. Inspect the preview before applying. Custom XDG directory overrides are not supported by these installers.
 
 Within iTerm/Herdr, keyboard mappings apply while the editor pane is focused and restore afterward. The launcher does not create tabs or windows. Code hyperlinks default off to keep the editor free of dashed link underlines. Use **Ctrl-click** or **Cmd+B** for definitions. The bridge enables Ctrl-click reporting while jvim is focused and restores the prior behavior afterward. In the action menu, **Toggle Cmd-click code links (dashed underlines)** opts into native Cmd-click and its link decoration, only for jvim. The installer does not change iTerm's global underline preference.
 
@@ -55,15 +55,33 @@ In another terminal, the editor can start but the Mac shortcut transport and nat
 | Cmd+Shift+O | Find a file |
 | Cmd+Shift+F | Search the project |
 
+Accept a function completion with **Tab** or **Enter** to select its first argument. Type to replace it, use **Tab** for the next argument and **Shift+Tab** for the previous one. The final Tab leaves the cursor after the closing parenthesis. Escape, clicking outside the call or switching files ends argument navigation.
+
 Named writable files autosave after an 800 ms typing pause, on file switches, on focus loss and on exit. New unnamed files require Cmd+S to choose a name. Read-only files are not automatically written. Write failures are reported and leave the buffer modified. Autosave does not run formatting or import sorting, so undo stays undone. Explicit saves and the Format file action can format.
+
+For C/C++, Save and Format file alphabetise includes into library and project groups, separated by a blank line, with another blank line before the code. Quoted headers are treated as project headers; angle-bracket headers also join that group when they resolve beside the file or under the project root, `include/` or `src/`. Other formatting follows the project's `.clang-format` settings.
 
 If Neovim finds a stale swap file, jvim saves a backup and recovers its edits automatically. A file still open in a live editor keeps Neovim's normal protection.
 
-Markdown renders while typing; search **Toggle Markdown preview** in the action menu to view/edit raw source. Click once to open a tree file or expand a folder. Press **F4** (or **Fn+F4** if needed) to toggle the project tree from any editor mode. PDFs open as rendered pages; use `]` and `[` to turn pages and `q` to close the viewer. See [the full keymap](docs/KEYBOARD.md).
+Markdown renders while typing; search **Toggle Markdown preview** in the action menu to view/edit raw source. Markdown and README files wrap long lines at word boundaries to fit the pane; code files remain unwrapped. Click once to open a tree file or expand a folder. Press **F4** (or **Fn+F4** if needed) to toggle the project tree from any editor mode. PDFs open as rendered pages; use `]` and `[` to turn pages and `q` to close the viewer. See [the full keymap](docs/KEYBOARD.md).
 
 Ctrl+Tab toggles to the most recently used open file; Ctrl+Shift+Tab walks through older files in recent-use order. Cmd+Option+minus/equal collapse and expand code folds.
 
 C++ definition navigation/diagnostics require clangd and correct project compile flags. Supply a `compile_commands.json` (for CMake: `-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`) or a suitable `compile_flags.txt`.
+
+After a C/C++ Rename, jvim also checks the project with its compiler using `compile_commands.json`. Compiler errors appear at their source locations, including template errors in headers that clangd can miss. Checks run asynchronously in syntax-only mode and repeat after saved edits in that project; they do not build or run the program. You can start a check yourself with **Cmd+Shift+A → Check C++ project (syntax only)**. This needs Python 3, a Clang/GCC-style compiler command, and a compilation database covering all source files, including tests. Keep the database current when adding files or changing compiler flags.
+
+Clangd can omit dependent template references from Rename. These are not changed by guessing from matching text; the compiler check reports broken references that are instantiated by your project. Uninstantiated template code can still need manual review. See [clangd's documented rename limits](https://clangd.llvm.org/features#rename).
+
+## Configuration and project workflows
+
+Keep your own settings in `~/.config/jvim-user/init.lua`, outside the managed installation. Choose **Edit personal jvim configuration** in the action picker. Profiles, company language-server overrides and `JVIM_OFFLINE=1` are documented in [Configuration and company integrations](docs/CONFIGURATION.md). The public `require('jvim').setup()` API can add jvim editing to an existing company Neovim configuration without taking over its plugin manager or servers.
+
+Click **Config** in the status line to choose a run configuration, then **Run** to open its terminal split. **Edit run configurations** creates `.jvim/run.json`; commands run only when requested. Terminal output survives hiding the pane with Cmd+W. The action picker exposes rerun, stop and output actions.
+
+**Resolve merge conflicts** opens native diff previews and an editable result, with clickable Ours/Theirs/Both/Base controls and undo. See [Project workflows](docs/WORKFLOWS.md) for run configuration examples, merge controls and moving files in the tree.
+
+Use **Check jvim health** in the picker, or `:checkhealth jvim`, to inspect configuration, dependency policies and tools.
 
 ## Windows (experimental)
 
@@ -76,7 +94,7 @@ Install Neovim 0.12+, Neovide, ripgrep and Git, plus a compiler suitable for Tre
 
 Add `%LOCALAPPDATA%\JensenVim\bin` to PATH, then run `jvim.ps1 .`. This installs separately at `%LOCALAPPDATA%\jvim`, backing up existing managed files. PowerShell's execution policy must permit local scripts.
 
-On Windows, Cmd-based editor mappings become Ctrl-based mappings: Ctrl+B for definition, Ctrl+1 for the tree, Ctrl+W to close, and Ctrl+Alt+arrows for history. Ctrl-click is mapped inside Neovim. These mappings have been checked through Neovim's mapping API, but real Windows keyboard delivery, mouse delivery, dependency installation and the PowerShell installer need Windows testing. OS-reserved keys may need remapping. Windows Terminal integration and Herdr on Windows are not included.
+On Windows, Cmd-based editor mappings become Ctrl-based mappings: Ctrl+B for definition, F4 for the tree, Ctrl+W to close, and Ctrl+Alt+arrows for history. Ctrl-click is mapped inside Neovim. These mappings have been checked through Neovim's mapping API, but real Windows keyboard delivery, mouse delivery and real dependency installation still need Windows testing. CI includes isolated PowerShell installer tests. OS-reserved keys may need remapping. Windows Terminal integration and Herdr on Windows are not included.
 
 ## Repository contents and updating
 
@@ -84,12 +102,12 @@ On Windows, Cmd-based editor mappings become Ctrl-based mappings: Ctrl+B for def
 
 After updating the repository, rerun the installer. It backs up the previous managed installation. To roll back, close jvim and restore the desired files from the reported backup directory. The installer does not alter iTerm's global underline preference.
 
-To connect this prepared directory to GitHub, inspect the destination repository before choosing whether to clone/merge into existing history or initialize an empty repository. Do not force-push over existing work.
+There is no published Homebrew formula yet; Homebrew installs prerequisites and the supplied installer installs jvim.
 
 ## Local validation
 
 ```sh
-python3 -m unittest discover -s tests -v
+python3 scripts/check.py
 ```
 
-The tests use temporary installation homes and mocked external registration/runtime commands. Navigation and terminal startup integration tests use existing Neo-tree, Plenary, Nui and Mini installations when available, with Git features disabled; otherwise those tests skip. Tests do not launch the desktop UI, install plugins, access Git or change your installed editor. Mac desktop behavior was exercised during development; Windows desktop behavior is not verified.
+The tests use temporary installation homes and mocked external registration/runtime commands. Navigation and terminal startup integration tests use existing Neo-tree, Plenary, Nui and Mini installations when available, with Git features disabled; otherwise those tests skip. Tests do not launch the desktop UI, install plugins, access Git or change your installed editor. The checker validates Python/Lua syntax and reports every optional skip. CI runs isolated Linux/macOS checks and Windows packaging checks; fresh runners lack optional plugin caches, so plugin-dependent tests skip there. Local terminal input tests exercise the cached plugins. Windows desktop behavior is not verified. See [Validation](docs/VALIDATION.md).

@@ -3,6 +3,8 @@ local M = {}
 -- Neovim moves its native cursor to keep it on screen. During wheel browsing,
 -- hide that cursor and show a stationary marker at the original edit position.
 function M.setup()
+  -- Reconfiguration must release the previous cursor/viewport anchor first.
+  if M.resume then M.resume() end
   local ns = vim.api.nvim_create_namespace 'clion-scroll'
   local group = vim.api.nvim_create_augroup('clion-scroll', { clear = true })
   local anchor

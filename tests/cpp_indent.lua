@@ -4,7 +4,10 @@ vim.opt.rtp:append(vim.env.JVIM_TEST_SITE)
 local ts = vim.fs.dirname(vim.env.JVIM_TEST_SITE) .. '/lazy/nvim-treesitter'
 vim.opt.rtp:append(ts)
 vim.opt.rtp:append(ts .. '/runtime')
+vim.cmd.source(ts .. '/plugin/query_predicates.lua')
+require('jvim.namespace_indent').setup()
 vim.o.autoindent = true
+vim.o.expandtab = true
 vim.bo.filetype = 'cpp'
 vim.bo.shiftwidth = 4
 vim.bo.indentexpr = "v:lua.require'nvim-treesitter'.indentexpr()"
@@ -68,4 +71,36 @@ vim.cmd 'normal! G=='
 assert(vim.fn.indent(11)==0,'namespace closing brace should dedent')
 vim.cmd '10normal! =='
 assert(vim.fn.indent(10)==4,'function closing brace should stay inside namespace')
+vim.api.nvim_buf_set_lines(0,0,-1,false,{
+  'namespace book {',
+  'template <Side BookSide>',
+  'inline bool OrderBookSide<BookSide>::cancelOrder(uint64_t id) {',
+  '    auto lookupIt = orderLookup.find(id);',
+  '    if (lookupIt == orderLookup.end()) {',
+  '        return false;',
+  '    }', '',
+  '    auto& [ordersAtPrice, orderIt] = lookupIt->second;', '',
+  '    ordersAtPrice.erase(orderIt);',
+  '    orderLookup.erase(lookupIt);', '',
+  '    return true;',
+  '}', '}',
+})
+vim.api.nvim_win_set_cursor(0,{11,0})
+vim.api.nvim_feedkeys(vim.keycode('A<CR>nextStatement();<Esc>'),'xt',false)
+assert(vim.fn.indent(12)==4, 'Enter after a complete call in a templated function over-indented: '..vim.inspect(vim.api.nvim_buf_get_lines(0,0,-1,false)))
+vim.opt.rtp:append(vim.fs.dirname(vim.env.JVIM_TEST_SITE)..'/lazy/nvim-autopairs')
+require('nvim-autopairs').setup {}
+for _, namespace_indent in ipairs { 0, 4 } do
+  local outer = string.rep(' ',namespace_indent)
+  local condition = outer..'    if (ordersAtPrice.empty()) {}'
+  vim.api.nvim_buf_set_lines(0,0,-1,false,{
+    'namespace book {', outer..'// Existing namespace style', outer..'template <Side BookSide>',
+    outer..'inline bool OrderBookSide<BookSide>::cancelOrder(uint64_t id) {',
+    condition, outer..'}', '}',
+  })
+  vim.api.nvim_win_set_cursor(0,{5,#condition-1})
+  vim.api.nvim_feedkeys(vim.keycode('i<CR>inside();<Esc>'),'xt',false)
+  assert(vim.fn.indent(6)==namespace_indent+8, 'new block body has the wrong indentation: '..vim.inspect(vim.api.nvim_buf_get_lines(0,0,-1,false)))
+  assert(vim.fn.indent(7)==namespace_indent+4, 'Enter between braces over-indented the closing brace: '..vim.inspect(vim.api.nvim_buf_get_lines(0,0,-1,false)))
+end
 vim.cmd 'qa!'

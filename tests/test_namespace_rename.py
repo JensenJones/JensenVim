@@ -23,7 +23,7 @@ vim.api.nvim_buf_set_lines(0, 0, -1, false, {
   'class SomeType {};',
 })
 vim.bo.filetype = 'cpp'
-local rename = require('custom.rename')
+local rename = require('jvim.rename')
 vim.api.nvim_win_set_cursor(0, { 1, 10 })
 assert(rename.namespace_declaration_at_cursor() == 'target_ns', 'namespace name was not recognized')
 vim.api.nvim_win_set_cursor(0, { 2, 6 })
@@ -59,11 +59,11 @@ local source = vim.api.nvim_get_current_buf()
 vim.lsp.buf_attach_client(source, id)
 assert(vim.wait(10000, function() return client.initialized end, 50), 'clangd did not initialize')
 vim.api.nvim_win_set_cursor(0, { 2, 20 })
-local project_replace = require('custom.project_replace')
+local project_replace = require('jvim.project_replace')
 local original = project_replace.rename_namespace
 local renamed
 project_replace.rename_namespace = function(name) renamed = name end
-require('custom.rename').symbol()
+require('jvim.rename').symbol()
 assert(vim.wait(5000, function() return renamed ~= nil end, 25), 'namespace reference did not use the project rename fallback')
 assert(renamed == 'target_ns', 'the wrong namespace was selected: ' .. tostring(renamed))
 project_replace.rename_namespace = original
@@ -90,7 +90,7 @@ vim.ui.select = function(items, _, callback)
   selected = items
   callback('Review matching files')
 end
-require('custom.project_replace').rename_namespace('old_name', vim.env.JVIM_TEST_PROJECT)
+require('jvim.project_replace').rename_namespace('old_name', vim.env.JVIM_TEST_PROJECT)
 assert(vim.wait(5000, function() return selected ~= nil end, 25), 'namespace matches were not presented for review')
 local paths = vim.tbl_map(function(item)
   local name = item.filename or vim.api.nvim_buf_get_name(item.bufnr)

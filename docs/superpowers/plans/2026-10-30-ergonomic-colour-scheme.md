@@ -4,7 +4,7 @@
 
 **Goal:** Ship a CoderPad-inspired default jvim theme with a hidden, immediate switcher for the existing `dark-ubuntu` theme.
 
-**Architecture:** Implement one project-owned Neovim colorscheme and a small `custom.theme` module that validates theme names and opens a Telescope submenu. Make startup and manual switching use the same application function, and define jvim-specific focus highlights after each switch.
+**Architecture:** Implement one project-owned Neovim colorscheme and a small `jvim.theme` module that validates theme names and opens a Telescope submenu. Make startup and manual switching use the same application function, and define jvim-specific focus highlights after each switch.
 
 **Tech Stack:** Neovim 0.12 Lua runtime, Telescope, Python `unittest` integration tests.
 
@@ -33,18 +33,18 @@
 
 **Files:**
 - Create: `config/colors/jvim-charcoal.lua`
-- Create: `config/lua/custom/theme.lua`
+- Create: `config/lua/jvim/theme.lua`
 - Modify: `config/init.lua`
 - Test: `tests/test_theme.py`
 
 **Interfaces:**
-- `require('custom.theme').apply(name: string) -> boolean, string?` accepts only `jvim-charcoal` and `dark-ubuntu`, loads the requested scheme, and reapplies jvim focus highlights.
-- `require('custom.theme').names() -> { { name: string, label: string } }` returns the supported switcher entries in display order.
+- `require('jvim.theme').apply(name: string) -> boolean, string?` accepts only `jvim-charcoal` and `dark-ubuntu`, loads the requested scheme, and reapplies jvim focus highlights.
+- `require('jvim.theme').names() -> { { name: string, label: string } }` returns the supported switcher entries in display order.
 
 - [x] **Step 1: Write failing tests** named `test_default_theme_is_charcoal`, `test_apply_switches_between_supported_themes`, `test_invalid_theme_does_not_change_current_scheme`, `test_required_highlight_groups_are_defined`, `test_contrast_floor_for_text_selection_and_cursor`, and `test_theme_groups_remain_legible_with_picker_groups`.
 - [x] **Step 2: Run the targeted theme tests** and confirm they fail because the theme module and colorscheme do not exist.
 - [x] **Step 3: Implement the custom palette** in `config/colors/jvim-charcoal.lua`; define base editor, Tree-sitter, diagnostics, folds, cursor, selection, bracket/current-word, statusline, Neo-tree, Telescope, and Blink groups.
-- [x] **Step 4: Implement `custom.theme`** with the whitelist, `names`, shared application path, and stable jvim-specific focus highlights after every `ColorScheme` event.
+- [x] **Step 4: Implement `jvim.theme`** with the whitelist, `names`, shared application path, and stable jvim-specific focus highlights after every `ColorScheme` event.
 - [x] **Step 5: Make `jvim-charcoal` the startup scheme** in `config/init.lua` using the shared application function.
 - [x] **Step 6: Run the targeted theme tests** and confirm the required groups and contrast checks pass.
 - [x] **Step 7: Commit** the colorscheme, loader, startup change, and tests. Task 1 was committed as `821cc85`.
@@ -52,19 +52,19 @@
 ### Task 2: Add the hidden theme submenu to the action picker
 
 **Files:**
-- Modify: `config/lua/custom/action_picker.lua`
-- Modify: `config/lua/custom/theme.lua`
+- Modify: `config/lua/jvim/action_picker.lua`
+- Modify: `config/lua/jvim/theme.lua`
 - Test: `tests/test_theme.py`
 - Test: `tests/test_terminal_startup.py`
 
 **Interfaces:**
-- Consumes `custom.theme.names()` and `custom.theme.apply(name)` from Task 1.
-- `require('custom.theme').pick()` opens a compact Telescope picker for supported themes; selecting one applies it immediately and closes the picker.
+- Consumes `jvim.theme.names()` and `jvim.theme.apply(name)` from Task 1.
+- `require('jvim.theme').pick()` opens a compact Telescope picker for supported themes; selecting one applies it immediately and closes the picker.
 
 - [x] **Step 1: Write failing tests** for the hidden action and no-keymap behavior; exercise action-to-theme-picker opening in a terminal.
 - [x] **Step 2: Run the picker test** and confirm the entry/action behavior is missing.
-- [x] **Step 3: Implement `custom.theme.pick()`** with a Telescope list of supported themes.
-- [x] **Step 4: Add the `Choose colour theme` action** to `custom.action_picker`; let entries support a callback as well as existing key dispatch, and invoke the callback after closing the picker.
+- [x] **Step 3: Implement `jvim.theme.pick()`** with a Telescope list of supported themes.
+- [x] **Step 4: Add the `Choose colour theme` action** to `jvim.action_picker`; let entries support a callback as well as existing key dispatch, and invoke the callback after closing the picker.
 - [x] **Step 5: Run the picker and theme tests** and confirm picker opening, supported theme switching, and absence of a new keybind.
 - [x] **Step 6: Commit** the menu and its tests.
 

@@ -4,14 +4,17 @@ function M.setup(action, resume_editing)
   local map = vim.keymap.set
   local group = vim.api.nvim_create_augroup('clion-ordinary-editing', { clear = true })
   local selections = {}
+  local editing = require 'jvim.editing'
   -- Escape cancels UI and selection; it never makes ordinary typing into commands.
   map('i', '<Esc>', function()
     selections[vim.api.nvim_get_current_buf()] = nil
+    require('jvim.completion').stop()
     if package.loaded['blink.cmp'] then require('blink.cmp').hide() end
     vim.cmd.nohlsearch()
   end, { desc = 'Cancel completion' })
   map('s', '<Esc>', function()
     selections[vim.api.nvim_get_current_buf()] = nil
+    require('jvim.completion').stop()
     local position = vim.api.nvim_win_get_cursor(0)
     vim.cmd 'normal! \27'
     vim.api.nvim_win_set_cursor(0, position)
@@ -36,7 +39,7 @@ function M.setup(action, resume_editing)
       selected[1] = opener .. selected[1]
       selected[#selected] = selected[#selected] .. closer
       vim.api.nvim_buf_set_text(0, start_row, start_col, end_row, end_col, selected)
-      vim.api.nvim_win_set_cursor(0, { end_row + 1, end_col + #opener })
+      vim.api.nvim_win_set_cursor(0, { end_row + 1, end_col + (#selected == 1 and #opener or 0) })
       vim.cmd.startinsert()
     end, { desc = 'Surround selection with ' .. opener .. closer })
   end
@@ -58,87 +61,71 @@ function M.setup(action, resume_editing)
   end, { desc = 'Cancel and resume editing' })
   vim.api.nvim_create_autocmd('CmdlineLeave', { group = group, callback = function() vim.schedule(resume_editing) end })
 
-  -- Record mouse locations and file departures in the same history used by
-  -- definition jumps. Browsing backward must not create fresh history entries.
-  local navigating = false
-  local function remember(buf, position)
-    if not buf or not vim.api.nvim_buf_is_valid(buf) or navigating then return end
-    if vim.bo[buf].buftype ~= '' or vim.api.nvim_buf_get_name(buf) == '' then return end
-    if not position then
-      local win = vim.fn.bufwinid(buf)
-      if win < 0 then return end
-      position = vim.api.nvim_win_get_cursor(win)
-    end
-    -- Set the previous-context mark directly. Running :normal! Escape from
-    -- on_key re-enters Neovim's input loop while a mouse selection is active.
-    vim.api.nvim_buf_set_mark(buf, "'", position[1], position[2], {})
-  end
+  -- Mouse positions join the same timeline as native LSP/definition jumps.
+  local history = require 'jvim.navigation_history'
+  history.setup(resume_editing)
   vim.on_key(function(_, typed)
-    -- Keep the pre-click cursor for jump history without injecting keys while
-    -- Neovim is still processing the mouse event.
     if typed ~= '' and vim.fn.keytrans(typed) == '<LeftMouse>' then
       local buf = vim.api.nvim_get_current_buf()
       local position = vim.api.nvim_win_get_cursor(0)
       selections[buf] = nil
-      vim.schedule(function() remember(buf, position) end)
+      -- Recording is pure Lua/API bookkeeping, so it can happen before the
+      -- click even when a caller immediately asks to navigate backward.
+      history.remember(buf, position)
+      vim.schedule(function()
+        if vim.fn.mode() == 'n' then resume_editing() end
+      end)
     end
   end, vim.api.nvim_create_namespace 'clion-mouse-history')
-  vim.api.nvim_create_autocmd('BufLeave', {
-    group = group,
-    callback = function(args) remember(args.buf) end,
-  })
-  local function history(key)
-    return function()
-      navigating = true
-      -- A leading Ctrl-I is a tab, which :normal would strip as whitespace.
-      local ok, err = pcall(vim.cmd.normal, { '1' .. key, bang = true })
-      navigating = false
-      if not ok then vim.notify(err, vim.log.levels.WARN) end
-      resume_editing()
-    end
-  end
-  action({ '<F33>', '<D-M-Left>', '<D-[>' }, history '\15', 'Navigate back')
-  action({ '<F34>', '<D-M-Right>', '<D-]>' }, history '\9', 'Navigate forward')
+  action({ '<F33>', '<D-M-Left>', '<D-[>' }, history.back, 'Navigate back')
+  action({ '<F34>', '<D-M-Right>', '<D-]>' }, history.forward, 'Navigate forward')
 
   action({ '<F35>39', '<C-M-b>', '<D-M-b>' }, vim.lsp.buf.implementation, 'Go to implementation')
   action({ '<F35>40', '<D-S-b>', '<C-S-b>' }, vim.lsp.buf.type_definition, 'Go to type declaration')
   action({ '<F35>41', '<F1>', '<C-j>' }, vim.lsp.buf.hover, 'Quick documentation')
   action({ '<F35>42', '<D-p>', '<C-p>' }, vim.lsp.buf.signature_help, 'Parameter info')
-  action({ '<F35>43', '<D-F12>', '<C-F12>', '<D-7>' }, function() require('telescope.builtin').lsp_document_symbols() end, 'File structure')
-  action({ '<F35>44', '<D-M-o>' }, function() require('telescope.builtin').lsp_dynamic_workspace_symbols() end, 'Find symbol')
+  action({ '<F35>43', '<D-F12>', '<C-F12>', '<D-7>' }, vim.lsp.buf.document_symbol, 'File structure')
+  action({ '<F35>44', '<D-M-o>' }, function() require('jvim.pickers').open('lsp_dynamic_workspace_symbols') end, 'Find symbol')
   action({ '<F35>46', '<D-l>' }, function()
+    local context = editing.capture()
     vim.ui.input({ prompt = 'Go to line:column: ' }, function(value)
       if not value then return end
       local row, col = value:match '^(%d+):?(%d*)$'
       if not row then return end
-      row = math.max(1, math.min(tonumber(row), vim.api.nvim_buf_line_count(0)))
-      vim.api.nvim_win_set_cursor(0, { row, math.max(0, tonumber(col) and tonumber(col) - 1 or 0) })
+      context:apply(function()
+        row = math.max(1, math.min(tonumber(row), vim.api.nvim_buf_line_count(0)))
+        vim.api.nvim_win_set_cursor(0, { row, math.max(0, tonumber(col) and tonumber(col) - 1 or 0) })
+      end)
       resume_editing()
     end)
   end, 'Go to line')
   action({ '<F35>47', '<C-r>', '<D-r>' }, function()
+    local context = editing.capture()
     vim.ui.input({ prompt = 'Replace in file — find: ' }, function(find)
       if not find or find == '' then return end
       vim.ui.input({ prompt = 'Replace with: ' }, function(replacement)
         if replacement == nil then return end
         local pattern = '\\V' .. vim.fn.escape(find, '\\/')
         local value = vim.fn.escape(replacement, '\\/&')
-        vim.cmd('%s/' .. pattern .. '/' .. value .. '/gce')
+        context:apply(function() vim.cmd('%s/' .. pattern .. '/' .. value .. '/gce') end)
         resume_editing()
       end)
     end)
   end, 'Replace in file (confirm each match)')
-  action({ '<F35>48', '<D-S-r>' }, function() require('custom.project_replace').open() end, 'Replace in project (preview and confirmation)')
+  action({ '<F35>48', '<D-S-r>' }, function() require('jvim.project_replace').open() end, 'Replace in project (preview and confirmation)')
   local last_search = ''
   action({ '<F30>', '<D-f>', '<C-f>' }, function()
+    local context = editing.capture()
     vim.ui.input({ prompt = 'Find in file: ', default = last_search }, function(query)
       if not query or query == '' then return end
       last_search = query
       local pattern = '\\V' .. vim.fn.escape(query, '\\')
       vim.fn.setreg('/', pattern)
       vim.o.hlsearch = true
-      vim.cmd "normal! m'"
-      if vim.fn.search(pattern, 'cw') == 0 then vim.notify('No matches for ' .. query) end
+      context:apply(function()
+        vim.cmd "normal! m'"
+        if vim.fn.search(pattern, 'cw') == 0 then vim.notify('No matches for ' .. query) end
+      end)
       resume_editing()
     end)
   end, 'Find in file')
@@ -152,7 +139,7 @@ function M.setup(action, resume_editing)
   action({ '<F35>61', '<C-S-BS>' }, function() vim.cmd 'normal! g;' end, 'Last edit location')
   action({ '<F35>62', '<C-S-e>' }, function() require('telescope.builtin').jumplist() end, 'Recent locations')
   action({ '<F35>63', '<D-S-w>' }, function()
-    require('custom.autosave').save_all()
+    if require('jvim.config').get().features.autosave then require('jvim.autosave').save_all() end
     vim.cmd 'confirm qall'
   end, 'Close editor (ask about unsaved files)')
   action({ '<F35>65' }, function()
@@ -162,11 +149,29 @@ function M.setup(action, resume_editing)
       vim.notify 'Open a Markdown file to toggle its preview'
     end
   end, 'Toggle Markdown preview')
-  action({ '<F35>66' }, function() require('custom.definition_links').toggle() end, 'Toggle Cmd-click code links (dashed underlines)')
+  action({ '<F35>66' }, function() require('jvim.definition_links').toggle() end, 'Toggle Cmd-click code links (dashed underlines)')
 
   -- Expand and shrink a selection using the syntax tree already installed.
+  local selection_buffers = {}
+  local selection_origins = {}
+  local function track_selection(buf)
+    if selection_buffers[buf] then return end
+    selection_buffers[buf] = vim.api.nvim_buf_attach(buf, false, {
+      -- changedtick also advances on writes; autosave must preserve selection
+      -- history. Invalidate syntax nodes only when buffer text changes.
+      on_lines = function() selections[buf] = nil end,
+      on_detach = function()
+        selections[buf] = nil
+        selection_buffers[buf] = nil
+      end,
+    })
+  end
   local function node_selection(node)
     local sr, sc, er, ec = node:range()
+    if sr == er and sc == ec then
+      resume_editing()
+      return false
+    end
     local count = vim.api.nvim_buf_line_count(0)
     if er >= count then
       er = count - 1
@@ -177,59 +182,72 @@ function M.setup(action, resume_editing)
     vim.cmd 'normal! v'
     vim.api.nvim_win_set_cursor(0, { er + 1, ec })
     vim.cmd 'normal! \7'
+    return true
   end
-  action({ '<F35>49', '<M-Up>' }, function()
+  map('n', '<Plug>(JvimExtendSelection)', function()
     local buf = vim.api.nvim_get_current_buf()
+    track_selection(buf)
+    local current = selection_origins[buf] or vim.api.nvim_win_get_cursor(0)
+    selection_origins[buf] = nil
+    vim.api.nvim_win_set_cursor(0, current)
     local previous = selections[buf]
-    if
-      previous
-      and (not vim.fn.mode():find '^[svSV]' or previous.tick ~= vim.b.changedtick or not vim.deep_equal(previous.last_cursor, vim.api.nvim_win_get_cursor(0)))
-    then
-      previous = nil
-    end
     local node
     if previous then
       node = previous.node:parent()
-      if not node then return end
+      if not node then
+        node_selection(previous.node)
+        return
+      end
     else
       local ok
       ok, node = pcall(vim.treesitter.get_node)
       if not ok or not node then
         vim.cmd 'normal! \27viw\7'
+        if not vim.fn.mode():find '^[sS]' then resume_editing() end
         return
       end
     end
-    local current = vim.api.nvim_win_get_cursor(0)
-    node_selection(node)
-    selections[buf] = { node = node, previous = previous, cursor = current, tick = vim.b.changedtick, last_cursor = vim.api.nvim_win_get_cursor(0) }
-  end, 'Extend selection')
-  action({ '<F35>50', '<M-Down>' }, function()
+    if not node_selection(node) then return end
+    selections[buf] = { node = node, previous = previous, cursor = current, last_cursor = vim.api.nvim_win_get_cursor(0) }
+  end, { desc = 'Extend selection' })
+  map('n', '<Plug>(JvimShrinkSelection)', function()
     local state = selections[vim.api.nvim_get_current_buf()]
-    if
-      not state
-      or not vim.fn.mode():find '^[svSV]'
-      or state.tick ~= vim.b.changedtick
-      or not vim.deep_equal(state.last_cursor, vim.api.nvim_win_get_cursor(0))
-    then
-      selections[vim.api.nvim_get_current_buf()] = nil
+    if not state then
+      resume_editing()
       return
     end
     selections[vim.api.nvim_get_current_buf()] = state.previous
-    vim.cmd 'normal! \27'
     if state.previous then
       node_selection(state.previous.node)
     else
       vim.api.nvim_win_set_cursor(0, state.cursor)
       resume_editing()
     end
-  end, 'Shrink selection')
-  -- A callback entered from Insert mode resumes Insert when it returns, even
-  -- if :normal temporarily selected text. Leave the insert loop first.
-  for _, key in ipairs { '<F35>49', '<M-Up>' } do
-    map('i', key, '<C-\\><C-n><F35>49', { remap = true, desc = 'Extend selection' })
-  end
-  for _, key in ipairs { '<F35>50', '<M-Down>' } do
-    map('i', key, function() selections[vim.api.nvim_get_current_buf()] = nil end, { desc = 'Shrink selection' })
+  end, { desc = 'Shrink selection' })
+  -- Exit both Insert and Select input loops before changing a syntax
+  -- selection. Running :normal inside a Select callback can edit the text
+  -- when Neovim restores that old selection after the callback returns.
+  for _, binding in ipairs {
+    { keys = { '<F35>49', '<M-Up>' }, target = '<Plug>(JvimExtendSelection)', desc = 'Extend selection' },
+    { keys = { '<F35>50', '<M-Down>' }, target = '<Plug>(JvimShrinkSelection)', desc = 'Shrink selection' },
+  } do
+    for _, key in ipairs(binding.keys) do
+      map({ 'n', 'i', 's', 'x' }, key, function()
+        local buf = vim.api.nvim_get_current_buf()
+        local state = selections[buf]
+        local mode = vim.fn.mode()
+        if binding.target == '<Plug>(JvimShrinkSelection)' and mode:find '^i' then
+          selections[buf] = nil
+          return ''
+        end
+        selection_origins[buf] = mode:find '^i' and vim.api.nvim_win_get_cursor(0) or nil
+        if state and (not mode:find '^[svSV]'
+          or not vim.deep_equal(state.last_cursor, vim.api.nvim_win_get_cursor(0))) then
+          selections[buf] = nil
+        end
+        return '<C-\\><C-n>' .. binding.target
+      end, { expr = true, remap = true, desc = binding.desc })
+    end
   end
 
   map('i', '<F35>51', '<Esc><cmd>move .-2<CR>==gi', { desc = 'Move line up' })
@@ -249,6 +267,7 @@ function M.setup(action, resume_editing)
   vim.api.nvim_create_autocmd('FileType', {
     group = group,
     callback = function(args)
+      if not require('jvim.config').get().features.folds then return end
       if vim.bo[args.buf].buftype == '' and vim.treesitter.get_parser(args.buf, nil, { error = false }) then
         vim.wo.foldmethod = 'expr'
         vim.wo.foldexpr = 'v:lua.vim.treesitter.foldexpr()'

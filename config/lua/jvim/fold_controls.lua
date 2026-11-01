@@ -12,18 +12,35 @@ end
 function M.collapse(win) fold(win, 'zc') end
 function M.expand(win) fold(win, 'zo') end
 
-function M.section()
+function M.run(win, choose)
+  win = tonumber(win)
+  if not win or not vim.api.nvim_win_is_valid(win) then win = vim.api.nvim_get_current_win() end
+  local run = require 'jvim.run'
+  local root = vim.api.nvim_win_call(win, run.root)
+  if choose then return run.choose(root) end
+  return run.run(nil, root)
+end
+
+function M.section(win)
+  win = win or vim.api.nvim_get_current_win()
   return '%#JvimFoldButton#%@JvimFoldCollapse@[- Fold]%T %@JvimFoldExpand@[+ Fold]%T'
+    .. '  %' .. win .. '@JvimRun@[Run]%T %' .. win .. '@JvimRunConfig@[Config]%T'
 end
 
 function M.setup(statusline)
   vim.api.nvim_exec2(
     [[
     function! JvimFoldCollapse(minwid, clicks, button, mods)
-      call luaeval("require('custom.fold_controls').collapse()")
+      call luaeval("require('jvim.fold_controls').collapse()")
     endfunction
     function! JvimFoldExpand(minwid, clicks, button, mods)
-      call luaeval("require('custom.fold_controls').expand()")
+      call luaeval("require('jvim.fold_controls').expand()")
+    endfunction
+    function! JvimRun(minwid, clicks, button, mods)
+      call luaeval("require('jvim.fold_controls').run(_A, false)", a:minwid)
+    endfunction
+    function! JvimRunConfig(minwid, clicks, button, mods)
+      call luaeval("require('jvim.fold_controls').run(_A, true)", a:minwid)
     endfunction
   ]],
     {}
@@ -33,7 +50,7 @@ function M.setup(statusline)
     local location = '%2l:%-2v'
     local buf = vim.api.nvim_win_get_buf(win)
     if vim.bo[buf].buftype ~= '' or vim.bo[buf].filetype == 'neo-tree' then return location end
-    return location .. '  ' .. M.section()
+    return location .. '  ' .. M.section(win)
   end
 end
 
