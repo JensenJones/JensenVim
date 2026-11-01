@@ -20,18 +20,26 @@ function M.setup()
       -- owners or unreadable swapfiles to the usual warning prompt.
       if info.error or info.pid > 0 then return end
 
+      local original = info.fname and vim.fn.expand(info.fname) or ''
+      local stat = original ~= '' and vim.uv.fs_stat(original) or nil
+      -- swapinfo.mtime is the original file's timestamp recorded in the swap.
+      -- Recovering it over a subsequently saved file replaces newer work.
+      local disk_is_newer = stat and stat.mtime and stat.mtime.sec > (tonumber(info.mtime) or 0)
+
       local backup = preserve_swap(swap)
       if not backup then
         vim.notify('Could not back up stale swap; leaving Neovim recovery prompt open.', vim.log.levels.ERROR)
         return
       end
 
-      if info.dirty == 1 then
+      if info.dirty == 1 and not disk_is_newer then
         vim.v.swapchoice = 'r'
         vim.notify('Recovered edits from a stale swap. Backup: ' .. backup, vim.log.levels.WARN)
       else
         vim.v.swapchoice = 'd'
-        vim.notify('Archived a stale, clean swap. Backup: ' .. backup, vim.log.levels.INFO)
+        local reason = disk_is_newer and 'A newer saved file exists; archived the older swap without recovery.'
+          or 'Archived a stale, clean swap.'
+        vim.notify(reason .. ' Backup: ' .. backup, vim.log.levels.INFO)
       end
     end,
   })
