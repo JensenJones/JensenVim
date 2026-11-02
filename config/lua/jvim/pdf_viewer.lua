@@ -147,10 +147,10 @@ local function open_pdf(buf, path)
   local state = { path = path, page = 1, pages = 1, cache_dir = cache_dir, image = nil, render_id = 0 }
   viewers[buf] = state
 
-  vim.keymap.set('n', ']', function()
+  vim.keymap.set({ 'n', 'i' }, ']', function()
     if state.page < state.pages then state.page = state.page + 1; render_page(buf, state) end
   end, { buffer = buf, desc = 'Next PDF page' })
-  vim.keymap.set('n', '[', function()
+  vim.keymap.set({ 'n', 'i' }, '[', function()
     if state.page > 1 then state.page = state.page - 1; render_page(buf, state) end
   end, { buffer = buf, desc = 'Previous PDF page' })
   vim.keymap.set('n', 'q', function() close_viewer(buf) end, { buffer = buf, desc = 'Close PDF viewer' })
