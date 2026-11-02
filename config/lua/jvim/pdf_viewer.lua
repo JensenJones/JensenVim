@@ -31,7 +31,10 @@ local function show_page(buf, state, image_path)
     window = win,
     buffer = buf,
     x = 1,
-    y = 3,
+    -- Image.nvim uses zero-based buffer rows. The status buffer has three
+    -- lines, so row 3 points past its end and fails while Neo-tree switches
+    -- windows. Anchor the page to the existing third line instead.
+    y = 2,
     inline = true,
   })
   if not ok then
