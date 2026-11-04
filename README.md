@@ -17,19 +17,26 @@ brew install --cask iterm2
 
 Tree-sitter parsers and some plugins need the Xcode Command Line Tools (`xcode-select --install`). C++ projects need a working compiler/toolchain; language tooling installs through Mason on first launch. CLion itself is not required. The bundled shortcuts are a snapshot of the customized CLion macOS keymap used to build JensenVim.
 
-Download/extract this repository, then run:
+With Homebrew and the Xcode Command Line Tools installed, paste this block into any
+macOS terminal running Bash or Zsh. It installs the required tools, downloads jvim,
+installs it, adds the launcher to your shell PATH, and opens the current folder:
 
 ```sh
-./install-macos.sh          # preview destinations; no changes
-./install-macos.sh --apply  # install and back up previous jvim-managed files
+PROJECT_DIR="$PWD"
+brew install neovim ripgrep python poppler imagemagick &&
+brew install --cask iterm2 &&
+git clone https://github.com/JensenJones/JensenVim.git "$HOME/JensenVim" &&
+"$HOME/JensenVim/install-macos.sh" --apply &&
+if [ -n "${ZSH_VERSION:-}" ]; then PROFILE="$HOME/.zprofile"; else PROFILE="$HOME/.bash_profile"; fi
+touch "$PROFILE" &&
+{ grep -qxF 'export PATH="$HOME/.local/bin:$PATH"' "$PROFILE" || printf '%s\n' 'export PATH="$HOME/.local/bin:$PATH"' >> "$PROFILE"; } &&
+export PATH="$HOME/.local/bin:$PATH" &&
+jvim "$PROJECT_DIR"
 ```
 
-Add `~/.local/bin` to your PATH. Enable **iTerm2 Settings → General → Magic → Enable Python API** and permit the launcher when iTerm requests automation/API access. Then run:
-
-```sh
-jvim .
-jvim path/to/file.cpp
-```
+Enable **iTerm2 Settings → General → Magic → Enable Python API** and permit the
+launcher when iTerm requests automation/API access. To open a file later, run
+`jvim path/to/file.cpp` from any terminal in which the shell PATH is loaded.
 
 The first editor launch downloads plugins and language tools, including Git reads/writes for plugin installation. The installer does not invoke Git itself. Python dependencies are pinned; Neovim plugins are pinned in `config/lazy-lock.json`. Mason's language server versions are not pinned.
 
