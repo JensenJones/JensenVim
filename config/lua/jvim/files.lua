@@ -6,9 +6,14 @@ local last_editor_win
 local click_targets = {}
 local next_click_target = 0
 
+local function image_buffer(buf)
+  return vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].filetype == 'image_nvim'
+    and vim.api.nvim_buf_get_name(buf) ~= ''
+end
+
 local function valid_file(buf)
   if type(buf) ~= 'number' or not vim.api.nvim_buf_is_valid(buf) then return false end
-  if vim.bo[buf].buftype ~= '' or not vim.bo[buf].buflisted then return false end
+  if (vim.bo[buf].buftype ~= '' and not image_buffer(buf)) or not vim.bo[buf].buflisted then return false end
   local name = vim.api.nvim_buf_get_name(buf)
   return (name ~= '' and vim.fn.isdirectory(name) == 0) or vim.bo[buf].modified
 end
@@ -27,7 +32,7 @@ end
 local function editor_window(win)
   if not win or not vim.api.nvim_win_is_valid(win) or vim.api.nvim_win_get_config(win).relative ~= '' then return false end
   local buf = vim.api.nvim_win_get_buf(win)
-  return vim.bo[buf].buftype == '' and vim.bo[buf].filetype ~= 'neo-tree'
+  return (vim.bo[buf].buftype == '' or image_buffer(buf)) and vim.bo[buf].filetype ~= 'neo-tree'
 end
 
 local function remove_value(list, value)
@@ -158,7 +163,7 @@ function M.close_current_tab()
 end
 
 function M.show(buf, cycling, target_win)
-  if type(buf) == 'number' and vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].buftype == '' then
+  if type(buf) == 'number' and vim.api.nvim_buf_is_valid(buf) and (vim.bo[buf].buftype == '' or image_buffer(buf)) then
     local name = vim.api.nvim_buf_get_name(buf)
     if name ~= '' and vim.fn.isdirectory(name) == 0 then vim.bo[buf].buflisted = true end
   end

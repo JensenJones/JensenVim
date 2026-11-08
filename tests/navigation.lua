@@ -210,6 +210,24 @@ elseif case == 'pane_local_file_cycling' then
   assert(vim.api.nvim_get_current_buf() == otherbuf, 'first pane did not cycle through its own files')
   assert(vim.api.nvim_win_get_buf(second_win) == thirdbuf, 'cycling in the first pane changed the second pane')
   assert(vim.api.nvim_buf_get_name(thirdbuf) == third, 'third file was not retained in the second pane tab set')
+elseif case == 'image_file_replacement' then
+  vim.api.nvim_exec_autocmds('VimEnter', { group = 'clion-editing' })
+  settle()
+  focus_tree()
+  local image, image_win = open(root .. '/preview.png')
+  vim.bo[image].buftype = 'nowrite'
+  vim.bo[image].filetype = 'image_nvim'
+  focus_tree()
+  local second_image, second_image_win = open(root .. '/preview-again.png')
+  vim.bo[second_image].buftype = 'nowrite'
+  vim.bo[second_image].filetype = 'image_nvim'
+  assert(second_image_win == image_win, 'opening a second image preview created a new split')
+  focus_tree()
+  local text, text_win = open(main)
+  assert(text_win == image_win, 'opening a text file after an image preview created a new split')
+  assert(vim.api.nvim_get_current_win() == image_win and vim.api.nvim_get_current_buf() == text,
+    'the text file did not replace the image in the existing pane')
+  assert(#vim.api.nvim_list_wins() == 2, 'opening after an image preview changed the split count')
 elseif case == 'add_file_from_editor' or case == 'add_file_closed_tree' then
   vim.api.nvim_exec_autocmds('VimEnter', { group = 'clion-editing' })
   settle()

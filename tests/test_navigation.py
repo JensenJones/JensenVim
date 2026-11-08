@@ -22,6 +22,8 @@ class NavigationTests(unittest.TestCase):
             (project/'main.txt').write_text('main contents\n')
             (project/'other.txt').write_text('other contents\n')
             (project/'third.txt').write_text('third contents\n')
+            (project/'preview.png').write_bytes(b'not a real image; the test simulates image.nvim buffer options')
+            (project/'preview-again.png').write_bytes(b'not a real image; the test simulates image.nvim buffer options')
             env = dict(os.environ, HOME=str(home), JVIM_TEST_CONFIG=str(ROOT/'config'),
                        JVIM_TEST_PLUGINS=str(PLUGINS), JVIM_TEST_PROJECT=str(project), JVIM_TEST_CASE=case)
             env.pop('JVIM_HOST_SOCKET', None)
@@ -66,6 +68,9 @@ class NavigationTests(unittest.TestCase):
 
     def test_pane_local_file_cycling(self):
         self.check_case('pane_local_file_cycling')
+
+    def test_opening_text_after_image_preview_reuses_the_same_pane(self):
+        self.check_case('image_file_replacement')
 
     def test_create_file_from_opened_tree_file_without_reopening_folder(self):
         self.check_case('add_file_from_editor')
