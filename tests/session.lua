@@ -25,12 +25,12 @@ if phase == 'save' then
   vim.api.nvim_win_set_cursor(0, { 23, 0 })
   assert(#files.pane_tabs(first) == 2 and #files.pane_tabs(second) == 2,
     'test setup did not create separate pane tabs: ' .. vim.inspect({ first = files.pane_tabs(first), second = files.pane_tabs(second) }))
-  local ok, err = require('jvim.session').save(root)
+  local ok, err = require('jvim.session').save(root .. '/nested')
   assert(ok, tostring(err))
 elseif phase == 'restore' then
   local group = vim.api.nvim_create_augroup('session-test-files', { clear = true })
   require('jvim.files').setup(group, { tree = false })
-  assert(require('jvim.session').restore(root), 'workspace did not restore')
+  assert(require('jvim.session').restore(root .. '/nested'), 'workspace did not restore')
   local wins = vim.api.nvim_tabpage_list_wins(0)
   assert(#wins == 2, 'expected two restored panes, got ' .. #wins)
   local files = require 'jvim.files'
@@ -48,6 +48,16 @@ elseif phase == 'restore' then
     positions[name] = vim.api.nvim_win_get_cursor(win)[1]
   end
   assert(positions[path('third.txt')] == 23 or positions[path('other.txt')] == 42, 'saved cursor location was not restored')
+elseif phase == 'restore_startup' then
+  vim.cmd.cd(vim.fn.fnameescape(root .. '/nested'))
+  local group = vim.api.nvim_create_augroup('clion-editing', { clear = true })
+  require('jvim.files').setup(group, { tree = false })
+  vim.api.nvim_list_uis = function() return { {} } end
+  vim.api.nvim_exec_autocmds('VimEnter', { group = 'JvimFileHistory' })
+  vim.wait(500, function() return #vim.api.nvim_tabpage_list_wins(0) > 1 end, 10)
+  assert(#vim.api.nvim_tabpage_list_wins(0) == 2, 'startup hook did not restore the project splits')
+  assert(#require('jvim.files').pane_tabs(vim.api.nvim_tabpage_list_wins(0)[1]) > 0,
+    'startup hook did not restore pane tabs')
 else
   error('unknown session phase: ' .. tostring(phase))
 end

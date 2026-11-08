@@ -16,7 +16,9 @@ class SessionTests(unittest.TestCase):
             home = Path(temporary)
             project = home/'project'
             project.mkdir()
-            for phase in ('save', 'restore'):
+            (project/'.git').mkdir()
+            (project/'nested').mkdir()
+            for phase in ('save', 'restore', 'restore_startup'):
                 env = dict(os.environ, HOME=str(home), NVIM_APPNAME='jvim', JVIM_TEST_CONFIG=str(ROOT/'config'),
                            JVIM_TEST_PROJECT=str(project), JVIM_SESSION_PHASE=phase)
                 result = subprocess.run(

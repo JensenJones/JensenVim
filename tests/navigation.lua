@@ -222,6 +222,13 @@ elseif case == 'image_file_replacement' then
   vim.bo[second_image].buftype = 'nowrite'
   vim.bo[second_image].filetype = 'image_nvim'
   assert(second_image_win == image_win, 'opening a second image preview created a new split')
+  press '<D-w>'
+  assert(vim.api.nvim_get_current_win() == image_win and vim.api.nvim_get_current_buf() == image,
+    'Cmd+W exited jvim or closed every tab instead of closing the active image tab')
+  focus_tree()
+  second_image = open(root .. '/preview-again.png')
+  vim.bo[second_image].buftype = 'nowrite'
+  vim.bo[second_image].filetype = 'image_nvim'
   focus_tree()
   local text, text_win = open(main)
   assert(text_win == image_win, 'opening a text file after an image preview created a new split')

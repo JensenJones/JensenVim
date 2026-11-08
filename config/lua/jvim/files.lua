@@ -463,6 +463,23 @@ function M.setup(group, opts)
     end,
   })
   M.setup_tabline()
+  vim.api.nvim_create_autocmd('VimEnter', {
+    group = history_group,
+    callback = function()
+      if #vim.api.nvim_list_uis() == 0 or vim.fn.argc() > 1 then return end
+      local has_file_argument = false
+      for _, argument in ipairs(vim.fn.argv()) do
+        if vim.fn.isdirectory(argument) ~= 1 then has_file_argument = true; break end
+      end
+      if has_file_argument then return end
+      local buf = vim.api.nvim_get_current_buf()
+      local name = vim.api.nvim_buf_get_name(buf)
+      local root = name ~= '' and vim.fn.isdirectory(name) == 1 and name
+        or (name ~= '' and (vim.fs.root(name, { '.git', 'CMakeLists.txt', 'compile_commands.json', 'compile_flags.txt', 'package.json', 'pyproject.toml' }) or vim.fs.dirname(name)))
+        or vim.fn.getcwd()
+      require('jvim.session').restore(root)
+    end,
+  })
   if opts.tree == false then return end
   vim.api.nvim_create_autocmd('VimEnter', {
     group = group,
@@ -479,11 +496,6 @@ function M.setup(group, opts)
             name
           )))
           or vim.fn.getcwd()
-        local has_file_argument = false
-        for _, argument in ipairs(vim.fn.argv()) do
-          if vim.fn.isdirectory(argument) ~= 1 then has_file_argument = true; break end
-        end
-        if not has_file_argument then require('jvim.session').restore(root) end
         require('neo-tree.command').execute {
           action = project_start and 'focus' or 'show',
           position = 'left',

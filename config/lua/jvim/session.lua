@@ -16,13 +16,13 @@ local function paths(root)
   return stem .. '.vim', stem .. '.json'
 end
 
-function M.root()
-  local cwd = project_root()
-  return vim.fs.root(cwd, markers) or cwd
+function M.root(root)
+  root = project_root(root)
+  return vim.fs.root(root, markers) or root
 end
 
 function M.save(root)
-  root = project_root(root or M.root())
+  root = M.root(root)
   local session_path, metadata_path = paths(root)
   local ok, err = pcall(vim.cmd, 'mksession! ' .. vim.fn.fnameescape(session_path))
   if not ok then return false, err end
@@ -36,7 +36,7 @@ function M.save(root)
 end
 
 function M.restore(root)
-  root = project_root(root or M.root())
+  root = M.root(root)
   local session_path, metadata_path = paths(root)
   if vim.fn.filereadable(session_path) ~= 1 or vim.fn.filereadable(metadata_path) ~= 1 then return false end
   local file = io.open(metadata_path, 'r')

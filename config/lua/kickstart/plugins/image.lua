@@ -17,4 +17,8 @@ return {
       css = { enabled = false },
     },
   },
+  config = function(_, opts)
+    require('image').setup(opts)
+    require('jvim.image_preview').setup(vim.api.nvim_create_augroup('JvimImagePreview', { clear = true }))
+  end,
 }
