@@ -192,16 +192,8 @@ action({ '<F20>', '<D-w>' }, function()
   if settings.features.autosave then require('jvim.autosave').save_all() end
   local buf, name = vim.api.nvim_get_current_buf(), vim.api.nvim_buf_get_name(0)
   local files = require 'jvim.files'
-  local remaining = vim.tbl_filter(function(other) return other ~= buf end, files.list())
-  if #remaining == 0 then
-    vim.cmd 'confirm qall'
-    return
-  end
-  -- Select the replacement first: :bdelete otherwise closes the editor pane
-  -- when the sidebar is visible, leaving hidden files behind the tree.
-  files.show(remaining[1])
-  vim.cmd('confirm bdelete ' .. buf)
-  if name ~= '' and not vim.api.nvim_buf_is_loaded(buf) then table.insert(closed_files, name) end
+  if not files.close_current_tab() then vim.cmd 'confirm qall'; return end
+  if name ~= '' and (not vim.api.nvim_buf_is_valid(buf) or not vim.bo[buf].buflisted) then table.insert(closed_files, name) end
 end, 'Close file')
 local function toggle_project_tree()
   local available, tree = pcall(require, 'neo-tree.command')

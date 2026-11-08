@@ -14,7 +14,7 @@ function M.entries()
     shortcut = '',
     action = function() require('jvim.cpp_check').run() end,
   })
-  table.insert(entries, { name = 'Close editor (ask about unsaved files)', shortcut = 'Cmd+Shift+W', key = '<F35>63' })
+  table.insert(entries, { name = 'Save workspace and close editor (ask about unsaved files)', shortcut = 'Cmd+Shift+W', key = '<F35>63' })
   table.insert(entries, { name = 'New file in selected project folder', shortcut = 'Cmd+N', key = '<F35>68' })
   table.insert(entries, { name = 'Open terminal', shortcut = 'Cmd+Option+;', key = '<F35>67' })
   table.insert(entries, { name = 'Toggle Markdown preview', shortcut = '', key = '<F35>65' })

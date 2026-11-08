@@ -52,3 +52,12 @@ class ThemeTests(unittest.TestCase):
 
     def test_theme_picker_selection_applies_theme(self):
         self.check_case('picker_selection')
+
+    def test_additional_builtin_themes_are_available(self):
+        self.check_case('options')
+
+    def test_theme_selection_persists(self):
+        self.check_case('persist')
+
+    def test_invalid_saved_theme_falls_back(self):
+        self.check_case('invalid_saved')

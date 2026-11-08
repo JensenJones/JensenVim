@@ -140,6 +140,8 @@ function M.setup(action, resume_editing)
   action({ '<F35>62', '<C-S-e>' }, function() require('telescope.builtin').jumplist() end, 'Recent locations')
   action({ '<F35>63', '<D-S-w>' }, function()
     if require('jvim.config').get().features.autosave then require('jvim.autosave').save_all() end
+    local saved, err = require('jvim.session').save()
+    if not saved then vim.notify('Could not save jvim workspace: ' .. tostring(err), vim.log.levels.WARN) end
     vim.cmd 'confirm qall'
   end, 'Close editor (ask about unsaved files)')
   action({ '<F35>65' }, function()

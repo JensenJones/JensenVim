@@ -126,6 +126,24 @@ elseif case == 'picker_selection' then
   package.loaded['telescope.config'] = { values = { generic_sorter = function() return {} end } }
   theme.pick()
   assert(vim.wait(1000, function() return vim.g.colors_name == 'dark-ubuntu' end), 'selecting Dark Ubuntu did not apply it')
+elseif case == 'options' then
+  local names = vim.tbl_map(function(item) return item.name end, theme.names())
+  for _, name in ipairs { 'habamax', 'slate', 'desert', 'morning' } do
+    assert(vim.tbl_contains(names, name), name .. ' is missing from theme choices')
+  end
+elseif case == 'persist' then
+  theme.setup()
+  assert(theme.apply('slate'), 'could not select Slate')
+  package.loaded['jvim.theme'] = nil
+  theme = require 'jvim.theme'
+  theme.setup()
+  assert(vim.g.colors_name == 'slate', 'selected theme did not persist across setup')
+elseif case == 'invalid_saved' then
+  local path = vim.fn.stdpath('state') .. '/jvim/theme'
+  vim.fn.mkdir(vim.fs.dirname(path), 'p')
+  vim.fn.writefile({ 'not-a-theme' }, path)
+  theme.setup()
+  assert(vim.g.colors_name == 'jvim-charcoal', 'invalid saved theme did not fall back to default')
 else
   error('unknown theme test case: ' .. tostring(case))
 end

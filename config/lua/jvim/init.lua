@@ -28,9 +28,9 @@ function M.setup(overrides)
     opts.ui.tabline, opts.ui.statusline = false, false
   end
   if opts.ui.theme then
-    if vim.tbl_contains({ 'jvim-charcoal', 'dark-ubuntu' }, opts.ui.theme) then
+    if vim.tbl_contains(vim.tbl_map(function(theme) return theme.name end, require('jvim.theme').names()), opts.ui.theme) then
       require('jvim.theme').setup()
-      require('jvim.theme').apply(opts.ui.theme)
+      if opts.ui.theme ~= 'jvim-charcoal' then require('jvim.theme').apply(opts.ui.theme) end
     else
       local ok, err = pcall(vim.cmd.colorscheme, opts.ui.theme)
       if not ok then vim.notify(err, vim.log.levels.WARN) end

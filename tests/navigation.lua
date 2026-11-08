@@ -171,6 +171,45 @@ elseif case == 'recent_files' then
   require('jvim.files').show(mainbuf)
   press '<C-S-Tab>'
   assert(vim.api.nvim_get_current_buf() == thirdbuf, 'Ctrl+Shift+Tab did not move backward in the recent-file cycle')
+elseif case == 'pane_local_file_cycling' then
+  vim.api.nvim_exec_autocmds('VimEnter', { group = 'clion-editing' })
+  settle()
+  focus_tree()
+  local mainbuf, first_win = open(main)
+  local otherbuf = open(other)
+  assert(vim.api.nvim_get_current_win() == first_win, 'opening files did not reuse the first editor pane')
+  require('jvim.files').show(mainbuf)
+  vim.cmd.vsplit()
+  local second_win = vim.api.nvim_get_current_win()
+  focus_tree()
+  local thirdbuf, opened_win = open(third)
+  assert(opened_win == second_win, 'opening from the tree did not target the focused editor pane')
+  local files = require('jvim.files')
+  local first_bar, second_bar = files.render_winbar(first_win), files.render_winbar(second_win)
+  assert(first_bar:find('other.txt', 1, true), 'first pane winbar did not show its local tab')
+  assert(second_bar:find('third.txt', 1, true), 'second pane winbar did not show its local tab')
+  local click_target = tonumber(second_bar:match('%%(%d+)@'))
+  files.click_tab(click_target)
+  assert(vim.api.nvim_get_current_win() == second_win and vim.api.nvim_get_current_buf() == mainbuf,
+    'clicking a tab did not switch the pane that owns it')
+  assert(files.close_current_tab(), 'closing a pane-local tab failed')
+  assert(vim.api.nvim_win_get_buf(first_win) == mainbuf and vim.api.nvim_buf_is_valid(mainbuf),
+    'closing a shared tab removed the file from the other pane')
+  assert(not vim.tbl_contains(files.pane_tabs(second_win), mainbuf), 'closed tab remained in the second pane')
+  files.show(mainbuf, false, second_win)
+  files.show(thirdbuf, false, second_win)
+  vim.api.nvim_set_current_win(second_win)
+  press '<C-Tab>'
+  assert(vim.api.nvim_get_current_buf() == mainbuf, 'second pane did not cycle only through its own files')
+  assert(vim.api.nvim_win_get_buf(first_win) == mainbuf, 'cycling in the second pane changed the first pane')
+  press '<C-Tab>'
+  assert(vim.api.nvim_get_current_buf() == thirdbuf, 'second pane cycle included a file from the first pane')
+  assert(vim.api.nvim_win_get_buf(first_win) == mainbuf, 'second-pane cycle changed the first pane')
+  vim.api.nvim_set_current_win(first_win)
+  press '<C-Tab>'
+  assert(vim.api.nvim_get_current_buf() == otherbuf, 'first pane did not cycle through its own files')
+  assert(vim.api.nvim_win_get_buf(second_win) == thirdbuf, 'cycling in the first pane changed the second pane')
+  assert(vim.api.nvim_buf_get_name(thirdbuf) == third, 'third file was not retained in the second pane tab set')
 elseif case == 'add_file_from_editor' or case == 'add_file_closed_tree' then
   vim.api.nvim_exec_autocmds('VimEnter', { group = 'clion-editing' })
   settle()

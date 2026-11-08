@@ -6,7 +6,7 @@ Run in your existing Herdr pane:
 
 The editor stays in that pane. It does not create iTerm tabs or windows. Its terminal keyboard mappings apply only while its pane is focused; your normal mappings return when you leave. Fonts and window layout are preserved.
 
-`jvim` and `jvim /project/path/` start in the project tree without an empty file tab. Opening a file creates the editor pane beside the tree. Ctrl+Tab toggles to the most recently used open file; Ctrl+Shift+Tab walks through older files in recent-use order. Closing a file keeps the remaining file visible.
+`jvim` and `jvim /project/path/` start in the project tree without an empty file tab. Opening a file creates the editor pane beside the tree. Each editor pane has its own clickable file tabs; Ctrl+Tab and Ctrl+Shift+Tab switch only among that pane's files. Closing a file keeps the remaining file visible.
 
 - **Ctrl-click a code symbol:** jump to its definition, using the language server. Native Cmd-click is optional: search **Toggle Cmd-click code links (dashed underlines)** in the action menu.
 - **Cmd+B:** keyboard navigation to a definition. Autosave preserves edits and undo without formatting or sorting imports; explicit saves can format.
@@ -19,7 +19,7 @@ The editor stays in that pane. It does not create iTerm tabs or windows. Its ter
 - **Cmd+W:** close the current file; closing the last file exits jvim.
 - **Single-click** a tree folder to expand/collapse it or a file to open it.
 - Markdown renders in the editor, including while typing. Find **Toggle Markdown preview** in the action menu to switch between preview and source.
-- **Cmd+Shift+W:** close the editor, asking about unsaved files.
+- **Cmd+Shift+W:** save the current project's open files, pane layout, tab order, and scroll positions, then close the editor after asking about unsaved files. Launch jvim in that project again to restore the workspace. Choose **Save workspace and close editor** in the action menu to do the same.
 
 Typing, mouse selection, Shift-selection and clipboard shortcuts use ordinary editing. Double-click selects a word; typing replaces the selected text. Escape cancels a selection or popup and keeps you ready to type.
 
@@ -86,7 +86,7 @@ These bindings are generated from your active macOS copy keymap and its bundled 
 
 The status line also has clickable **[- Fold]** and **[+ Fold]** controls. **Cmd+Option+semicolon** opens a shell in the current project; close its pane with **Cmd+W**. Horizontal trackpad swipes move the text with your finger.
 
-Extra conveniences: **Cmd+Shift+W closes the editor**, asking about unsaved files. Ctrl+Tab / Ctrl+Shift+Tab switch files; F12 also jumps to a definition. Home/End move to line boundaries; Cmd+Left goes to the first nonblank column, and Cmd+Right to the line end. Option+Left/Right move between identifier ends, skipping punctuation and spaces; Shift+Option extends selection by identifier. Tab/Shift+Tab indent/unindent ordinary selections; inside a completion's argument placeholders they move to the next/previous argument. Copy/cut uses the current line when no text is selected. Cmd+D duplicates selected text or the current line. Cmd+S saves modified named files and asks for a path for a new unnamed file.
+Extra conveniences: Ctrl+Tab / Ctrl+Shift+Tab switch files in the active pane; F12 also jumps to a definition. The colour theme picker remembers the chosen theme. Home/End move to line boundaries; Cmd+Left goes to the first nonblank column, and Cmd+Right to the line end. Option+Left/Right move between identifier ends, skipping punctuation and spaces; Shift+Option extends selection by identifier. Tab/Shift+Tab indent/unindent ordinary selections; inside a completion's argument placeholders they move to the next/previous argument. Copy/cut uses the current line when no text is selected. Cmd+D duplicates selected text or the current line. Cmd+S saves modified named files and asks for a path for a new unnamed file.
 
 Tab or Enter accepts a function suggestion and selects the first argument for typing over. Continue through arguments with Tab, or go back with Shift+Tab; the final Tab exits after `)`. Escape, switching files or moving outside the call abandons the placeholder session.
 

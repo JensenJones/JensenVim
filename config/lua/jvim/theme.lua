@@ -3,6 +3,10 @@ local M = {}
 local themes = {
   { name = 'jvim-charcoal', label = 'CoderPad-inspired (default)' },
   { name = 'dark-ubuntu', label = 'Dark Ubuntu (previous)' },
+  { name = 'habamax', label = 'Habamax' },
+  { name = 'slate', label = 'Slate' },
+  { name = 'desert', label = 'Desert' },
+  { name = 'morning', label = 'Morning' },
 }
 
 local allowed = {}
@@ -53,6 +57,11 @@ function M.apply(name)
   local ok, err = pcall(vim.cmd.colorscheme, name)
   if not ok then return false, err end
   apply_focus(name)
+  local path = vim.fn.stdpath('state') .. '/jvim/theme'
+  vim.fn.mkdir(vim.fs.dirname(path), 'p')
+  local file, write_err = io.open(path, 'w')
+  if file then file:write(name .. '\n'); file:close()
+  else vim.notify('Could not save colour theme: ' .. tostring(write_err), vim.log.levels.WARN) end
   return true
 end
 
@@ -62,7 +71,14 @@ function M.setup()
     group = group,
     callback = function(args) apply_focus(args.match) end,
   })
-  return M.apply('jvim-charcoal')
+  local path = vim.fn.stdpath('state') .. '/jvim/theme'
+  local file = io.open(path, 'r')
+  local saved = file and file:read('*l')
+  if file then file:close() end
+  if not allowed[saved] then saved = 'jvim-charcoal' end
+  local ok = M.apply(saved)
+  if not ok then return M.apply('jvim-charcoal') end
+  return true
 end
 
 function M.pick()
