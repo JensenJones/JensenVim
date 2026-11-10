@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.support import isolated_env
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -19,7 +21,7 @@ class SessionTests(unittest.TestCase):
             (project/'.git').mkdir()
             (project/'nested').mkdir()
             for phase in ('save', 'restore', 'restore_startup'):
-                env = dict(os.environ, HOME=str(home), NVIM_APPNAME='jvim', JVIM_TEST_CONFIG=str(ROOT/'config'),
+                env = isolated_env(str(home), NVIM_APPNAME='jvim', JVIM_TEST_CONFIG=str(ROOT/'config'),
                            JVIM_TEST_PROJECT=str(project), JVIM_SESSION_PHASE=phase)
                 result = subprocess.run(
                     ['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(ROOT/'tests/session.lua')],
@@ -32,7 +34,7 @@ class SessionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='jvim-panes-') as temporary:
             project = Path(temporary)/'project'
             project.mkdir()
-            env = dict(os.environ, HOME=temporary, NVIM_APPNAME='jvim', JVIM_TEST_CONFIG=str(ROOT/'config'),
+            env = isolated_env(temporary, NVIM_APPNAME='jvim', JVIM_TEST_CONFIG=str(ROOT/'config'),
                        JVIM_TEST_PROJECT=str(project), JVIM_SESSION_PHASE='panes')
             result = subprocess.run(
                 ['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(ROOT/'tests/session.lua')],

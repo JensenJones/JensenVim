@@ -14,7 +14,8 @@ local defaults = {
   },
   formatting = { on_save = true, organise_includes = true, formatters_by_ft = {}, formatters = {} },
   completion = { fuzzy = 'prefer_rust' },
-  features = { project_tree = true, autosave = true, compiler_checks = true, pdf = true, folds = true, word_highlight = true },
+  -- PDF/image previews use image.nvim, which does not support Windows.
+  features = { project_tree = true, autosave = true, compiler_checks = true, pdf = vim.fn.has 'win32' ~= 1, folds = true, word_highlight = true },
   ui = { theme = 'jvim-charcoal', icons = true, tabline = true, statusline = true },
 }
 

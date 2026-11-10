@@ -4,7 +4,7 @@ local case = vim.env.JVIM_TEST_CASE
 
 local function contrast(fg, bg)
   local function luminance(color)
-    local channels = { (color >> 16) & 0xff, (color >> 8) & 0xff, color & 0xff }
+    local channels = { bit.band(bit.rshift(color, 16), 0xff), bit.band(bit.rshift(color, 8), 0xff), bit.band(color, 0xff) }
     local function linear(value)
       value = value / 255
       if value <= 0.04045 then return value / 12.92 end

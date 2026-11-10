@@ -6,8 +6,10 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.support import isolated_env, nvim_plugins
+
 ROOT = Path(__file__).resolve().parents[1]
-PLUGINS = Path.home()/'.local/share/nvim/lazy'
+PLUGINS = nvim_plugins()
 DEPENDENCIES = ('neo-tree.nvim', 'plenary.nvim', 'nui.nvim', 'mini.nvim')
 
 
@@ -24,7 +26,7 @@ class NavigationTests(unittest.TestCase):
             (project/'third.txt').write_text('third contents\n')
             (project/'preview.png').write_bytes(b'not a real image; the test simulates image.nvim buffer options')
             (project/'preview-again.png').write_bytes(b'not a real image; the test simulates image.nvim buffer options')
-            env = dict(os.environ, HOME=str(home), JVIM_TEST_CONFIG=str(ROOT/'config'),
+            env = isolated_env(str(home), JVIM_TEST_CONFIG=str(ROOT/'config'),
                        JVIM_TEST_PLUGINS=str(PLUGINS), JVIM_TEST_PROJECT=str(project), JVIM_TEST_CASE=case)
             env.pop('JVIM_HOST_SOCKET', None)
             env.pop('JVIM_LINK_TOKEN', None)

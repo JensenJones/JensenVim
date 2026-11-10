@@ -6,8 +6,10 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.support import isolated_env, nvim_plugins
+
 ROOT = Path(__file__).resolve().parents[1]
-MINI = Path.home()/'.local/share/nvim/lazy/mini.nvim'
+MINI = nvim_plugins()/'mini.nvim'
 
 
 @unittest.skipUnless(shutil.which('nvim') and MINI.is_dir(), 'Neovim and Mini.nvim needed for word highlight checks')
@@ -41,7 +43,7 @@ local second_line = vim.fn.matchstrpos(vim.fn.getline(2), pattern, 0)
 assert(second_line[2] == 1, 'highlight missed a matching word inside a string')
 vim.cmd 'qall!'
 ''')
-            env = dict(os.environ, HOME=str(home), JVIM_TEST_CONFIG=str(ROOT/'config'), JVIM_TEST_MINI=str(MINI))
+            env = isolated_env(str(home), JVIM_TEST_CONFIG=str(ROOT/'config'), JVIM_TEST_MINI=str(MINI))
             env.pop('JVIM_HOST_SOCKET', None)
             result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '-i', 'NONE', '-l', str(script)],
                                     env=env, capture_output=True, text=True, timeout=10)

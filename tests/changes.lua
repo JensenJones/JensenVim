@@ -80,7 +80,7 @@ local wins = vim.api.nvim_tabpage_list_wins(0)
 assert(#wins == 3 and vim.api.nvim_get_current_win() == panel, 'moving onto a file should preview its diff and keep focus')
 local diffs = vim.tbl_filter(function(win) return vim.wo[win].diff end, wins)
 assert(#diffs == 2, 'expected two windows in diff mode')
-local work = vim.tbl_filter(function(win) return vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(win)) == root .. '/src/core/edit.txt' end, wins)[1]
+local work = vim.tbl_filter(function(win) return vim.fs.normalize(vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(win))) == vim.fs.normalize(root .. '/src/core/edit.txt') end, wins)[1]
 assert(work, 'working file is not shown')
 local base = vim.tbl_filter(function(win) return win ~= work and win ~= panel end, wins)[1]
 equal(vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(base), 0, -1, false), { 'one', 'two', 'three' })

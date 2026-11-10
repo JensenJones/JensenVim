@@ -85,6 +85,9 @@ vim.cmd('qa!')
 
 
 def main():
+    if os.name == 'nt' and not sys.flags.utf8_mode:
+        # Tests read and write UTF-8 sources; match the macOS/Linux default instead of the ANSI code page.
+        return subprocess.call([sys.executable, '-X', 'utf8', *sys.argv])
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--pattern', default='test_*.py', help='unittest discovery pattern')
     parser.add_argument('--syntax-only', action='store_true', help='check syntax without running tests')

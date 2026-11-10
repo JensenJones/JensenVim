@@ -7,6 +7,8 @@ import tempfile
 import time
 import unittest
 
+from tests.support import isolated_env
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -16,7 +18,7 @@ class ChangesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='jvim-changes-') as temporary:
             project = Path(temporary)/'project'
             (project/'src/core').mkdir(parents=True)
-            env = dict(os.environ, HOME=temporary, GIT_CONFIG_NOSYSTEM='1', GIT_AUTHOR_NAME='jvim', GIT_AUTHOR_EMAIL='jvim@example.com',
+            env = isolated_env(temporary, GIT_CONFIG_NOSYSTEM='1', GIT_AUTHOR_NAME='jvim', GIT_AUTHOR_EMAIL='jvim@example.com',
                        GIT_COMMITTER_NAME='jvim', GIT_COMMITTER_EMAIL='jvim@example.com')
             def git(*args):
                 subprocess.run(['git', *args], cwd=project, env=env, check=True, capture_output=True)
@@ -43,7 +45,7 @@ class ChangesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='jvim-changes-') as temporary:
             project = Path(temporary)/'project'
             project.mkdir()
-            env = dict(os.environ, HOME=temporary, GIT_CONFIG_NOSYSTEM='1', GIT_AUTHOR_NAME='jvim', GIT_AUTHOR_EMAIL='jvim@example.com',
+            env = isolated_env(temporary, GIT_CONFIG_NOSYSTEM='1', GIT_AUTHOR_NAME='jvim', GIT_AUTHOR_EMAIL='jvim@example.com',
                        GIT_COMMITTER_NAME='jvim', GIT_COMMITTER_EMAIL='jvim@example.com')
             lines = [f'line {number}' for number in range(1, 301)]
             (project/'long.txt').write_text('\n'.join(lines) + '\n')

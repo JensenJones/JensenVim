@@ -35,9 +35,30 @@ class WindowsPackageTests(unittest.TestCase):
         installed = self.run_script(ROOT/'install-windows.ps1', '-Apply', '-Frontend', 'nvim')
         self.assertEqual(installed.returncode, 0, installed.stderr)
         self.assertTrue((self.local/'jvim/init.lua').is_file())
-        launched = self.run_script(self.local/'JensenVim/bin/jvim.ps1', 'file with spaces.cpp')
+        launched = self.run_script(self.local/'JensenVim/bin/lib/jvim.ps1', 'file with spaces.cpp')
         self.assertEqual(launched.returncode, 17, launched.stderr)
         self.assertEqual(launched.stdout.strip(), 'jvim:file with spaces.cpp')
+        # The PATH entry holds only jvim.cmd, so PowerShell cannot pick an unsigned .ps1 under AllSigned.
+        self.assertEqual(sorted(p.name for p in (self.local/'JensenVim/bin').glob('jvim*')), ['jvim.cmd'])
+        on_path = dict(self.env, PATH=str(self.local/'JensenVim/bin')+os.pathsep+self.env['PATH'])
+        shimmed = subprocess.run(['cmd.exe', '/d', '/c', 'jvim', 'file with spaces.cpp'],
+                                 env=on_path, capture_output=True, text=True, timeout=30)
+        self.assertEqual(shimmed.returncode, 17, shimmed.stderr)
+        self.assertEqual(shimmed.stdout.strip(), 'jvim:file with spaces.cpp')
+
+    def test_launcher_uses_first_neovim_when_several_are_on_path(self):
+        second = self.home/'second nvim'
+        second.mkdir()
+        (second/'nvim.cmd').write_text('@echo off\nexit /b 99\n')
+        env = dict(self.env, PATH=self.env['PATH']+os.pathsep+str(second))
+        self.assertEqual(self.run_script(ROOT/'install-windows.ps1', '-Apply', '-Frontend', 'nvim', env=env).returncode, 0)
+        launched = self.run_script(self.local/'JensenVim/bin/lib/jvim.ps1', 'a.txt', env=env)
+        self.assertEqual(launched.returncode, 17, launched.stderr)
+
+    def test_install_without_add_to_path_leaves_user_path_alone(self):
+        installed = self.run_script(ROOT/'install-windows.ps1', '-Apply', '-Frontend', 'nvim')
+        self.assertEqual(installed.returncode, 0, installed.stderr)
+        self.assertIn('-AddToPath', installed.stdout)
 
     def test_preview_and_xdg_rejection_do_not_create_destinations(self):
         preview = self.run_script(ROOT/'install-windows.ps1', '-Frontend', 'nvim')

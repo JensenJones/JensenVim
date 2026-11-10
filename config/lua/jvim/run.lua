@@ -69,7 +69,8 @@ end
 
 -- Each line runs in the user's shell; the first failing line ends the run with its status.
 local function shell_steps(commands)
-  if vim.fn.has('win32') == 1 then return { 'cmd.exe', '/s', '/c', table.concat(commands, ' && ') } end
+  -- No space before &&: cmd.exe keeps it, so 'echo hi && ...' would print 'hi ' with a trailing space.
+  if vim.fn.has('win32') == 1 then return { 'cmd.exe', '/s', '/c', table.concat(commands, '&& ') } end
   local script = {}
   for _, line in ipairs(commands) do
     script[#script + 1] = 'printf \'\\033[1m$ %s\\033[0m\\n\' ' .. vim.fn.shellescape(line)

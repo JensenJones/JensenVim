@@ -11,6 +11,8 @@ import tempfile
 import time
 import unittest
 
+from tests.support import jvim_data
+
 ROOT = Path(__file__).resolve().parents[1]
 RUNNER = ROOT/'config/tools/cpp_check.py'
 
@@ -249,7 +251,7 @@ assert(vim.api.nvim_buf_get_lines(source,1,2,false)[1]:find('foo.bob',1,true),'o
 vim.cmd 'qa!'
 ''')
         env = dict(os.environ, JVIM_TEST_CONFIG=str(ROOT/'config'), JVIM_TEST_PROJECT=str(self.project),
-                   JVIM_TEST_SITE=str(Path.home()/'.local/share/jvim/site'))
+                   JVIM_TEST_SITE=str(jvim_data()/'site'))
         result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '-i', 'NONE', '-l', str(script)],
                                 env=env, capture_output=True, text=True, timeout=35)
         self.assertEqual(result.returncode, 0, result.stderr)

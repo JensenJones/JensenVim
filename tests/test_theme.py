@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.support import isolated_env
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -16,7 +18,7 @@ class ThemeTests(unittest.TestCase):
             config = Path(home)/'.config/jvim'
             config.mkdir(parents=True)
             shutil.copy2(ROOT/'config/clion-keymap-audit.json', config/'clion-keymap-audit.json')
-            env = dict(os.environ, HOME=home, NVIM_APPNAME='jvim', JVIM_TEST_CONFIG=str(ROOT/'config'), JVIM_TEST_CASE=case)
+            env = isolated_env(home, NVIM_APPNAME='jvim', JVIM_TEST_CONFIG=str(ROOT/'config'), JVIM_TEST_CASE=case)
             result = subprocess.run(
                 ['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(ROOT/'tests/theme.lua')],
                 env=env,

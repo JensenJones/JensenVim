@@ -4,7 +4,7 @@ By Jensen Jones.
 
 A lightweight Neovim setup with ordinary typing, mouse selection, CLion-style Mac shortcuts, a single-click project tree, Markdown rendering and autosave. Based on kickstart.nvim; the original MIT license is preserved in LICENSE.
 
-**Mac + WezTerm, including Herdr panes, is the primary setup; iTerm2 is also supported.** Linux and Windows run the same editor with Ctrl in place of Cmd: see [Linux](#linux-installation) and [Windows](#windows-installation-experimental). Run configurations and conflict resolution use Neovim's terminal and diff engine. CLion's debugger and full refactoring engine are not reproduced.
+**Mac + WezTerm, including Herdr panes, is the primary setup; iTerm2 is also supported.** Linux and Windows run the same editor with Ctrl in place of Cmd: see [Linux](#linux-installation) and [Windows](#windows-installation). Run configurations and conflict resolution use Neovim's terminal and diff engine. CLion's debugger and full refactoring engine are not reproduced.
 
 ## macOS installation
 
@@ -80,29 +80,23 @@ jvim "$PROJECT_DIR"
 
 The installer links `config/` to `~/.config/jvim`, adds a `jvim` launcher in `~/.local/bin` and puts that folder on PATH in your shell's startup file. It first moves any previous installation into `~/.local/state/jvim/backups`. Shortcuts use Ctrl where the Mac uses Cmd (Ctrl+S, Ctrl+W, Ctrl+Shift+A). Telling Ctrl+Shift shortcuts apart needs a terminal with the kitty keyboard protocol, such as kitty, WezTerm, foot, Ghostty or Alacritty. The iTerm/Herdr bridge is macOS only.
 
-## Windows installation (experimental)
+## Windows installation
 
-Windows support has not been tested on a Windows machine. Paste this into PowerShell in the folder you want to open:
+Paste this one line into PowerShell (Windows 10/11 with winget):
 
 ```powershell
-$project = $PWD.Path
-winget install -e --id Neovim.Neovim; winget install -e --id Neovide.Neovide
-winget install -e --id BurntSushi.ripgrep.MSVC; winget install -e --id Git.Git
-winget install -e --id tree-sitter.tree-sitter-cli
-$env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force
-git clone https://github.com/JensenJones/JensenVim.git "$HOME\JensenVim"
-& "$HOME\JensenVim\install-windows.ps1" -Apply
-$bin = "$env:LOCALAPPDATA\JensenVim\bin"
-$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
-if (($userPath -split ';') -notcontains $bin) { [Environment]::SetEnvironmentVariable('Path', "$userPath;$bin", 'User') }
-$env:Path += ";$bin"
-jvim.ps1 $project
+irm https://raw.githubusercontent.com/JensenJones/JensenVim/main/bootstrap-windows.ps1 | iex
 ```
 
-Tree-sitter parsers also need a C compiler: install **Visual Studio Build Tools** with the *Desktop development with C++* workload. jvim installs separately at `%LOCALAPPDATA%\jvim`, backing up existing managed files, and opens in Neovide. Pass `-Frontend nvim` to the installer to use a terminal instead.
+Then open a project with `jvim .` (open a new terminal first if `jvim` is not found yet). The script installs whatever is missing of Git, Neovim, ripgrep, tree-sitter-cli and Neovide with winget, clones the repository into `$HOME\JensenVim`, installs jvim and adds the `jvim` command to your user PATH. If winget cannot install Neovide without administrator approval, the script uses Neovide's official portable build instead. It does not change PowerShell's execution policy, so it also works where scripts must be signed. Rerun the same line to update.
 
-On Windows, Cmd-based editor mappings become Ctrl-based mappings: Ctrl+B for definition, F4 for the tree, Ctrl+W to close, and Ctrl+Alt+arrows for history. Ctrl-click is mapped inside Neovim. These mappings have been checked through Neovim's mapping API, but real Windows keyboard delivery, mouse delivery and real dependency installation still need Windows testing. CI includes isolated PowerShell installer tests. OS-reserved keys may need remapping. Windows Terminal integration and Herdr on Windows are not included.
+Optional settings, set in the same PowerShell window before running it: `$env:JVIM_FRONTEND = 'nvim'` runs jvim inside your terminal instead of Neovide, and `$env:JVIM_DIR = 'D:\src\jvim'` clones somewhere else.
+
+Tree-sitter builds syntax parsers with a C compiler. An existing Visual Studio installation with the C++ workload is found automatically; otherwise the script prints the command to install **Visual Studio Build Tools**. C++ compiler checks need Python 3 (the `py` launcher is used, because the Microsoft Store `python` alias is only a placeholder).
+
+To install from an existing checkout instead, run `install-windows.ps1 -Apply -AddToPath` (add `-Frontend nvim` for terminal mode). jvim installs separately at `%LOCALAPPDATA%\jvim`, backs up existing managed files, and keeps plugins in `%LOCALAPPDATA%\jvim-data`. Personal settings go in `%LOCALAPPDATA%\jvim-user\init.lua`.
+
+On Windows, Cmd-based editor mappings become Ctrl-based mappings: Ctrl+B for definition, F4 for the tree, Ctrl+W to close, and Ctrl+Alt+arrows for history. Ctrl-click is mapped inside Neovim. PDF and image previews are off on Windows because image.nvim does not support it. Installation, first-launch plugin, parser and language-server setup, health checks, run configurations and the test suite have been verified on Windows 11. Keyboard and mouse delivery inside Neovide has been checked through Neovim's mapping API only, and OS-reserved keys may need remapping. Windows Terminal integration and Herdr on Windows are not included.
 
 ## Everyday editing
 

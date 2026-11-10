@@ -6,9 +6,11 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.support import jvim_data
+
 ROOT = Path(__file__).resolve().parents[1]
-CONFORM = Path.home()/'.local/share/jvim/lazy/conform.nvim'
-SITE = Path.home()/'.local/share/jvim/site'
+CONFORM = jvim_data()/'lazy/conform.nvim'
+SITE = jvim_data()/'site'
 
 
 @unittest.skipUnless(shutil.which('nvim') and shutil.which('clang-format') and CONFORM.is_dir(),

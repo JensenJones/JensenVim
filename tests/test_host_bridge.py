@@ -68,6 +68,7 @@ def load_bridge(fake):
     return module
 
 
+@unittest.skipIf(os.name == 'nt', 'iTerm/Herdr host bridge is macOS only')
 class BridgeTests(unittest.IsolatedAsyncioTestCase):
     async def test_missing_host_never_chooses_between_multiple_herdr_clients(self):
         bridge = load_bridge(types.ModuleType('iterm2'))

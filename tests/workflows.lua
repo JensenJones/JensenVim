@@ -1,7 +1,9 @@
 vim.o.swapfile = false
-vim.o.columns = 300
+-- Headless Windows Neovim (no UI attached) crashes opening a terminal after 'columns' changes;
+-- with a UI attached it works at any width, so only widen elsewhere.
+if vim.fn.has 'win32' ~= 1 then vim.o.columns = 300 end
 vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
-local root = vim.env.JVIM_TEST_PROJECT
+local root = vim.fs.normalize(vim.env.JVIM_TEST_PROJECT)
 vim.cmd.cd(vim.fn.fnameescape(root))
 local case = vim.env.JVIM_TEST_CASE
 local function equal(actual, expected)
@@ -74,7 +76,7 @@ elseif case == 'edit' then
   local run = require 'jvim.run'
   run.edit(root)
   assert(vim.fn.isdirectory(root .. '/.jvim') == 1)
-  equal(vim.api.nvim_buf_get_name(0), root .. '/.jvim/run.json')
+  equal(vim.fs.normalize(vim.api.nvim_buf_get_name(0)), root .. '/.jvim/run.json')
   assert(vim.bo.buflisted, 'configuration editor is missing from file tabs')
   assert(vim.tbl_contains(require('jvim.files').list(), vim.api.nvim_get_current_buf()))
   local data = vim.json.decode(table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), '\n'))
@@ -95,6 +97,15 @@ elseif case == 'steps' then
   local text = table.concat(vim.api.nvim_buf_get_lines(session.buf, 0, -1, false), '\n')
   for _, value in ipairs { '$ echo "first step" > order.txt', 'env reached', '$ exit 3' } do assert(text:find(value, 1, true), text) end
   assert(not text:find('$ echo never', 1, true), 'run continued after a failing step: ' .. text)
+elseif case == 'steps_windows' then
+  local run = require 'jvim.run'
+  save_config { version = 1, configurations = { { name = 'Steps', commands = {
+    'echo first step> order.txt', 'echo %JVIM_STEP%>> order.txt', 'exit /b 3', 'echo never>> order.txt',
+  }, env = { JVIM_STEP = 'env reached' } } } }
+  local session = assert(run.run('Steps', root))
+  wait_for(function() return session.status == 'exited' end)
+  equal(session.exit_code, 3)
+  equal(vim.fn.readfile(root .. '/order.txt'), { 'first step', 'env reached' })
 elseif case == 'form' then
   local run = require 'jvim.run'
   local buf = run.form(root)
@@ -110,12 +121,14 @@ elseif case == 'form' then
   equal(select(2, run.current(root)), 'Build and run')
   save_config(configuration { 'sh', '-c', 'echo legacy' })
   buf = run.form(root, 'Example')
-  equal(vim.api.nvim_buf_get_lines(buf, 5, 6, false), { "sh -c 'echo legacy'" })
+  -- Legacy argv commands become one shell line quoted for the user's shell (cmd.exe uses double quotes).
+  local legacy = vim.fn.has 'win32' == 1 and 'sh -c "echo legacy"' or "sh -c 'echo legacy'"
+  equal(vim.api.nvim_buf_get_lines(buf, 5, 6, false), { legacy })
   vim.api.nvim_buf_set_lines(buf, 1, 2, false, { 'Name: Renamed' })
   vim.cmd.write()
   wait_for(function() return not vim.api.nvim_buf_is_valid(buf) end)
   entries = assert(run.load(root))
-  equal({ entries[1].name, entries[1].commands, entries[1].command, entries[1].env.JVIM_WORKFLOW_VALUE }, { 'Renamed', { "sh -c 'echo legacy'" }, nil, 'hello spaces' })
+  equal({ entries[1].name, entries[1].commands, entries[1].command, entries[1].env.JVIM_WORKFLOW_VALUE }, { 'Renamed', { legacy }, nil, 'hello spaces' })
   assert(not run.save_form(root, nil, { 'Name: Renamed', 'echo x' }), 'duplicate name accepted')
   assert(not run.save_form(root, nil, { 'Name: Empty' }), 'configuration without commands accepted')
   equal(run.save_form(root, 'Renamed', { 'Name: Renamed' }), false)

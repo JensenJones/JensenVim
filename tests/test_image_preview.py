@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.support import isolated_env
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -13,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 class ImagePreviewTests(unittest.TestCase):
     def test_image_buffer_entry_clears_and_redraws_cached_preview(self):
         with tempfile.TemporaryDirectory(prefix='jvim-image-') as temporary:
-            env = dict(os.environ, HOME=temporary, JVIM_TEST_CONFIG=str(ROOT/'config'))
+            env = isolated_env(temporary, JVIM_TEST_CONFIG=str(ROOT/'config'))
             result = subprocess.run(
                 ['nvim', '--headless', '-u', 'NONE', '-i', 'NONE', '-l', str(ROOT/'tests/image_preview.lua')],
                 env=env, capture_output=True, text=True, timeout=10,

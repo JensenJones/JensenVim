@@ -21,6 +21,7 @@ installer = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(installer)
 
 
+@unittest.skipIf(os.name == 'nt', 'macOS iTerm/Herdr package; Windows packaging is covered by test_windows_package')
 class PackageTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory(prefix='jvim-package-')

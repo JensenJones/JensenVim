@@ -6,8 +6,10 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.support import jvim_data
+
 ROOT = Path(__file__).resolve().parents[1]
-PARSER = Path.home()/'.local/share/jvim/site/parser/cpp.so'
+PARSER = jvim_data()/'site/parser/cpp.so'
 
 
 @unittest.skipUnless(shutil.which('nvim') and PARSER.is_file(), 'Neovim and the C++ Tree-sitter parser are required')

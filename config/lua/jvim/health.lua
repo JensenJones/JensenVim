@@ -111,7 +111,13 @@ function M.check()
   language_servers(opts)
   executable('Project search', 'rg')
   if opts.features.compiler_checks then
-    executable('Python 3 for compiler checks', 'python3')
+    if vim.fn.has 'win32' == 1 then
+      local python = require('jvim.cpp_check').python()
+      if python then vim.health.ok('Python 3 for compiler checks: ' .. table.concat(python, ' '))
+      else vim.health.warn('Python 3 for compiler checks: install Python 3 (the Microsoft Store alias is not enough)') end
+    else
+      executable('Python 3 for compiler checks', 'python3')
+    end
     compiler()
   else
     vim.health.info('Compiler checks: disabled')

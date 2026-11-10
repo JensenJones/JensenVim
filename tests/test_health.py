@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.support import isolated_env
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -41,9 +43,8 @@ local function prohibit_processes()
   package.preload.mason = forbidden
 end
 ''' + body + "\nvim.cmd('qa!')\n")
-            env = dict(os.environ, HOME=directory, NVIM_APPNAME='jvim', JVIM_TEST_CONFIG=str(ROOT/'config'))
-            for name in ('JVIM_CONFIG', 'JVIM_PROFILE', 'JVIM_OFFLINE', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_CACHE_HOME'):
-                env.pop(name, None)
+            env = isolated_env(directory, unset=('JVIM_CONFIG', 'JVIM_PROFILE', 'JVIM_OFFLINE', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_CACHE_HOME'),
+                               NVIM_APPNAME='jvim', JVIM_TEST_CONFIG=str(ROOT/'config'))
             result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '-i', 'NONE', '-l', str(script)],
                                     env=env, capture_output=True, text=True, timeout=10)
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -87,8 +88,9 @@ require_report('info', 'Offline: enabled')
 ''', personal="error('broken company settings')")
 
     def test_neovim_minimum_and_optional_dependency_failures_are_actionable(self):
+        # PDF support defaults off on Windows (image.nvim is unsupported there), so enable it explicitly.
         self.lua('''
-require('jvim.config').setup {}
+require('jvim.config').setup { features = { pdf = true } }
 local has = vim.fn.has
 vim.fn.has = function(feature) if feature == 'nvim-0.12' then return 0 end return has(feature) end
 vim.fn.exepath = function() return '' end

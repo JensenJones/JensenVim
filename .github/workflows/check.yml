@@ -44,9 +44,9 @@ jobs:
         run: python scripts/check.py
 
   windows-package:
-    name: Windows isolated installer (no desktop validation)
+    name: Windows core and installer (no desktop validation)
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -62,5 +62,5 @@ jobs:
           $destination = Join-Path $env:RUNNER_TEMP 'nvim'
           Expand-Archive -LiteralPath $archive -DestinationPath $destination
           Join-Path $destination 'nvim-win64/bin' | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      - name: Syntax and isolated PowerShell installation tests
-        run: python scripts/check.py --pattern test_windows_package.py
+      - name: Syntax, isolated tests and PowerShell installation tests
+        run: python scripts/check.py

@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.support import isolated_env
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -35,6 +37,6 @@ assert(matches('diff')['Show Git changes'], 'searching diff misses the changes v
 vim.cmd 'qall!'
 ''')
             result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(script)],
-                                    env=dict(os.environ, HOME=temporary, JVIM_TEST_CONFIG=str(ROOT/'config')),
+                                    env=isolated_env(temporary, JVIM_TEST_CONFIG=str(ROOT/'config')),
                                     capture_output=True, text=True, timeout=15)
             self.assertEqual(result.returncode, 0, result.stderr)

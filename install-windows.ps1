@@ -1,6 +1,8 @@
 param(
     [switch]$Apply,
-    [ValidateSet('neovide', 'nvim')][string]$Frontend = 'neovide'
+    [ValidateSet('neovide', 'nvim')][string]$Frontend = 'neovide',
+    # Adds the launcher folder to the user PATH (off by default so isolated test installs never touch it).
+    [switch]$AddToPath
 )
 $ErrorActionPreference = 'Stop'
 foreach ($name in @('XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_CACHE_HOME')) {
@@ -13,7 +15,7 @@ $source = $PSScriptRoot
 $config = Join-Path $env:LOCALAPPDATA 'jvim'
 $bin = Join-Path $env:LOCALAPPDATA 'JensenVim/bin'
 Write-Host "Configuration: $config"
-Write-Host "Launcher: $bin/jvim.ps1 ($Frontend)"
+Write-Host "Launcher: $bin/jvim.cmd ($Frontend)"
 Write-Host 'Windows support is experimental; iTerm/Herdr integration is macOS only.'
 if (!$Apply) {
     Write-Host 'Preview only. Run ./install-windows.ps1 -Apply [-Frontend nvim] to install.'
@@ -35,7 +37,7 @@ New-Item -ItemType Directory -Path $stage | Out-Null
 $preparedConfig = Join-Path $stage 'jvim'
 Copy-Item -LiteralPath (Join-Path $source 'config') -Destination $preparedConfig -Recurse -Exclude '__pycache__', '*.pyc', '.DS_Store'
 $preparedBin = Join-Path $stage 'bin'
-New-Item -ItemType Directory -Path $preparedBin | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $preparedBin 'lib') -Force | Out-Null
 $launcher = @'
 [CmdletBinding(PositionalBinding=$false)]
 param(
@@ -47,11 +49,11 @@ foreach ($name in @('XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_C
     if ([Environment]::GetEnvironmentVariable($name)) { throw "Custom XDG paths are not supported: $name. Unset them before launching jvim." }
 }
 $nvimName = if ($env:JVIM_NVIM) { $env:JVIM_NVIM } else { 'nvim' }
-$nvim = Get-Command $nvimName -CommandType Application -ErrorAction SilentlyContinue
+$nvim = Get-Command $nvimName -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
 if (!$nvim) { throw "Cannot find executable Neovim: $nvimName. Install nvim on PATH or set JVIM_NVIM." }
 $executable = $nvim.Source
 if ($Frontend -eq 'neovide') {
-    $gui = Get-Command neovide -CommandType Application -ErrorAction SilentlyContinue
+    $gui = Get-Command neovide -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
     if (!$gui) { throw 'Install Neovide or launch with -Frontend nvim.' }
     $executable = $gui.Source
 }
@@ -66,7 +68,14 @@ try {
 }
 exit $status
 '@
-$launcher.Replace('__FRONTEND__', $Frontend) | Set-Content -LiteralPath (Join-Path $preparedBin 'jvim.ps1')
+$launcher.Replace('__FRONTEND__', $Frontend) | Set-Content -LiteralPath (Join-Path $preparedBin 'lib/jvim.ps1')
+# jvim.cmd lets `jvim` run from cmd.exe, PowerShell and Explorer without execution-policy changes.
+$shim = @'
+@echo off
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0lib\jvim.ps1" %*
+exit /b %ERRORLEVEL%
+'@
+$shim | Set-Content -LiteralPath (Join-Path $preparedBin 'jvim.cmd') -Encoding ASCII
 $changed = [System.Collections.Generic.List[object]]::new()
 try {
     foreach ($replacement in @(@($config, $preparedConfig), @($bin, $preparedBin))) {
@@ -100,6 +109,18 @@ try {
 }
 # Only empty staging directories remain after successful publication.
 Remove-Item -LiteralPath $stage
-Write-Host "Installed. Add $bin to your user PATH, then run jvim.ps1 ."
+$binPath = (Resolve-Path -LiteralPath $bin).Path
+if ($AddToPath) {
+    $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+    $entries = @($userPath -split ';' | Where-Object { $_ })
+    if ($entries -notcontains $binPath) {
+        [Environment]::SetEnvironmentVariable('Path', (($entries + $binPath) -join ';'), 'User')
+        Write-Host "Added $binPath to your user PATH."
+    }
+    if (($env:Path -split ';') -notcontains $binPath) { $env:Path += ";$binPath" }
+    Write-Host 'Installed. Run: jvim .'
+} else {
+    Write-Host "Installed. Add $binPath to your user PATH (or rerun with -AddToPath), then run: jvim ."
+}
 Write-Host 'First launch may download plugins/tools according to your settings. The installer does not invoke Git.'
 if (Test-Path -LiteralPath $backup) { Write-Host "Backups: $backup" }

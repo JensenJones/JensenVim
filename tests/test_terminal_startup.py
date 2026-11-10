@@ -12,6 +12,8 @@ import threading
 import time
 import unittest
 
+from tests.support import isolated_env, jvim_data, nvim_plugins
+
 try:
     import fcntl
     import pty
@@ -20,7 +22,7 @@ except ImportError:
     pty = None
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGINS = Path.home()/'.local/share/nvim/lazy'
+PLUGINS = nvim_plugins()
 DEPENDENCIES = ('neo-tree.nvim', 'plenary.nvim', 'nui.nvim', 'mini.nvim', 'telescope.nvim')
 
 
@@ -66,7 +68,7 @@ vim.api.nvim_create_autocmd('VimEnter', { callback = function()
   vim.defer_fn(function() _G.jvim_test_started = true end, 300)
 end })
 ''')
-            env = dict(os.environ, HOME=str(home), NVIM_APPNAME='jvim', TERM='xterm-256color',
+            env = isolated_env(str(home), NVIM_APPNAME='jvim', TERM='xterm-256color',
                        JVIM_TEST_CONFIG=os.environ.get('JVIM_TERMINAL_CONFIG', str(ROOT/'config')),
                        JVIM_TEST_PLUGINS=str(PLUGINS), JVIM_TEST_PROJECT=str(project),
                        PATH=str(clipboard_commands)+os.pathsep+os.environ.get('PATH', ''))
@@ -144,7 +146,7 @@ end })
     def test_theme_action_opens_picker(self):
         self.check_startup(True, 'theme_picker')
 
-    @unittest.skipUnless((Path.home()/'.local/share/jvim/lazy/snacks.nvim').is_dir(), 'Snacks input required')
+    @unittest.skipUnless((jvim_data()/'lazy/snacks.nvim').is_dir(), 'Snacks input required')
     def test_rename_input_supports_word_selection_and_deletion(self):
         self.check_startup(True, 'rename_input')
 
@@ -276,7 +278,7 @@ end })
             self.assertTrue(state('vim.api.nvim_buf_get_name(0)').endswith('/main.txt'), 'one click in Neo-tree did not open main.txt')
             return
         if interaction == 'completion_placeholders':
-            plugins = json.dumps(str(Path.home()/'.local/share/jvim/lazy'))
+            plugins = json.dumps(str(jvim_data()/'lazy'))
             lua("(function() vim.opt.rtp:append(" + plugins + "..'/LuaSnip'); vim.opt.rtp:append(" + plugins + "..'/blink.cmp'); local completion=require('jvim.completion'); package.preload.jvim_test_completion=function() return {new=function() return {get_completions=function(_,_,callback) callback({is_incomplete_forward=false,is_incomplete_backward=false,items={{label='consume',kind=3,insertTextFormat=2,insertText='consume(${1:int first}, ${2:double second})$0'}}}) end,resolve=function(_,item,callback) vim.defer_fn(function() callback(item) end,vim.g.jvim_test_resolve_ms or 0) end} end} end; require('blink.cmp').setup({keymap=completion.keymap(),snippets=completion.snippets(),fuzzy={implementation='lua'},sources={default={'test'},providers={test={name='test',module='jvim_test_completion'}}},signature={enabled=false}}); vim.api.nvim_buf_set_lines(0,0,-1,false,{'    cons','unrelated'}); vim.api.nvim_win_set_cursor(0,{1,8}); return true end)()")
             time.sleep(0.2)
             def selected_text():
@@ -382,7 +384,7 @@ end })
             time.sleep(0.1)
             self.assertEqual(state('vim.fn.getline(1)'), 'alpha d omega', 'typing after Option+Up ran a Vim command instead of replacing the word')
             self.assertEqual(state('vim.fn.mode()'), 'i')
-            site = json.dumps(str(Path.home()/'.local/share/jvim/site'))
+            site = json.dumps(str(jvim_data()/'site'))
             lua("(function() vim.opt.rtp:append(" + site + "); vim.api.nvim_buf_set_lines(0,0,-1,false,{'void f() {','    auto value = call(argument);','}'}); vim.bo.filetype='cpp'; vim.treesitter.start(0,'cpp'); vim.api.nvim_win_set_cursor(0,{2,24}); return true end)()")
             for index, sequence in enumerate((b'\x1b[23;5~49', b'\x1b[1;3A') * 4):
                 os.write(master, sequence)
@@ -457,7 +459,7 @@ end })
             self.assertEqual(state("require('telescope.actions.state').get_current_picker(vim.api.nvim_get_current_buf()):_get_prompt()"), '', 'pending typing mode leaked text into the code action picker')
             return
         if interaction == 'rename_input':
-            plugin = json.dumps(str(Path.home()/'.local/share/jvim/lazy/snacks.nvim'))
+            plugin = json.dumps(str(jvim_data()/'lazy/snacks.nvim'))
             lua("(function() vim.opt.rtp:append(" + plugin + "); require('snacks').setup(require('jvim.plugins.input').opts); require('snacks').input.enable(); vim.ui.input({prompt='Rename to:',default='oldName'},function(value) vim.g.rename_result=value or 'cancelled' end); return true end)()")
             time.sleep(0.2)
             self.assertEqual(state('vim.bo.filetype'), 'snacks_input')

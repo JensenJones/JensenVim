@@ -5,8 +5,10 @@ import shutil
 import subprocess
 import unittest
 
+from tests.support import jvim_data
+
 ROOT = Path(__file__).resolve().parents[1]
-SITE = Path.home()/'.local/share/jvim/site'
+SITE = jvim_data()/'site'
 TREESITTER = SITE.parent/'lazy/nvim-treesitter'
 AUTOPAIRS = SITE.parent/'lazy/nvim-autopairs'
 

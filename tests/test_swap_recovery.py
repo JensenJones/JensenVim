@@ -7,6 +7,8 @@ import tempfile
 import time
 import unittest
 
+from tests.support import isolated_env, state_dir
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -18,7 +20,7 @@ class SwapRecoveryTests(unittest.TestCase):
             target = home/'sample.cpp'
             marker = home/'writer-ready'
             target.write_text('disk version\n')
-            env = dict(os.environ, HOME=str(home),
+            env = isolated_env(str(home),
                        JVIM_TEST_CONFIG=os.environ.get('JVIM_SWAP_CONFIG', str(ROOT/'config')),
                        JVIM_TEST_FILE=str(target))
             writer = subprocess.Popen([
@@ -27,7 +29,7 @@ class SwapRecoveryTests(unittest.TestCase):
                 '-c', 'preserve', '-c', "lua vim.fn.writefile({vim.fn.swapname(0), vim.o.directory, vim.o.swapfile and 'on' or 'off'}, vim.env.JVIM_TEST_MARKER)", '-c', 'sleep 60',
             ], env=dict(env, JVIM_TEST_MARKER=str(marker)), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             try:
-                swap_dir = home/'.local/state/nvim/swap'
+                swap_dir = state_dir(home)/'swap'
                 deadline = time.monotonic() + 5
                 swapfiles = []
                 while time.monotonic() < deadline:

@@ -12,7 +12,8 @@ ROOT = Path(__file__).resolve().parents[1]
 @unittest.skipUnless(shutil.which('nvim'), 'Neovim required')
 class WorkflowTests(unittest.TestCase):
     def check_case(self, case):
-        with tempfile.TemporaryDirectory(prefix='jvim-workflows-') as temporary:
+        # A just-exited cmd.exe can briefly hold its working directory open on Windows.
+        with tempfile.TemporaryDirectory(prefix='jvim-workflows-', **({'ignore_cleanup_errors': True} if os.name == 'nt' else {})) as temporary:
             project = Path(temporary).resolve() / 'project with spaces'
             project.mkdir()
             env = dict(os.environ, JVIM_TEST_CONFIG=str(ROOT / 'config'),
@@ -25,21 +26,29 @@ class WorkflowTests(unittest.TestCase):
     def test_run_config_validation_rejects_bad_commands_paths_and_environment(self):
         self.check_case('validation')
 
+    @unittest.skipIf(os.name == 'nt', 'POSIX sh command; Windows runs shell lines through cmd.exe')
     def test_run_preserves_argv_cwd_environment_and_exit_status(self):
         self.check_case('execution')
 
+    @unittest.skipIf(os.name == 'nt', 'POSIX sh command; Windows runs shell lines through cmd.exe')
     def test_running_session_reuse_retained_output_rerun_and_stop(self):
         self.check_case('lifecycle')
 
     def test_shell_terminal_reuses_hidden_session(self):
         self.check_case('shell')
 
+    @unittest.skipIf(os.name == 'nt', 'POSIX sh command; Windows runs shell lines through cmd.exe')
     def test_shell_line_steps_run_in_order_and_stop_on_failure(self):
         self.check_case('steps')
+
+    @unittest.skipUnless(os.name == 'nt', 'cmd.exe shell lines')
+    def test_windows_shell_line_steps_run_in_order_and_stop_on_failure(self):
+        self.check_case('steps_windows')
 
     def test_form_creates_edits_and_deletes_named_configurations(self):
         self.check_case('form')
 
+    @unittest.skipIf(os.name == 'nt', 'POSIX sh command; Windows runs shell lines through cmd.exe')
     def test_project_discovery_and_configuration_path_executable(self):
         self.check_case('project')
 

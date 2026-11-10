@@ -6,6 +6,8 @@ import subprocess
 import tempfile
 import unittest
 
+from tests.support import isolated_env
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -20,9 +22,8 @@ class ConfigTests(unittest.TestCase):
                 user.write_text(personal)
             script = home/'check.lua'
             script.write_text("vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)\n" + body + "\nvim.cmd('qa!')\n")
-            env = dict(os.environ, HOME=directory, NVIM_APPNAME='jvim', JVIM_TEST_CONFIG=str(ROOT/'config'))
-            for name in ('JVIM_CONFIG', 'JVIM_PROFILE', 'JVIM_OFFLINE', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME'):
-                env.pop(name, None)
+            env = isolated_env(directory, unset=('JVIM_CONFIG', 'JVIM_PROFILE', 'JVIM_OFFLINE', 'XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME'),
+                               NVIM_APPNAME='jvim', JVIM_TEST_CONFIG=str(ROOT/'config'))
             env.update(environment)
             result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '-i', 'NONE', '-l', str(script)],
                                     env=env, capture_output=True, text=True, timeout=10)

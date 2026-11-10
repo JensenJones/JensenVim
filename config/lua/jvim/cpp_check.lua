@@ -29,6 +29,22 @@ local function watch_buffers(root, state)
   end
 end
 
+-- Returns the argv prefix that starts Python 3, or nil. On Windows the Microsoft Store
+-- "python3" alias is a stub that only opens the Store, so prefer the py launcher.
+function M.python()
+  if vim.fn.has 'win32' == 1 then
+    local launcher = vim.fn.exepath 'py'
+    if launcher ~= '' then return { launcher, '-3' } end
+    for _, name in ipairs { 'python3', 'python' } do
+      local path = vim.fn.exepath(name)
+      if path ~= '' and not path:lower():find('microsoft[/\\]windowsapps[/\\]') then return { path } end
+    end
+    return nil
+  end
+  local python = vim.fn.exepath 'python3'
+  return python ~= '' and { python } or nil
+end
+
 function M.run(buf, opts)
   opts = opts or {}
   if not buf or buf == 0 then buf = vim.api.nvim_get_current_buf() end
@@ -37,9 +53,9 @@ function M.run(buf, opts)
     if not opts.quiet then vim.notify('C++ check needs a compile_commands.json for this project', vim.log.levels.WARN) end
     return false
   end
-  local python = vim.fn.exepath 'python3'
+  local python = M.python()
   local runner = vim.api.nvim_get_runtime_file('tools/cpp_check.py', false)[1]
-  if python == '' or not runner then
+  if not python or not runner then
     vim.notify('C++ compiler checks need Python 3 and the jvim check helper', vim.log.levels.ERROR)
     return false
   end
@@ -54,7 +70,7 @@ function M.run(buf, opts)
   watch_buffers(root, state)
   local generation = state.generation
   state.needs_check = true
-  state.job = vim.system({ python, runner, database }, { text = true }, function(result)
+  state.job = vim.system(vim.list_extend(vim.list_extend({}, python), { runner, database }), { text = true }, function(result)
     vim.schedule(function()
       if state.generation ~= generation then return end
       state.job = nil
