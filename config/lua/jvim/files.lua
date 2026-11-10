@@ -107,19 +107,37 @@ function M.render_winbar(win)
   local current = vim.api.nvim_win_get_buf(win)
   local focused = tonumber(vim.g.actual_curwin) or vim.api.nvim_get_current_win()
   local selected_group = win == focused and 'TabLineSel' or 'JvimTabLineSelNC'
-  local parts = {}
+  local tabs = {}
   for _, buf in ipairs(pane.tabs) do
     if valid_file(buf) then
-      next_click_target = next_click_target + 1
-      click_targets[next_click_target] = { win = win, buf = buf }
-      local name = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(buf), ':t'):gsub('%%', '%%%%')
+      local name = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(buf), ':t')
       if name == '' then name = '[No Name]' end
       if vim.bo[buf].modified then name = name .. ' +' end
-      local group = buf == current and selected_group or 'TabLine'
-      parts[#parts + 1] = ('%%#%s#%%T%%%d@v:lua.JvimTabClick@ %s %%T'):format(group, next_click_target, name)
+      tabs[#tabs + 1] = { buf = buf, name = name }
     end
   end
-  return table.concat(parts, ' ')
+  if #tabs == 0 then return '' end
+  -- Every tab gets the same width: the longest name, shrunk to share the pane if needed.
+  local width = 0
+  for _, tab in ipairs(tabs) do width = math.max(width, vim.fn.strdisplaywidth(tab.name)) end
+  local fit = math.floor((vim.api.nvim_win_get_width(win) + 1) / #tabs) - 3
+  width = math.max(math.min(width, fit), 6)
+  local parts = {}
+  for _, tab in ipairs(tabs) do
+    local name = tab.name
+    if vim.fn.strdisplaywidth(name) > width then
+      name = vim.fn.strcharpart(name, 0, width - 1) .. '…'
+      while vim.fn.strdisplaywidth(name) > width do name = vim.fn.strcharpart(name, 0, vim.fn.strchars(name) - 2) .. '…' end
+    end
+    local gap = width - vim.fn.strdisplaywidth(name)
+    local left = math.floor(gap / 2)
+    name = (' '):rep(left) .. name:gsub('%%', '%%%%') .. (' '):rep(gap - left)
+    next_click_target = next_click_target + 1
+    click_targets[next_click_target] = { win = win, buf = tab.buf }
+    local group = tab.buf == current and selected_group or 'TabLine'
+    parts[#parts + 1] = ('%%#%s#%%%d@v:lua.JvimTabClick@ %s %%T'):format(group, next_click_target, name)
+  end
+  return table.concat(parts, '%#TabLineFill# ') .. '%#TabLineFill#'
 end
 
 function M.click_tab(target)

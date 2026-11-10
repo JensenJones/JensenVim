@@ -17,8 +17,8 @@ function M.update(win)
   if vim.bo[buf].buftype ~= '' then return end
 
   vim.api.nvim_win_call(win, function()
-    local word = vim.fn.expand '<cword>'
-    if word == '' then return end
+    local ok, word = pcall(vim.fn.expand, '<cword>')
+    if not ok or word == '' then return end
     local pattern = '\\V\\<' .. vim.fn.escape(word, '\\') .. '\\>'
     matches[win] = vim.fn.matchadd('JvimWord', pattern, 120)
   end)

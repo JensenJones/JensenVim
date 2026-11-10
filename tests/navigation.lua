@@ -188,6 +188,20 @@ elseif case == 'pane_local_file_cycling' then
   local first_bar, second_bar = files.render_winbar(first_win), files.render_winbar(second_win)
   assert(first_bar:find('other.txt', 1, true), 'first pane winbar did not show its local tab')
   assert(second_bar:find('third.txt', 1, true), 'second pane winbar did not show its local tab')
+  vim.cmd.edit(root .. '/a_much_longer_file_name.txt')
+  vim.o.columns = 240
+  vim.api.nvim_win_set_width(second_win, 80)
+  local rendered = vim.api.nvim_eval_statusline(files.render_winbar(second_win), { winid = second_win, use_winbar = true, highlights = true })
+  local widths = {}
+  for index, highlight in ipairs(rendered.highlights) do
+    local stop = rendered.highlights[index + 1] and rendered.highlights[index + 1].start or #rendered.str
+    if highlight.group ~= 'TabLineFill' then widths[#widths + 1] = vim.fn.strdisplaywidth(rendered.str:sub(highlight.start + 1, stop)) end
+  end
+  assert(#widths == 3 and widths[1] == widths[2] and widths[2] == widths[3], 'tabs differ in width: ' .. vim.inspect(widths))
+  assert(rendered.highlights[#rendered.highlights].group == 'TabLineFill', 'the last tab colour runs to the edge of the pane')
+  assert(rendered.width <= vim.api.nvim_win_get_width(second_win) and rendered.str:find('a_much_longer_file_na', 1, true),
+    'tabs did not share the pane width: ' .. rendered.str)
+  assert(files.close_current_tab(), 'closing the long-named tab failed')
   local click_target = tonumber(second_bar:match('%%(%d+)@'))
   files.click_tab(click_target)
   assert(vim.api.nvim_get_current_win() == second_win and vim.api.nvim_get_current_buf() == mainbuf,
