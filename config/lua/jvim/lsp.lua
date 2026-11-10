@@ -4,15 +4,23 @@ local started = false
 function M.servers(opts)
   opts = opts or require('jvim.config').get()
   local servers = opts.lsp.default_servers and {
-    clangd = { cmd = { 'clangd', '--background-index', '--clang-tidy', '--completion-style=detailed', '--header-insertion=iwyu' } },
+    -- clangd logs every request to stderr, which Neovim records as LSP errors; keep only real errors.
+    clangd = { cmd = { 'clangd', '--background-index', '--clang-tidy', '--completion-style=detailed', '--header-insertion=iwyu', '--log=error' } },
     lua_ls = { settings = { Lua = { workspace = { checkThirdParty = false }, completion = { callSnippet = 'Replace' } } } },
   } or {}
   return require('jvim.config').merge(servers, opts.lsp.servers)
 end
 
+local function rotate_log()
+  local path = vim.lsp.log.get_filename()
+  local stat = vim.uv.fs_stat(path)
+  if stat and stat.size > 10 * 1024 * 1024 then vim.uv.fs_rename(path, path .. '.old') end
+end
+
 function M.setup()
   if started then return end
   started = true
+  rotate_log()
   local opts = require('jvim.config').get()
   local servers = M.servers(opts)
   local group = vim.api.nvim_create_augroup('jvim-lsp', { clear = true })
