@@ -149,14 +149,12 @@ class PackageTests(unittest.TestCase):
         existing.write_text('original user settings')
         with patch.object(installer.shutil, 'which', return_value='/test/nvim'):
             self.install(apply=True, runtime=False, registration=False)
-            copied = self.home/'.config/jvim/init.lua'
-            self.assertTrue(copied.exists())
-            copied.write_text('user edits to previous jvim')
+            linked = self.home/'.config/jvim'
+            self.assertTrue(linked.is_symlink())
+            self.assertEqual(linked.resolve(), (ROOT/'config').resolve())
             self.install(apply=True, runtime=False, registration=False)
+            self.assertEqual(linked.resolve(), (ROOT/'config').resolve())
         self.assertEqual(existing.read_text(), 'original user settings')
-        backups = list((self.home/'.local/state/jvim/backups').glob('*/.config/jvim/init.lua'))
-        self.assertEqual(len(backups), 1)
-        self.assertEqual(backups[0].read_text(), 'user edits to previous jvim')
         profile = json.loads((self.home/'Library/Application Support/iTerm2/DynamicProfiles/jvim.json').read_text())['Profiles'][0]
         self.assertEqual(profile['Name'], 'jvim')
         self.assertIn('0x62-0x100000', profile['Keyboard Map'])  # Cmd+B

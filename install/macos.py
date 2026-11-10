@@ -121,7 +121,8 @@ def install(home, *, apply=False, runtime=True, registration=True):
             path.parent.mkdir(parents=True, exist_ok=True)
             replacements.append((target, path))
             return path
-        shutil.copytree(SOURCE/'config', prepared(config), ignore=shutil.ignore_patterns('__pycache__', '*.pyc', '.DS_Store'))
+        # A link keeps the editor running the repository's files, so edits never drift from the source.
+        prepared(config).symlink_to(SOURCE/'config', target_is_directory=True)
         for name in ('host-profile.applescript', 'open-location.applescript', 'requirements.txt'):
             shutil.copy2(SOURCE/'integrations/macos'/name, prepared(share/name))
         for name in ('jvim', 'jvim-host-profile', 'jvim-open-location'):

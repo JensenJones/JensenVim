@@ -19,6 +19,7 @@ class LinuxInstallTests(unittest.TestCase):
     def test_preview_apply_and_reinstall(self):
         with tempfile.TemporaryDirectory(prefix='jvim-linux-') as temporary:
             home = Path(temporary)
+            before = sorted(path.name for path in (ROOT/'config').iterdir())
             preview = self.run_installer(home)
             self.assertEqual(preview.returncode, 0, preview.stderr)
             self.assertIn('Preview only', preview.stdout)
@@ -26,8 +27,8 @@ class LinuxInstallTests(unittest.TestCase):
 
             first = self.run_installer(home, '--apply')
             self.assertEqual(first.returncode, 0, first.stderr)
-            self.assertTrue((home/'.config/jvim/lua/jvim/init.lua').is_file())
-            self.assertFalse(list((home/'.config/jvim').rglob('__pycache__')))
+            self.assertTrue((home/'.config/jvim').is_symlink())
+            self.assertEqual((home/'.config/jvim').resolve(), (ROOT/'config').resolve())
             launcher = home/'.local/bin/jvim'
             self.assertTrue(os.access(launcher, os.X_OK))
             appname = subprocess.run([str(launcher), '--headless', '-u', 'NONE', '-i', 'NONE', '+lua io.write(vim.env.NVIM_APPNAME)', '+qall!'],
@@ -38,5 +39,18 @@ class LinuxInstallTests(unittest.TestCase):
             self.assertEqual(second.returncode, 0, second.stderr)
             backups = list((home/'.local/state/jvim/backups').iterdir())
             self.assertEqual(len(backups), 1)
-            self.assertTrue((backups[0]/'jvim/lua/jvim/init.lua').is_file())
+            self.assertTrue((backups[0]/'launcher').is_file())
+            self.assertEqual(sorted(path.name for path in (ROOT/'config').iterdir()), before, 'reinstalling wrote into the repository')
             self.assertEqual((home/'.bashrc').read_text().count('.local/bin'), 1, 'PATH entry duplicated')
+
+    def test_existing_copied_configuration_is_backed_up(self):
+        with tempfile.TemporaryDirectory(prefix='jvim-linux-') as temporary:
+            home = Path(temporary)
+            old = home/'.config/jvim/init.lua'
+            old.parent.mkdir(parents=True)
+            old.write_text('old copy')
+            result = self.run_installer(home, '--apply')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            backups = list((home/'.local/state/jvim/backups').iterdir())
+            self.assertEqual((backups[0]/'config/init.lua').read_text(), 'old copy')
+            self.assertTrue((home/'.config/jvim').is_symlink())

@@ -36,16 +36,18 @@ for tool in git rg; do
 done
 
 BACKUP="$STATE_HOME/jvim/backups/$(date +%Y%m%d-%H%M%S)-$$"
-for target in "$CONFIG" "$BIN/jvim"; do
-  if [ -e "$target" ] || [ -L "$target" ]; then
+for entry in "$CONFIG:config" "$BIN/jvim:launcher"; do
+  target=${entry%:*}
+  if [ -L "$target" ]; then
+    rm "$target"
+  elif [ -e "$target" ]; then
     mkdir -p "$BACKUP"
-    mv "$target" "$BACKUP/$(basename "$target")"
+    mv "$target" "$BACKUP/${entry##*:}"
   fi
 done
 
 mkdir -p "$CONFIG_HOME" "$BIN"
-cp -R "$SOURCE/config" "$CONFIG"
-find "$CONFIG" \( -name '__pycache__' -o -name '*.pyc' -o -name '.DS_Store' \) -prune -exec rm -rf {} +
+ln -s "$SOURCE/config" "$CONFIG"
 cat > "$BIN/jvim" <<EOF
 #!/bin/sh
 NVIM_APPNAME=jvim exec "\${JVIM_NVIM:-$NVIM}" "\$@"
