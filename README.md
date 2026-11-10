@@ -103,7 +103,7 @@ On Windows, Cmd-based editor mappings become Ctrl-based mappings: Ctrl+B for def
 | F4 (Fn+F4 if needed) | Toggle the project tree from any editor mode |
 | Cmd+N | Add a file beside the selected tree file or inside the selected folder |
 | Cmd+Shift+A | Search actions and shortcuts |
-| Cmd+0 | Git changes: changed-file tree with side-by-side diffs |
+| Ctrl+Shift+G | Git changes: changed-file tree with side-by-side diffs |
 | Cmd+Shift+T | Reopen the last closed file, recreating its split if needed |
 | Cmd+B / Ctrl-click | Go to definition (Cmd-click is optional) |
 | Cmd+Option+Left / Right | Navigate back / forward |

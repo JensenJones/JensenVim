@@ -290,7 +290,7 @@ map('i', '<M-S-Up>', '<Esc><cmd>move .-2<CR>==gi', { desc = 'Move line up' })
 map('i', '<M-S-Down>', '<Esc><cmd>move .+1<CR>==gi', { desc = 'Move line down' })
 
 action({ '<F35>35', '<D-S-t>' }, function() require('jvim.files').reopen_closed() end, 'Reopen closed file')
-action({ '<F35>77', '<D-0>' }, function() require('jvim.changes').open() end, 'Show Git changes')
+action({ '<F35>77', '<C-S-g>' }, function() require('jvim.changes').open() end, 'Show Git changes')
 vim.api.nvim_create_user_command('Changes', function() require('jvim.changes').open() end, { desc = 'Show Git changes' })
 
 local group = vim.api.nvim_create_augroup('clion-editing', { clear = true })

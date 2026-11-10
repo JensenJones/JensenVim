@@ -12,12 +12,15 @@ function M.setup()
         if mapping.lhs:match '%-([A-Z])>$' and not key:find '[<%-]S%-' then
           key = key:gsub('%-([A-Z])>$', '-S-%1>')
         end
-        vim.keymap.set(mode, key, mapping.callback or mapping.rhs, {
-          desc = mapping.desc,
-          expr = mapping.expr == 1,
-          remap = mapping.noremap == 0,
-          silent = mapping.silent == 1,
-        })
+        -- An explicit Ctrl mapping wins over a translated Cmd one, e.g. Ctrl+Shift+G for Git changes.
+        if vim.fn.maparg(key, mode) == '' then
+          vim.keymap.set(mode, key, mapping.callback or mapping.rhs, {
+            desc = mapping.desc,
+            expr = mapping.expr == 1,
+            remap = mapping.noremap == 0,
+            silent = mapping.silent == 1,
+          })
+        end
       end
     end
   end

@@ -48,7 +48,7 @@ A running configuration reopens its existing terminal. Completed output is retai
 
 ## Git changes
 
-Press **Cmd+0**, choose **Show Git changes** in the action menu, or run `:Changes` to open the changes view in its own tab. The left panel lists every file that differs from `HEAD` (staged, unstaged and untracked) as a folder tree, with a status letter (**M** modified, **A** added, **U** untracked, **D** deleted, **R** renamed) and added/removed line counts.
+Press **Ctrl+Shift+G**, choose **Show Git changes** in the action menu, or run `:Changes` to open the changes view in its own tab. The left panel lists every file that differs from `HEAD` (staged, unstaged and untracked) as a folder tree, with a status letter (**M** modified, **A** added, **U** untracked, **D** deleted, **R** renamed) and added/removed line counts.
 
 Moving onto a file shows its diff beside the panel: the `HEAD` version on the left, read-only, and your working file on the right. Press **Enter** or double-click to jump into the working file and edit it; saving refreshes the panel. Click or press **Enter** on a folder to collapse it. **r** refreshes, **q**, **Esc** or **Cmd+W** closes the view and returns to your editor tab. Use `]c` and `[c` to move between changes in a diff.
 

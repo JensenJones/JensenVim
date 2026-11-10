@@ -1,5 +1,41 @@
 local M = {}
 
+-- Extra search words for actions whose names lack the word people type, e.g. "git" for merge conflicts.
+local keywords = {
+  { 'git', 'vcs version control' },
+  { 'changes', 'git diff status commit vcs' },
+  { 'merge', 'git conflict diff' },
+  { 'conflict', 'git merge' },
+  { 'run', 'build compile execute launch' },
+  { 'terminal', 'shell console command line' },
+  { 'theme', 'colour color scheme appearance' },
+  { 'tree', 'files explorer sidebar' },
+  { 'workspace', 'session layout restore quit exit' },
+  { 'definition', 'goto jump navigate' },
+  { 'rename', 'refactor' },
+  { 'markdown', 'preview render' },
+  { 'health', 'check diagnose doctor' },
+  { 'personal jvim configuration', 'settings preferences options' },
+  { 'fold', 'collapse expand' },
+}
+
+function M.search_text(entry)
+  local name, words = entry.name:lower(), {}
+  for _, rule in ipairs(keywords) do
+    if name:find(rule[1], 1, true) then words[#words + 1] = rule[2] end
+  end
+  return table.concat({ entry.name, entry.shortcut, unpack(words) }, ' ')
+end
+
+local function gitsigns(method, ...)
+  local args = { ... }
+  return function()
+    local ok, signs = pcall(require, 'gitsigns')
+    if not ok then return vim.notify('Git line actions need gitsigns.nvim', vim.log.levels.WARN) end
+    signs[method](unpack(args))
+  end
+end
+
 function M.entries()
   local path = vim.api.nvim_get_runtime_file('clion-keymap-audit.json', false)[1]
   local audit = path and vim.json.decode(table.concat(vim.fn.readfile(path), '\n')) or { actions = {} }
@@ -16,7 +52,18 @@ function M.entries()
   })
   table.insert(entries, { name = 'Save workspace and close editor (ask about unsaved files)', shortcut = 'Cmd+Shift+W', key = '<F35>63' })
   table.insert(entries, { name = 'New file in selected project folder', shortcut = 'Cmd+N', key = '<F35>68' })
-  table.insert(entries, { name = 'Show Git changes', shortcut = 'Cmd+0', key = '<F35>77' })
+  table.insert(entries, { name = 'Show Git changes', shortcut = 'Ctrl+Shift+G', key = '<F35>77' })
+  for _, entry in ipairs {
+    { 'Git: blame current line', gitsigns('blame_line', { full = true }) },
+    { 'Git: toggle inline blame', gitsigns('toggle_current_line_blame') },
+    { 'Git: preview change under cursor', gitsigns('preview_hunk') },
+    { 'Git: revert change under cursor', gitsigns('reset_hunk') },
+    { 'Git: stage change under cursor', gitsigns('stage_hunk') },
+    { 'Git: next change', gitsigns('nav_hunk', 'next') },
+    { 'Git: previous change', gitsigns('nav_hunk', 'prev') },
+  } do
+    table.insert(entries, { name = entry[1], shortcut = '', action = entry[2] })
+  end
   table.insert(entries, { name = 'Open terminal', shortcut = 'Cmd+Option+;', key = '<F35>67' })
   table.insert(entries, { name = 'Toggle Markdown preview', shortcut = '', key = '<F35>65' })
   table.insert(entries, { name = 'Toggle Cmd-click code links (dashed underlines)', shortcut = '', key = '<F35>66' })
@@ -93,7 +140,7 @@ function M.open()
           return {
             value = entry,
             display = function() return display { entry.name, { entry.shortcut, 'TelescopeResultsComment' } } end,
-            ordinal = entry.name .. ' ' .. entry.shortcut,
+            ordinal = M.search_text(entry),
           }
         end,
       },
