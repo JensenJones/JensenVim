@@ -43,6 +43,8 @@ return {
     event = 'VimEnter',
     opts = {
       delay = 0,
+      -- Every printable key is mapped in Select mode, so a popup there only lists "Type over selection".
+      triggers = { { '<auto>', mode = 'nxo' } },
       icons = { mappings = vim.g.have_nerd_font },
 
       spec = {

@@ -57,7 +57,13 @@ local function render_page(buf, state)
   local prefix = state.cache_dir .. '/page-' .. page
   local png = prefix .. '.png'
 
-  set_message(buf, string.format('%s  |  Page %d/%d  |  [ prev  ] next  |  q close', vim.fn.fnamemodify(state.path, ':t'), page, state.pages))
+  -- Replace only the header: rewriting every line moves the page image's
+  -- extmark past the buffer end, and image.nvim then fails in screenpos().
+  vim.bo[buf].modifiable = true
+  vim.api.nvim_buf_set_lines(buf, 0, 1, false, {
+    string.format('%s  |  Page %d/%d  |  [ prev  ] next  |  q close', vim.fn.fnamemodify(state.path, ':t'), page, state.pages),
+  })
+  vim.bo[buf].modifiable = false
   if uv.fs_stat(png) then
     show_page(buf, state, png)
     return

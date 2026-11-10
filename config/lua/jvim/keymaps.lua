@@ -42,12 +42,18 @@ vim.opt.whichwrap:append { ['<'] = true, ['>'] = true, ['['] = true, [']'] = tru
 -- macOS trackpads report horizontal wheel direction as finger movement, while
 -- Neovim's defaults move the viewport the opposite way. Keep content following
 -- the gesture: swipe left reveals content to the right, and vice versa.
-map({ 'n', 'i', 's', 'x' }, '<ScrollWheelLeft>', function()
-  vim.cmd.normal { args = { '6zl' }, bang = true }
-end, { desc = 'Scroll horizontally right' })
-map({ 'n', 'i', 's', 'x' }, '<ScrollWheelRight>', function()
-  vim.cmd.normal { args = { '6zh' }, bang = true }
-end, { desc = 'Scroll horizontally left' })
+-- WezTerm already reports the natural direction and flags its focus in this file.
+local wezterm_focused = vim.fn.expand '~/.local/state/jvim/wezterm-focused'
+local function scroll_keys(toward_right)
+  if vim.uv.fs_stat(wezterm_focused) then toward_right = not toward_right end
+  return toward_right and '6zl' or '6zh'
+end
+for key, toward_right in pairs { ['<ScrollWheelLeft>'] = true, ['<ScrollWheelRight>'] = false } do
+  map({ 'n', 'i' }, key, function() vim.cmd.normal { args = { scroll_keys(toward_right) }, bang = true } end, { desc = 'Scroll horizontally' })
+  map('x', key, function() return scroll_keys(toward_right) end, { expr = true, desc = 'Scroll horizontally' })
+  -- :normal in Select mode types its keys over the selection, so scroll from Visual and switch back.
+  map('s', key, function() return '<C-g>' .. scroll_keys(toward_right) .. '<C-g>' end, { expr = true, desc = 'Scroll horizontally' })
+end
 
 for key, target in pairs {
   ['<M-Left>'] = '<C-Left>',
@@ -70,6 +76,8 @@ map('i', '<M-d>', '<C-o>de', { desc = 'Delete next word' })
 -- iTerm Natural Text Editing sends these for Command+Backspace/Left/Right.
 map('i', '<C-u>', '<C-g>u<C-u>', { desc = 'Delete to line start' })
 map({ 'n', 'i', 's' }, '<C-e>', '<End>')
+-- Command+Right arrives as CSI 4~, which Neovim names Select; unmapped, Insert mode types "<Select>".
+map({ 'n', 'i', 's' }, '<Select>', '<End>')
 
 local function shortcut(key, normal, insert, select, visual, desc)
   for mode, rhs in pairs { n = normal, i = insert, s = select, x = visual } do
@@ -195,6 +203,21 @@ action({ '<F20>', '<D-w>' }, function()
   if settings.features.autosave then require('jvim.autosave').save_all() end
   if not require('jvim.files').close_current_tab() then vim.cmd 'confirm qall' end
 end, 'Close file')
+local function split(command)
+  local files = require 'jvim.files'
+  local editors = files.editor_windows()
+  if #editors == 0 then return end
+  if not vim.tbl_contains(editors, vim.api.nvim_get_current_win()) then vim.api.nvim_set_current_win(editors[1]) end
+  local from_pdf = vim.b.jvim_pdf_viewer
+  vim.cmd(command)
+  -- One image can't render in two windows, so give the new pane an open text file.
+  if from_pdf then
+    local text_file = files.list()[1]
+    if text_file then files.show(text_file) end
+  end
+end
+action({ '<F35>78' }, function() split 'vsplit' end, 'Split right')
+action({ '<F35>79' }, function() split 'split' end, 'Split down')
 local function toggle_project_tree()
   local available, tree = pcall(require, 'neo-tree.command')
   if not available then vim.notify('The project tree requires Neo-tree; enable it through your plugin manager', vim.log.levels.WARN); return end
@@ -211,7 +234,30 @@ local function toggle_project_tree()
 end
 action({ '<F4>' }, toggle_project_tree, 'Toggle project tree')
 action({ '<F22>', '<S-F6>' }, function() require('jvim.rename').symbol() end, 'Rename symbol')
-action({ '<F23>', '<M-CR>' }, vim.lsp.buf.code_action, 'Quick fix')
+local function fix_spelling()
+  if not vim.wo.spell then return false end
+  local row, col = unpack(vim.api.nvim_win_get_cursor(0))
+  local line = vim.api.nvim_get_current_line()
+  local first, last = col, col
+  while first > 0 and line:sub(first, first):match "[%w']" do first = first - 1 end
+  while last < #line and line:sub(last + 1, last + 1):match "[%w']" do last = last + 1 end
+  local word = line:sub(first + 1, last)
+  if word == '' or vim.fn.spellbadword(word)[1] == '' then return false end
+  local choices = vim.fn.spellsuggest(word, 9)
+  local add = 'Add "' .. word .. '" to dictionary'
+  table.insert(choices, add)
+  vim.ui.select(choices, { prompt = 'Spelling' }, function(choice)
+    if choice == add then
+      vim.cmd.spellgood(word)
+    elseif choice then
+      vim.api.nvim_buf_set_text(0, row - 1, first, row - 1, last, { choice })
+    end
+  end)
+  return true
+end
+action({ '<F23>', '<M-CR>' }, function()
+  if not fix_spelling() then vim.lsp.buf.code_action() end
+end, 'Quick fix')
 action({ '<F24>', '<C-M-l>', '<D-M-l>' }, function()
   local available, conform = pcall(require, 'conform')
   if available then conform.format { async = true, lsp_format = 'fallback' }

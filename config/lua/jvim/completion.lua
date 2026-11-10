@@ -99,6 +99,8 @@ function M.jump(direction)
   M.snippets().jump(direction)
 end
 
+local function hide_menu(cmp) cmp.hide() end
+
 local function jump_key(direction)
   return function()
     if M.snippets().active { direction = direction } then return queue('jump(' .. direction .. ')') end
@@ -126,8 +128,12 @@ function M.keymap()
   end
   return {
     preset = 'super-tab',
-    ['<Left>'] = { 'hide', 'fallback' },
-    ['<Right>'] = { 'hide', 'fallback' },
+    -- Navigate suggestions with arrows while the menu is open; otherwise let
+    -- Neovim move the cursor as usual.
+    ['<Left>'] = { hide_menu, 'fallback' },
+    ['<Right>'] = { hide_menu, 'fallback' },
+    ['<Up>'] = { 'select_prev', 'fallback' },
+    ['<Down>'] = { 'select_next', 'fallback' },
     ['<Tab>'] = {
       function(cmp)
         if cmp.is_menu_visible() then return queue("accept('full')") end

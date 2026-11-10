@@ -19,6 +19,9 @@ return {
     filesystem = {
       -- jvim.files owns directory startup and removes its placeholder.
       hijack_netrw_behavior = 'disabled',
+      -- Neo-tree names its hidden-count row after the last filtered entry.
+      -- A real file ending in `_hidden_message` can therefore collide with it.
+      filtered_items = { show_hidden_count = false },
       components = {
         name = function(config, node, state)
           local result = require('neo-tree.sources.common.components').name(config, node, state)

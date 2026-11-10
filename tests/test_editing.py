@@ -16,6 +16,26 @@ class EditingTests(unittest.TestCase):
             result = subprocess.run(['nvim','--headless','-u','NONE','-i','NONE','-l',str(script)], capture_output=True,text=True,timeout=10)
             self.assertEqual(result.returncode,0,result.stderr)
 
+    def test_horizontal_swipes_move_text_with_the_finger(self):
+        self.lua("""
+local home = vim.fn.tempname()
+vim.fn.mkdir(home .. '/.local/state/jvim', 'p')
+vim.env.HOME = home
+require('jvim.keymaps')
+vim.o.wrap = false
+vim.api.nvim_buf_set_lines(0, 0, -1, false, { string.rep('x', 400) })
+local function swipe(key)
+  vim.api.nvim_win_set_cursor(0, { 1, 100 })
+  vim.fn.winrestview { leftcol = 60 }
+  vim.api.nvim_feedkeys(vim.keycode(key), 'x', false)
+  return vim.fn.winsaveview().leftcol
+end
+assert(swipe('<ScrollWheelLeft>') > 60, 'trackpad swipe left must reveal text to the right')
+assert(swipe('<ScrollWheelRight>') < 60, 'trackpad swipe right must reveal text to the left')
+vim.fn.writefile({}, home .. '/.local/state/jvim/wezterm-focused')
+assert(swipe('<ScrollWheelLeft>') < 60, 'WezTerm already reports natural direction, so it must not be flipped again')
+""")
+
     def test_utf8_boundaries_and_character_distances(self):
         self.lua("""
 local selection = require('jvim.selection')

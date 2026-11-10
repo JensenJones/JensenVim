@@ -35,7 +35,11 @@ end
 local function editor_window(win)
   if not win or not vim.api.nvim_win_is_valid(win) or vim.api.nvim_win_get_config(win).relative ~= '' then return false end
   local buf = vim.api.nvim_win_get_buf(win)
-  return (vim.bo[buf].buftype == '' or image_buffer(buf)) and vim.bo[buf].filetype ~= 'neo-tree'
+  return (vim.bo[buf].buftype == '' or image_buffer(buf) or vim.b[buf].jvim_pdf_viewer) and vim.bo[buf].filetype ~= 'neo-tree'
+end
+
+function M.editor_windows()
+  return vim.tbl_filter(editor_window, vim.api.nvim_tabpage_list_wins(0))
 end
 
 local function remove_value(list, value)
