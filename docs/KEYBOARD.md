@@ -69,6 +69,7 @@ These bindings are generated from your active macOS copy keymap and its bundled 
 | Cmd+L | Go to line |
 | Cmd+R | Replace in file (confirm each match) |
 | Cmd+Shift+R | Replace in project (preview and confirmation) |
+| Cmd+0 | Show Git changes: changed-file tree with side-by-side diffs |
 | Option+Up | Extend selection |
 | Option+Down | Shrink selection |
 | Option+Shift+Up | Move line up |

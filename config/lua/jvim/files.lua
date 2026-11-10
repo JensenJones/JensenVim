@@ -316,7 +316,7 @@ local function pane_state(win)
     tabs = paths(pane.tabs), recent = paths(pane.recent), views = views,
     current = vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(win)),
     width = vim.api.nvim_win_get_width(win), height = vim.api.nvim_win_get_height(win),
-    focused = win == vim.api.nvim_get_current_win() or nil,
+    focused = win == vim.api.nvim_tabpage_get_win(vim.api.nvim_win_get_tabpage(win)) or nil,
   }
 end
 
@@ -331,7 +331,9 @@ function M.snapshot()
     if #children <= 1 then return children[1] end
     return { kind = node[1], children = children }
   end
-  return walk(vim.fn.winlayout())
+  local tab = vim.api.nvim_get_current_tabpage()
+  if vim.t[tab].jvim_changes then tab = vim.api.nvim_list_tabpages()[1] end
+  return walk(vim.fn.winlayout(vim.api.nvim_tabpage_get_number(tab)))
 end
 
 local function restore_pane(win, saved)
