@@ -1,0 +1,162 @@
+"""Drive the full jvim configuration in a real terminal, where startup restore and scroll events only happen with a UI."""
+import json
+import os
+from pathlib import Path
+import shutil
+import struct
+import subprocess
+import tempfile
+import threading
+import time
+import unittest
+
+try:
+    import fcntl
+    import pty
+    import termios
+except ImportError:
+    pty = None
+
+ROOT = Path(__file__).resolve().parents[1]
+DATA = Path(os.environ.get('XDG_DATA_HOME', Path.home()/'.local/share'))/'jvim'
+
+
+class Editor:
+    """One jvim process in a pseudo-terminal, controlled through its RPC socket."""
+
+    def __init__(self, test, home, cwd, *args):
+        self.test, self.server = test, str(home/f'nvim-{time.monotonic_ns()}.sock')
+        self.env = dict(os.environ, HOME=str(home), NVIM_APPNAME='jvim', TERM='xterm-256color', JVIM_OFFLINE='1',
+                        XDG_CONFIG_HOME=str(home/'config'), XDG_DATA_HOME=str(home/'data'), XDG_STATE_HOME=str(home/'state'))
+        for name in ('JVIM_HOST_SOCKET', 'JVIM_LINK_TOKEN', 'XDG_CACHE_HOME'):
+            self.env.pop(name, None)
+        self.master, slave = pty.openpty()
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 40, 160, 0, 0))
+        self.process = subprocess.Popen(['nvim', '-i', 'NONE', '--listen', self.server, *args], cwd=cwd, env=self.env,
+                                        stdin=slave, stdout=slave, stderr=slave)
+        os.close(slave)
+        threading.Thread(target=self._drain, daemon=True).start()
+        self.wait_for('vim.v.vim_did_enter == 1 and vim.bo.filetype ~= "" and true', timeout=15)
+
+    def _drain(self):
+        try:
+            while os.read(self.master, 65536):
+                pass
+        except OSError:
+            pass
+
+    def lua(self, code):
+        result = subprocess.run(['nvim', '-u', 'NONE', '--server', self.server, '--remote-expr',
+                                 'luaeval("vim.json.encode((function() ' + code.replace('\\', '\\\\').replace('"', '\\"') + ' end)())")'],
+                                env=self.env, capture_output=True, text=True, timeout=5)
+        if result.returncode or not result.stdout.strip():
+            raise AssertionError('remote call failed: ' + code + '\n' + result.stderr)
+        return json.loads(result.stdout)
+
+    def wait_for(self, expression, timeout=5):
+        deadline = time.monotonic() + timeout
+        last = None
+        while time.monotonic() < deadline:
+            if self.process.poll() is not None:
+                self.test.fail('jvim exited early')
+            if Path(self.server).exists():
+                try:
+                    last = self.lua('return ' + expression)
+                    if last:
+                        return last
+                except AssertionError:
+                    pass
+            time.sleep(0.1)
+        self.test.fail(f'timed out waiting for {expression}; last value {last!r}')
+
+    def send(self, data):
+        os.write(self.master, data)
+
+    def close(self):
+        if self.master is None:
+            return
+        if self.process.poll() is None:
+            try:
+                self.lua('vim.cmd "qall!"')
+            except Exception:
+                pass
+            try:
+                self.process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.process.kill()
+        os.close(self.master)
+        self.master = None
+
+
+@unittest.skipUnless(pty is not None and shutil.which('nvim') and shutil.which('git') and (DATA/'lazy/lazy.nvim').is_dir(),
+                     'Needs Neovim, Git and jvim plugins already downloaded (run jvim once)')
+class UiSessionTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory(prefix='jvim-ui-')
+        self.addCleanup(temporary.cleanup)
+        self.home = Path(temporary.name).resolve()
+        (self.home/'config').mkdir()
+        (self.home/'config/jvim').symlink_to(ROOT/'config', target_is_directory=True)
+        (self.home/'data').mkdir()
+        # Offline mode never installs or updates, so the downloaded plugins are only read.
+        (self.home/'data/jvim').symlink_to(DATA, target_is_directory=True)
+        self.project = self.home/'thesis'
+        (self.project/'chapters').mkdir(parents=True)
+        (self.project/'main.tex').write_text('\\documentclass{article}\n\\begin{document}\n\\input{chapters/intro}\n\\end{document}\n')
+        (self.project/'chapters/intro.tex').write_text('\\section{Intro}\nSome $x^2$ text.\n')
+        lines = [f'line {number}' for number in range(1, 301)]
+        (self.project/'long.txt').write_text('\n'.join(lines) + '\n')
+        env = dict(os.environ, HOME=str(self.home), GIT_CONFIG_NOSYSTEM='1', GIT_AUTHOR_NAME='jvim', GIT_AUTHOR_EMAIL='jvim@example.com',
+                   GIT_COMMITTER_NAME='jvim', GIT_COMMITTER_EMAIL='jvim@example.com')
+        for command in (['init', '-q'], ['add', '.'], ['commit', '-q', '-m', 'base']):
+            subprocess.run(['git', *command], cwd=self.project, env=env, check=True)
+        del lines[49:59]
+        (self.project/'long.txt').write_text('\n'.join(lines) + '\n')
+
+    def editor(self):
+        editor = Editor(self, self.home, self.project, '.')
+        self.addCleanup(editor.close)
+        return editor
+
+    def test_restored_files_are_highlighted_and_closing_the_last_leaves_the_tree(self):
+        first = self.editor()
+        first.lua('vim.cmd.edit "chapters/intro.tex"; return true')
+        self.assertTrue(first.lua('return require("jvim.session").save() and true or false'))
+        first.close()
+
+        second = self.editor()
+        second.wait_for('vim.api.nvim_buf_get_name(0):match("intro%.tex$") ~= nil')
+        state = second.lua('local buf = vim.api.nvim_get_current_buf(); return { ft = vim.bo[buf].filetype, '
+                           'parser = vim.treesitter.language.add("latex") or false, '
+                           'highlighted = vim.treesitter.highlighter.active[buf] ~= nil }')
+        self.assertEqual(state['ft'], 'tex', 'restored file has no filetype')
+        if state['parser']:
+            self.assertTrue(state['highlighted'], 'restored file is not highlighted')
+
+        second.send(b'\x1b[23;5~20')
+        second.wait_for('vim.bo.filetype == "neo-tree"')
+        chapters = str(self.project/'chapters')
+        tree = second.lua('local wins = vim.tbl_filter(function(w) return vim.api.nvim_win_get_config(w).relative == "" end, '
+                          'vim.api.nvim_tabpage_list_wins(0)); local state = require("neo-tree.sources.manager").get_state("filesystem"); '
+                          f'local node = state.tree:get_node("{chapters}"); return {{ wins = #wins, expanded = node ~= nil and node:is_expanded() }}')
+        self.assertEqual(tree['wins'], 1, 'Command+W on the last tab should leave only the tree')
+        self.assertTrue(tree['expanded'], 'the folder of the closed file collapsed')
+
+    def test_diff_panes_follow_the_wheel_over_either_pane(self):
+        editor = self.editor()
+        editor.lua('require("jvim.changes").open(); return true')
+        editor.wait_for('#vim.tbl_filter(function(w) return vim.wo[w].diff end, vim.api.nvim_tabpage_list_wins(0)) == 2')
+        panes = editor.lua('local out = {} for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do if vim.wo[w].diff then '
+                           'local pos = vim.api.nvim_win_get_position(w); out[#out + 1] = { row = pos[1] + 5, col = pos[2] + 5 } end end '
+                           'table.sort(out, function(a, b) return a.col < b.col end); return out')
+        top_lines = ('local out = {} for _, w in ipairs(vim.api.nvim_tabpage_list_wins(0)) do if vim.wo[w].diff then '
+                     'local top = vim.api.nvim_win_call(w, vim.fn.winsaveview).topline; '
+                     'out[#out + 1] = { col = vim.api.nvim_win_get_position(w)[2], text = vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(w), top - 1, top, false)[1] } end end '
+                     'table.sort(out, function(a, b) return a.col < b.col end); return { out[1].text, out[2].text }')
+        for pane, direction, count in ((panes[1], 'down', 25), (panes[0], 'down', 20), (panes[1], 'up', 6)):
+            for _ in range(count):
+                editor.lua(f'vim.api.nvim_input_mouse("wheel", "{direction}", "", 0, {pane["row"]}, {pane["col"]}); return true')
+            time.sleep(0.3)
+            left, right = editor.lua('return ' + '(function() ' + top_lines + ' end)()')
+            self.assertEqual(left, right, f'panes out of step after wheeling {direction} over column {pane["col"]}')
+        self.assertNotEqual(left, 'line 1', 'the wheel did not scroll')
