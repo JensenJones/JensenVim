@@ -182,6 +182,15 @@ local function remember_views()
   for _, win in ipairs { state.base_win, state.work_win } do state.views[win] = view_key(win) end
 end
 
+-- Some terminal multiplexers leave stale cells after partial-width scrolls; repaint once scrolling settles.
+local repaint = vim.uv.new_timer()
+local function repaint_soon()
+  repaint:stop()
+  repaint:start(150, 0, vim.schedule_wrap(function()
+    if valid() and vim.api.nvim_get_current_tabpage() == state.tab then vim.cmd 'redraw!' end
+  end))
+end
+
 -- Scrollbind only follows the focused window, but the wheel scrolls whichever pane is under the mouse.
 local function sync_scroll()
   if not valid() or not state.base_win then return end
@@ -196,6 +205,7 @@ local function sync_scroll()
     vim.api.nvim_win_call(other, function() vim.fn.winrestview { leftcol = view.leftcol } end)
   end
   remember_views()
+  repaint_soon()
 end
 
 function M.show_diff(item, focus, at_end)
