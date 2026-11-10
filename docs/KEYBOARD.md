@@ -4,7 +4,7 @@ Run in your existing Herdr pane:
 
     jvim .
 
-The editor stays in that pane. It does not create iTerm tabs or windows. Its terminal keyboard mappings apply only while its pane is focused; your normal mappings return when you leave. Fonts and window layout are preserved.
+The editor stays in that pane and does not create tabs or windows. Its keyboard mappings apply only while its pane is focused; your normal mappings return when you leave. Fonts and window layout are preserved.
 
 `jvim` and `jvim /project/path/` start in the project tree without an empty file tab. Opening a file creates the editor pane beside the tree. Each editor pane has its own clickable file tabs and remembers its own cursor and scroll position in each file; Ctrl+Tab and Ctrl+Shift+Tab switch only among that pane's files. The focused pane's current tab is filled in; other panes show their current tab underlined. Closing a file keeps the remaining file visible, and closing a pane's last file closes the pane. **Cmd+Shift+T** reopens the last closed file in its pane at the same location, recreating the pane if it was closed.
 
@@ -25,7 +25,7 @@ Typing, mouse selection, Shift-selection and clipboard shortcuts use ordinary ed
 
 **Shift+Arrow** extends a character or line selection; **Shift+Option+Left/Right** extends by a word. **Cmd+Left** moves to the first nonblank column (preserving indentation), and **Cmd+Right** moves to the end of the line.
 
-Use Herdr's normal **Ctrl+B, then N/P** to switch Herdr tabs. No extra iTerm tabs are needed.
+Use Herdr's normal **Ctrl+B, then N/P** to switch Herdr tabs. No extra terminal tabs are needed.
 
 ## Keymap
 
@@ -107,13 +107,15 @@ Run configurations and merge-conflict controls are available in the action picke
 
 Personal settings live outside the managed configuration, in `~/.config/jvim-user/init.lua` (or `%LOCALAPPDATA%/jvim-user/init.lua` on Windows). **Edit personal jvim configuration** opens this file. See [Configuration and company integrations](CONFIGURATION.md) for profiles, tool policies, offline startup and the company overlay API.
 
-Implementation modules live in `config/lua/jvim/`; `config/init.lua` is the standalone entry. The Mac launcher is `~/.local/bin/jvim`, and its dynamic profile is `~/Library/Application Support/iTerm2/DynamicProfiles/jvim.json`.
+Implementation modules live in `config/lua/jvim/`; `config/init.lua` is the standalone entry. The Mac launcher is `~/.local/bin/jvim`, and its iTerm dynamic profile is `~/Library/Application Support/iTerm2/DynamicProfiles/jvim.json`.
 
 Run `python3 scripts/check.py` for syntax and isolated tests. Optional plugin/parser checks report skips when their local dependencies are unavailable. See [Validation](VALIDATION.md) for coverage and limitations.
 
-## Herdr integration
+## Terminal integration
 
-jvim uses your already-enabled iTerm scripting API to apply only keyboard mappings, through a small local helper that exits with the editor. It does not change the default profile or font settings. Profile focus ownership is shared safely between jvim panes.
+In WezTerm, `integrations/wezterm/jvim.lua` (linked to `~/.local/share/jvim/wezterm.lua`) sends jvim's shortcut codes only while the focused pane, or focused Herdr pane, is running jvim; elsewhere each key keeps its normal WezTerm action.
+
+In iTerm2, jvim uses your already-enabled iTerm scripting API to apply only keyboard mappings, through a small local helper that exits with the editor. It does not change the default profile or font settings. Profile focus ownership is shared safely between jvim panes.
 
 Native Cmd-click uses invisible terminal hyperlink metadata attached to code identifiers. The local JvimLinks helper opens a definition in the same running editor. The original files and syntax colours are unchanged. A language server must support definition navigation for the current file.
 
