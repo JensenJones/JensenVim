@@ -138,6 +138,10 @@ local function render()
     if mark[3] > mark[2] then vim.api.nvim_buf_set_extmark(buf, namespace, mark[1], mark[2], { end_col = mark[3], hl_group = mark[4] }) end
   end
   state.rows = rows
+  local widest = 0
+  for _, line in ipairs(lines) do widest = math.max(widest, vim.fn.strdisplaywidth(line)) end
+  state.width = math.max(20, math.min(widest + 2, math.floor(vim.o.columns / 4)))
+  vim.api.nvim_win_set_width(state.panel_win, state.width)
 end
 
 local function valid()
@@ -161,6 +165,32 @@ local function scratch(name, lines, filetype)
   pcall(vim.api.nvim_buf_set_name, buf, name)
   if filetype then vim.bo[buf].filetype = filetype end
   return buf
+end
+
+local function view_key(win)
+  local view = vim.api.nvim_win_call(win, vim.fn.winsaveview)
+  return ('%d:%d:%d'):format(view.topline, view.topfill, view.leftcol), view
+end
+
+local function remember_views()
+  state.views = {}
+  for _, win in ipairs { state.base_win, state.work_win } do state.views[win] = view_key(win) end
+end
+
+-- Scrollbind only follows the focused window, but the wheel scrolls whichever pane is under the mouse.
+local function sync_scroll()
+  if not valid() or not state.base_win then return end
+  local panes = { state.base_win, state.work_win }
+  if not vim.api.nvim_win_is_valid(panes[1]) or not vim.api.nvim_win_is_valid(panes[2]) then return end
+  local moved = vim.tbl_filter(function(win) return view_key(win) ~= state.views[win] end, panes)
+  if #moved == 1 then
+    local source = moved[1]
+    local other = source == panes[1] and panes[2] or panes[1]
+    local _, view = view_key(source)
+    vim.api.nvim_win_call(source, function() vim.cmd 'syncbind' end)
+    vim.api.nvim_win_call(other, function() vim.fn.winrestview { leftcol = view.leftcol } end)
+  end
+  remember_views()
 end
 
 function M.show_diff(item, focus)
@@ -199,6 +229,7 @@ function M.show_diff(item, focus)
       if vim.fn.diff_hlID(1, 1) == 0 then vim.cmd 'silent! normal! ]c' end
     end)
     state.shown = item.path
+    remember_views()
   end
   if focus then
     vim.api.nvim_set_current_win(state.work_win)
@@ -267,11 +298,11 @@ function M.open(root)
   if vim.api.nvim_buf_is_valid(placeholder) and placeholder ~= buf then pcall(vim.api.nvim_buf_delete, placeholder, {}) end
   vim.t.jvim_changes = true
   state = { tab = vim.api.nvim_get_current_tabpage(), panel_win = vim.api.nvim_get_current_win(), panel_buf = buf,
-            root = root, items = items, width = math.min(48, math.floor(vim.o.columns / 3)) }
+            root = root, items = items }
   local win = state.panel_win
   vim.wo[win].number, vim.wo[win].relativenumber, vim.wo[win].signcolumn = false, false, 'no'
   vim.wo[win].cursorline, vim.wo[win].wrap, vim.wo[win].winfixwidth = true, false, true
-  vim.wo[win].winbar = '%#Title# ' .. vim.fs.basename(root):gsub('%%', '%%%%') .. '  %#Comment#Enter: open  r: refresh  q: close'
+  vim.wo[win].winbar = '%#Title# ' .. vim.fs.basename(root):gsub('%%', '%%%%')
   render()
   for row, value in pairs(state.rows) do
     if value.item then vim.api.nvim_win_set_cursor(win, { row, 0 }); break end
@@ -290,6 +321,7 @@ function M.open(root)
   })
   vim.api.nvim_create_autocmd('BufEnter', { group = group, buffer = buf, callback = function() vim.cmd.stopinsert() end })
   vim.api.nvim_create_autocmd('BufWritePost', { group = group, callback = function() vim.schedule(M.refresh) end })
+  vim.api.nvim_create_autocmd('WinScrolled', { group = group, callback = sync_scroll })
   vim.api.nvim_create_autocmd('TabClosed', {
     group = group,
     callback = function() if state and not vim.api.nvim_tabpage_is_valid(state.tab) then state = nil end end,

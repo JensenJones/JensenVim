@@ -37,3 +37,23 @@ class ChangesTests(unittest.TestCase):
                 capture_output=True, text=True, timeout=20,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_diff_panes_scroll_together(self):
+        with tempfile.TemporaryDirectory(prefix='jvim-changes-') as temporary:
+            project = Path(temporary)/'project'
+            project.mkdir()
+            env = dict(os.environ, HOME=temporary, GIT_CONFIG_NOSYSTEM='1', GIT_AUTHOR_NAME='jvim', GIT_AUTHOR_EMAIL='jvim@example.com',
+                       GIT_COMMITTER_NAME='jvim', GIT_COMMITTER_EMAIL='jvim@example.com')
+            lines = [f'line {number}' for number in range(1, 301)]
+            (project/'long.txt').write_text('\n'.join(lines) + '\n')
+            subprocess.run(['git', 'init', '-q'], cwd=project, env=env, check=True)
+            subprocess.run(['git', 'add', '.'], cwd=project, env=env, check=True)
+            subprocess.run(['git', 'commit', '-q', '-m', 'base'], cwd=project, env=env, check=True)
+            del lines[49:59]
+            (project/'long.txt').write_text('\n'.join(lines) + '\n')
+            result = subprocess.run(
+                ['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(ROOT/'tests/changes.lua')],
+                env=dict(env, JVIM_TEST_CONFIG=str(ROOT/'config'), JVIM_TEST_PROJECT=str(project), JVIM_TEST_CASE='scroll'),
+                capture_output=True, text=True, timeout=20,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)

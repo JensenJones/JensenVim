@@ -7,6 +7,28 @@ local function equal(actual, expected)
   assert(vim.deep_equal(actual, expected), vim.inspect { actual = actual, expected = expected })
 end
 local changes = require 'jvim.changes'
+if vim.env.JVIM_TEST_CASE == 'scroll' then
+  changes.open()
+  local panel = vim.api.nvim_get_current_win()
+  local diffs = vim.tbl_filter(function(win) return vim.wo[win].diff end, vim.api.nvim_tabpage_list_wins(0))
+  local base, work = diffs[1], diffs[2]
+  if vim.fn.screenpos(base, 1, 1).col > vim.fn.screenpos(work, 1, 1).col then base, work = work, base end
+  local panel_width = vim.api.nvim_win_get_width(panel)
+  assert(panel_width < 30, 'file tree is wider than its contents need: ' .. panel_width)
+  local function top_text(win)
+    local top = vim.api.nvim_win_call(win, vim.fn.winsaveview).topline
+    return vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(win), top - 1, top, false)[1]
+  end
+  -- Scroll each pane while the tree keeps focus, as the mouse wheel does.
+  for _, case in ipairs { { work, 150, 'line 160' }, { base, 40, 'line 40' }, { work, 120, 'line 130' } } do
+    local win, top, expected = case[1], case[2], case[3]
+    vim.api.nvim_win_call(win, function() vim.fn.winrestview { topline = top, lnum = top } end)
+    vim.api.nvim_exec_autocmds('WinScrolled', {})
+    equal({ top_text(base), top_text(work) }, { expected, expected })
+  end
+  assert(vim.api.nvim_get_current_win() == panel, 'scrolling moved focus away from the tree')
+  vim.cmd 'qall!'
+end
 local items = assert(changes.collect(root))
 local summary = {}
 for _, item in ipairs(items) do summary[item.path] = { item.status, item.added, item.removed, item.old } end

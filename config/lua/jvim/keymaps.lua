@@ -49,7 +49,11 @@ local function scroll_keys(toward_right)
   return toward_right and '6zl' or '6zh'
 end
 for key, toward_right in pairs { ['<ScrollWheelLeft>'] = true, ['<ScrollWheelRight>'] = false } do
-  map({ 'n', 'i' }, key, function() vim.cmd.normal { args = { scroll_keys(toward_right) }, bang = true } end, { desc = 'Scroll horizontally' })
+  map({ 'n', 'i' }, key, function()
+    local win = vim.fn.getmousepos().winid
+    if win == 0 or not vim.api.nvim_win_is_valid(win) then win = vim.api.nvim_get_current_win() end
+    vim.api.nvim_win_call(win, function() vim.cmd.normal { args = { scroll_keys(toward_right) }, bang = true } end)
+  end, { desc = 'Scroll horizontally' })
   map('x', key, function() return scroll_keys(toward_right) end, { expr = true, desc = 'Scroll horizontally' })
   -- :normal in Select mode types its keys over the selection, so scroll from Visual and switch back.
   map('s', key, function() return '<C-g>' .. scroll_keys(toward_right) .. '<C-g>' end, { expr = true, desc = 'Scroll horizontally' })
