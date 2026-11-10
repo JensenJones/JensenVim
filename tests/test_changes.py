@@ -4,6 +4,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -57,3 +58,34 @@ class ChangesTests(unittest.TestCase):
                 capture_output=True, text=True, timeout=20,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_file_open_in_another_editor_shows_read_only(self):
+        with tempfile.TemporaryDirectory(prefix='jvim-changes-') as temporary:
+            project = Path(temporary)/'project'
+            project.mkdir()
+            env = dict(os.environ, HOME=temporary, GIT_CONFIG_NOSYSTEM='1', GIT_AUTHOR_NAME='jvim', GIT_AUTHOR_EMAIL='jvim@example.com',
+                       GIT_COMMITTER_NAME='jvim', GIT_COMMITTER_EMAIL='jvim@example.com')
+            (project/'shared.txt').write_text('one\n')
+            for command in (['init', '-q'], ['add', '.'], ['commit', '-q', '-m', 'base']):
+                subprocess.run(['git', *command], cwd=project, env=env, check=True)
+            (project/'shared.txt').write_text('two\n')
+            owner = subprocess.Popen(['nvim', '--headless', '-u', 'NONE', '-i', 'NONE', str(project/'shared.txt'), '-c', 'sleep 30'],
+                                     cwd=project, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                swap_dir = Path(temporary)/'.local/state/nvim/swap'
+                deadline = time.monotonic() + 5
+                while time.monotonic() < deadline and not (swap_dir.exists() and list(swap_dir.glob('*.swp'))):
+                    time.sleep(0.05)
+                self.assertTrue(list(swap_dir.glob('*.swp')), 'owner did not create a swap file')
+                result = subprocess.run(
+                    # Script mode (-l) disables swap files, so source the checks the way a session would.
+                    ['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-c',
+                     'lua local ok, err = pcall(dofile, vim.env.JVIM_TEST_SCRIPT) io.stderr:write(tostring(err)) vim.cmd(ok and "qall!" or "cquit!")'],
+                    env=dict(env, JVIM_TEST_CONFIG=str(ROOT/'config'), JVIM_TEST_PROJECT=str(project), JVIM_TEST_CASE='live_swap',
+                             JVIM_TEST_SCRIPT=str(ROOT/'tests/changes.lua')),
+                    capture_output=True, text=True, timeout=20,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+            finally:
+                owner.kill()
+                owner.wait()

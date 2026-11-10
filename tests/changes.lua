@@ -7,6 +7,19 @@ local function equal(actual, expected)
   assert(vim.deep_equal(actual, expected), vim.inspect { actual = actual, expected = expected })
 end
 local changes = require 'jvim.changes'
+if vim.env.JVIM_TEST_CASE == 'live_swap' then
+  vim.o.swapfile = true
+  local messages = {}
+  vim.notify = function(message) messages[#messages + 1] = message end
+  changes.open()
+  local diffs = vim.tbl_filter(function(win) return vim.wo[win].diff end, vim.api.nvim_tabpage_list_wins(0))
+  assert(#diffs == 2, 'diff did not open for a file with a live swap: ' .. vim.inspect(messages))
+  local work = vim.tbl_filter(function(win) return vim.bo[vim.api.nvim_win_get_buf(win)].buftype == '' end, diffs)[1]
+  assert(vim.bo[vim.api.nvim_win_get_buf(work)].readonly, 'file open elsewhere should be read-only: ' .. vim.inspect({ messages, vim.o.directory, vim.fn.swapname(vim.api.nvim_win_get_buf(work)), vim.fn.glob(vim.fn.stdpath('state') .. '/swap/*') }))
+  vim.wait(200, function() return #messages > 0 end)
+  assert(messages[1] and messages[1]:find('open in another editor', 1, true), vim.inspect(messages))
+  vim.cmd 'qall!'
+end
 if vim.env.JVIM_TEST_CASE == 'scroll' then
   changes.open()
   local panel = vim.api.nvim_get_current_win()

@@ -304,7 +304,10 @@ local function buffer_for_path(path)
   local buf = vim.fn.bufnr(path)
   if buf < 0 then buf = vim.fn.bufadd(path) end
   if buf < 0 then return nil end
-  vim.fn.bufload(buf)
+  -- A swap held by another editor makes bufload report E325 after loading; keep going read-only.
+  local loaded, err = pcall(vim.fn.bufload, buf)
+  if not vim.api.nvim_buf_is_loaded(buf) then return nil end
+  if not loaded and tostring(err):find('E325', 1, true) then vim.bo[buf].readonly = true end
   vim.bo[buf].buflisted = true
   return valid_file(buf) and buf or nil
 end

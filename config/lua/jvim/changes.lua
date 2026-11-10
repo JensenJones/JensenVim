@@ -214,7 +214,16 @@ function M.show_diff(item, focus, at_end)
     local file = root .. '/' .. item.path
     if vim.fn.filereadable(file) == 1 then
       work_buf = vim.fn.bufadd(file)
-      vim.fn.bufload(work_buf)
+      -- bufload reads a file whose swap another editor holds, but reports E325 as an error.
+      local loaded, err = pcall(vim.fn.bufload, work_buf)
+      if not vim.api.nvim_buf_is_loaded(work_buf) then
+        vim.api.nvim_buf_delete(base_buf, { force = true })
+        return vim.notify('Cannot open ' .. item.path .. ': ' .. tostring(err), vim.log.levels.ERROR)
+      end
+      if not loaded and tostring(err):find('E325', 1, true) then
+        vim.bo[work_buf].readonly = true
+        vim.notify(item.path .. ' is open in another editor; showing it read-only')
+      end
       vim.bo[work_buf].buflisted = true
     else
       work_buf = scratch(('jvim-changes://deleted/%s'):format(item.path), {}, filetype)
