@@ -113,8 +113,8 @@ class UiSessionTests(unittest.TestCase):
         del lines[49:59]
         (self.project/'long.txt').write_text('\n'.join(lines) + '\n')
 
-    def editor(self):
-        editor = Editor(self, self.home, self.project, '.')
+    def editor(self, *args):
+        editor = Editor(self, self.home, self.project, *args, '.')
         self.addCleanup(editor.close)
         return editor
 
@@ -160,3 +160,21 @@ class UiSessionTests(unittest.TestCase):
             left, right = editor.lua('return ' + '(function() ' + top_lines + ' end)()')
             self.assertEqual(left, right, f'panes out of step after wheeling {direction} over column {pane["col"]}')
         self.assertNotEqual(left, 'line 1', 'the wheel did not scroll')
+
+    def test_paste_and_shortcuts_reach_the_built_in_terminal(self):
+        # The stub must exist before Neovim loads its clipboard provider, or the real clipboard is used.
+        clipboard = ('lua local held = { "echo pasted-$((40+2))" } vim.g.clipboard = { name = "test", '
+                     'copy = { ["+"] = function(lines) held = lines end, ["*"] = function(lines) held = lines end }, '
+                     'paste = { ["+"] = function() return held end, ["*"] = function() return held end } }')
+        editor = self.editor('--cmd', clipboard)
+        editor.send(b'\x1b[23;5~67')
+        editor.wait_for('vim.api.nvim_get_mode().mode == "t"')
+        time.sleep(1)
+        editor.send(b'\x1b[23;5~15')
+        editor.send(b'\x1b[23;5~29')
+        editor.send(b'\r')
+        screen = editor.wait_for('(function() local text = table.concat(vim.api.nvim_buf_get_lines(0, 0, -1, false), "\\n") '
+                                 'return text:find("pasted%-42") and text end)()', timeout=8)
+        self.assertNotIn('29', screen.split('pasted-42')[0][-40:], 'shortcut digits reached the shell')
+        editor.send(b'\x1b[23;5~67')
+        editor.wait_for('vim.bo.buftype ~= "terminal"')

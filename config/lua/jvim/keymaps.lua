@@ -401,6 +401,32 @@ require('jvim.herdr_host').setup()
 
 require('jvim.definition_links').setup()
 
+-- In the terminal, shortcuts behave like a Mac shell: paste and line editing go to the job, editor-wide
+-- actions leave the terminal first, and every other code is swallowed so its digits never reach the shell.
+local function send_to_job(bytes) return function() vim.api.nvim_chan_send(vim.bo.channel, bytes) end end
+local terminal_keys = {
+  [15] = { function() vim.api.nvim_paste(vim.fn.getreg '+', true, -1) end, 'Paste into terminal' },
+  [26] = { send_to_job '\31', 'Undo shell edit' },
+  [53] = { send_to_job '\21', 'Delete to line start' },
+  [67] = { function() require('jvim.command_terminal').hide() end, 'Hide terminal' },
+  [70] = { send_to_job '\1', 'Move to line start' },
+}
+local editor_wide = { [16] = true, [17] = true, [18] = true, [19] = true, [38] = true, [44] = true, [45] = true,
+                      [68] = true, [77] = true, [78] = true, [79] = true }
+for number = 13, 80 do
+  local key = number <= 37 and number ~= 35 and ('<F' .. number .. '>') or ('<F35>' .. number)
+  local terminal_key, editor = terminal_keys[number], vim.fn.maparg(key, 'n', false, true)
+  if terminal_key then
+    map('t', key, terminal_key[1], { desc = terminal_key[2] })
+  elseif editor_wide[number] and editor.callback then
+    map('t', key, function() vim.cmd.stopinsert(); editor.callback() end, { desc = editor.desc })
+  elseif editor_wide[number] and editor.rhs then
+    map('t', key, '<C-\\><C-n>' .. editor.rhs, { desc = editor.desc, remap = editor.noremap == 0 })
+  elseif vim.fn.maparg(key, 't') == '' then
+    map('t', key, '<Nop>', { desc = 'Ignore editor shortcut in terminal' })
+  end
+end
+
 require('jvim.shortcut_transport').setup()
 
 if settings.features.autosave then require('jvim.autosave').setup() end
