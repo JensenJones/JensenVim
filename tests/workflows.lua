@@ -1,7 +1,6 @@
 vim.o.swapfile = false
--- Headless Windows Neovim (no UI attached) crashes opening a terminal after 'columns' changes;
--- with a UI attached it works at any width, so only widen elsewhere.
-if vim.fn.has 'win32' ~= 1 then vim.o.columns = 300 end
+-- Leave 'columns' alone: headless Neovim 0.12 (no UI attached) segfaults opening a terminal after it
+-- changes, on Linux and Windows alike. With a UI attached, any width works.
 vim.opt.rtp:prepend(vim.env.JVIM_TEST_CONFIG)
 local root = vim.fs.normalize(vim.env.JVIM_TEST_PROJECT)
 vim.cmd.cd(vim.fn.fnameescape(root))
