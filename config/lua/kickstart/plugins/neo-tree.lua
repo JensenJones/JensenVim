@@ -51,6 +51,17 @@ return {
         event = 'file_added',
         handler = function(path) require('jvim.cpp_header').initialize_file(path) end,
       },
+      {
+        -- Following a file only collapses folders it didn't count as opened; startup reveals bypass that bookkeeping.
+        event = 'after_render',
+        handler = function(state)
+          if state.name ~= 'filesystem' or not state.tree then return end
+          state.explicitly_opened_nodes = state.explicitly_opened_nodes or {}
+          for _, id in ipairs(require('neo-tree.ui.renderer').get_expanded_nodes(state.tree)) do
+            state.explicitly_opened_nodes[id] = true
+          end
+        end,
+      },
     },
   },
 }

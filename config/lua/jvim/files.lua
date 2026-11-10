@@ -553,6 +553,8 @@ function M.setup(group, opts)
   M.setup_tabline()
   vim.api.nvim_create_autocmd('VimEnter', {
     group = history_group,
+    -- Restored files need their BufRead and FileType autocmds for highlighting.
+    nested = true,
     callback = function()
       if #vim.api.nvim_list_uis() == 0 or vim.fn.argc() > 1 then return end
       local has_file_argument = false
