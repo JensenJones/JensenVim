@@ -36,6 +36,40 @@ local function gitsigns(method, ...)
   end
 end
 
+local modifier_names = { C = 'Ctrl', S = 'Shift', M = 'Alt', A = 'Alt' }
+-- Neovim reports Ctrl+J and Ctrl+[ by their control-character names.
+local key_names = { BS = 'Backspace', CR = 'Enter', Bslash = '\\', Lt = '<', NL = 'Ctrl+J', Esc = 'Ctrl+[' }
+
+-- The audit file lists macOS strokes. Elsewhere, label an action with the
+-- keys that are really mapped to it (e.g. Ctrl+W instead of Cmd+W).
+local function platform_shortcut(transport, fallback)
+  if vim.fn.has 'mac' == 1 or not transport then return fallback end
+  local target = vim.fn.maparg(transport, 'i', false, true)
+  if vim.tbl_isempty(target) then return fallback end
+  local transport_name = vim.fn.keytrans(vim.keycode(transport))
+  local labels, seen = {}, {}
+  for _, m in ipairs(vim.api.nvim_get_keymap 'i') do
+    local same = (target.callback and m.callback == target.callback) or (not target.callback and target.rhs ~= '' and m.rhs == target.rhs)
+      or (target.desc and m.desc == target.desc)
+    local name = vim.fn.keytrans(vim.keycode(m.lhs))
+    if same and name ~= transport_name and not name:find '>%d+$' and not name:find '[<%-]D%-' and not name:find '^<F3[0-9]>' then
+      local parts, rest = {}, name
+      if name:sub(1, 1) == '<' then
+        rest = name:sub(2, -2)
+        while rest:match '^[CSMA]%-.' do
+          table.insert(parts, modifier_names[rest:sub(1, 1)])
+          rest = rest:sub(3)
+        end
+      end
+      table.insert(parts, key_names[rest] or (#rest == 1 and rest:upper()) or rest)
+      local label = table.concat(parts, '+')
+      if not seen[label] then seen[label] = true; table.insert(labels, label) end
+    end
+  end
+  table.sort(labels, function(a, b) return #a < #b end)
+  return table.concat(labels, ', ')
+end
+
 function M.entries()
   local path = vim.api.nvim_get_runtime_file('clion-keymap-audit.json', false)[1]
   local audit = path and vim.json.decode(table.concat(vim.fn.readfile(path), '\n')) or { actions = {} }
@@ -110,6 +144,7 @@ function M.entries()
       table.insert(entries, { name = mapping.desc, shortcut = table.concat(labels, ', '), key = key })
     end
   end
+  for _, entry in ipairs(entries) do entry.shortcut = platform_shortcut(entry.key, entry.shortcut) end
   table.sort(entries, function(a, b) return a.name:lower() < b.name:lower() end)
   return entries
 end
