@@ -59,11 +59,11 @@ function M.entries()
     { 'Git: preview change under cursor', gitsigns('preview_hunk') },
     { 'Git: revert change under cursor', gitsigns('reset_hunk') },
     { 'Git: stage change under cursor', gitsigns('stage_hunk') },
-    { 'Git: next change', gitsigns('nav_hunk', 'next') },
-    { 'Git: previous change', gitsigns('nav_hunk', 'prev') },
   } do
     table.insert(entries, { name = entry[1], shortcut = '', action = entry[2] })
   end
+  table.insert(entries, { name = 'Git: next change', shortcut = 'F7', key = '<F7>' })
+  table.insert(entries, { name = 'Git: previous change', shortcut = 'Shift+F7', key = '<F35>80' })
   table.insert(entries, { name = 'Open terminal', shortcut = 'Cmd+Option+;', key = '<F35>67' })
   table.insert(entries, { name = 'Split editor right', shortcut = '', key = '<F35>78' })
   table.insert(entries, { name = 'Split editor down', shortcut = '', key = '<F35>79' })

@@ -27,6 +27,14 @@ if vim.env.JVIM_TEST_CASE == 'scroll' then
     equal({ top_text(base), top_text(work) }, { expected, expected })
   end
   assert(vim.api.nvim_get_current_win() == panel, 'scrolling moved focus away from the tree')
+  vim.api.nvim_win_set_cursor(work, { 1, 0 })
+  changes.jump(true)
+  local change_line = vim.api.nvim_win_get_cursor(work)[1]
+  assert(change_line >= 48 and change_line <= 50, 'F7 did not reach the deleted block: ' .. change_line)
+  changes.jump(true)
+  equal(vim.api.nvim_win_get_cursor(work)[1], change_line)
+  changes.toggle_fold()
+  assert(vim.wo[base].foldenable and vim.wo[work].foldenable, 'fold toggle did not fold unchanged lines')
   vim.cmd 'qall!'
 end
 local items = assert(changes.collect(root))
@@ -48,7 +56,8 @@ local lines = vim.api.nvim_buf_get_lines(0, 0, -1, false)
 assert(lines[1]:find('Changes  5 files  +6 -3', 1, true), lines[1])
 assert(vim.tbl_contains(lines, '▾ src/core'), 'single-child folders were not compressed: ' .. vim.inspect(lines))
 assert(vim.tbl_contains(lines, '  M  edit.txt  +1 -1'), vim.inspect(lines))
-assert(vim.tbl_contains(lines, 'R  moved.txt  ← before.txt'), vim.inspect(lines))
+assert(vim.tbl_contains(lines, 'R● moved.txt  ← before.txt'), 'staged rename lacks its marker: ' .. vim.inspect(lines))
+assert(vim.tbl_contains(lines, 'U  notes.txt  +3'), vim.inspect(lines))
 local function row_of(text)
   for row, line in ipairs(vim.api.nvim_buf_get_lines(0, 0, -1, false)) do if line == text then return row end end
 end
@@ -79,6 +88,23 @@ assert(vim.tbl_contains(vim.api.nvim_buf_get_lines(0, 0, -1, false), '▸ src/co
 vim.api.nvim_win_set_cursor(panel, { row_of('D  gone.txt  -2'), 0 })
 vim.api.nvim_exec_autocmds('CursorMoved', { buffer = vim.api.nvim_get_current_buf() })
 assert(#vim.api.nvim_tabpage_list_wins(0) == 3, 'deleted file diff did not open')
+vim.api.nvim_set_current_win(panel)
+vim.api.nvim_win_set_cursor(panel, { row_of('U  notes.txt  +3'), 0 })
+changes.toggle_stage()
+assert(row_of('A● notes.txt  +3'), 'staging did not mark the file: ' .. vim.inspect(vim.api.nvim_buf_get_lines(0, 0, -1, false)))
+vim.api.nvim_win_set_cursor(panel, { row_of('A● notes.txt  +3'), 0 })
+changes.toggle_stage()
+assert(row_of('U  notes.txt  +3'), 'unstaging did not clear the marker')
+vim.api.nvim_win_set_cursor(panel, { row_of('U  notes.txt  +3'), 0 })
+changes.toggle_stage()
+local staged_only = vim.system({ 'git', '-C', root, 'diff', '--cached', '--name-only' }, { text = true }):wait().stdout
+vim.ui.input = function(_, on_confirm) on_confirm('Add notes') end
+changes.commit()
+local subject = vim.system({ 'git', '-C', root, 'log', '-1', '--format=%s' }, { text = true }):wait().stdout
+equal(subject, 'Add notes\n')
+local committed = vim.system({ 'git', '-C', root, 'show', '--name-only', '--format=', 'HEAD' }, { text = true }):wait().stdout
+equal(committed, staged_only)
+assert(not row_of('U  notes.txt  +3') and not row_of('A● notes.txt  +3'), 'committed file still listed')
 changes.close()
 assert(vim.api.nvim_get_current_tabpage() == editor_tab and #vim.api.nvim_list_tabpages() == 1, 'closing changes did not return to the editor tab')
 vim.cmd 'qall!'

@@ -18,6 +18,7 @@ EXPECTED = {
     ('a', 'CMD|SHIFT'): 'Find action or shortcut',
     ('f', 'CMD'): 'Find in file',
     ('s', 'CMD'): 'Save all',
+    ('F7', 'SHIFT'): 'Previous change',
 }
 
 

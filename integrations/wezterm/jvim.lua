@@ -91,6 +91,7 @@ M.keys = {
   { 'F2', 'SHIFT', '\x1b[23;5~55' },
   { 'F3', 'SHIFT', '\x1b[23;5~57' },
   { 'F6', 'SHIFT', '\x1b[23;5~22' },
+  { 'F7', 'SHIFT', '\x1b[23;5~80' },
   { 'LeftArrow', 'SHIFT', '\x1b[1;2D' },
   { 'RightArrow', 'SHIFT', '\x1b[1;2C' },
   { 'UpArrow', 'SHIFT', '\x1b[23;5~73' },

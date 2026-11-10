@@ -50,7 +50,9 @@ A running configuration reopens its existing terminal. Completed output is retai
 
 Press **Ctrl+Shift+G**, choose **Show Git changes** in the action menu, or run `:Changes` to open the changes view in its own tab. The left panel lists every file that differs from `HEAD` (staged, unstaged and untracked) as a folder tree, with a status letter (**M** modified, **A** added, **U** untracked, **D** deleted, **R** renamed) and added/removed line counts.
 
-Moving onto a file shows its diff beside the panel: the `HEAD` version on the left, read-only, and your working file on the right. Press **Enter** or double-click to jump into the working file and edit it; saving refreshes the panel. Click or press **Enter** on a folder to collapse it. **r** refreshes, **q**, **Esc** or **Cmd+W** closes the view and returns to your editor tab. Use `]c` and `[c` to move between changes in a diff.
+Moving onto a file shows its diff beside the panel: the `HEAD` version on the left, read-only, and your working file on the right. Press **Enter** or double-click to jump into the working file and edit it; saving refreshes the panel. Click or press **Enter** on a folder to collapse it. **r** refreshes, **q**, **Esc** or **Cmd+W** closes the view and returns to your editor tab. The two panes scroll together whichever one the wheel is over.
+
+**F7** and **Shift+F7** move to the next and previous change, carrying on into the next or previous file, from the panel or either diff pane. Outside the changes view they move between changes in the current file. In the panel, **s** stages or unstages the file or folder under the cursor (staged files show **●**), **c** commits what is staged after asking for a message, offering to commit every change when nothing is staged, and **f** folds unchanged lines. **Git: stage change under cursor** and **Git: revert change under cursor** in the action menu work inside the diff and refresh the panel.
 
 ## Merge conflicts
 

@@ -41,6 +41,7 @@ function M.collect(root)
       elseif x == 'A' then item.status = 'A'
       elseif item.old then item.status = 'R'
       else item.status = 'M' end
+      item.staged = x ~= ' ' and x ~= '?' and y == ' '
       items[#items + 1], by_path[path] = item, item
     end
     index = index + 1
@@ -115,7 +116,7 @@ local function render()
     for _, file in ipairs(node.files) do
       local item = file.item
       local indent = string.rep('  ', depth)
-      local prefix = indent .. item.status .. '  '
+      local prefix = indent .. item.status .. (item.staged and '●' or ' ') .. ' '
       local name = file.name .. (item.old and ('  ← ' .. item.old) or '')
       local plus, minus = item.added > 0 and ('+' .. item.added) or '', item.removed > 0 and ('-' .. item.removed) or ''
       local stats = plus .. (plus ~= '' and minus ~= '' and ' ' or '') .. minus
@@ -123,12 +124,16 @@ local function render()
       local stats_start = #prefix + #name + 2
       add(text, { item = item }, {
         { #indent, #indent + 1, status_groups[item.status] },
+        { #indent + 1, #prefix - 1, 'Added' },
         { stats_start, stats_start + #plus, 'Added' },
         { #text - #minus, #text, 'Removed' },
       })
     end
   end
   walk(build_tree(state.items), 0)
+  add('')
+  local hint = 's stage  c commit  f fold'
+  add(hint, nil, { { 0, #hint, 'Comment' } })
   local buf = state.panel_buf
   vim.bo[buf].modifiable = true
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
@@ -193,7 +198,7 @@ local function sync_scroll()
   remember_views()
 end
 
-function M.show_diff(item, focus)
+function M.show_diff(item, focus, at_end)
   if not valid() then return end
   if state.shown ~= item.path then
     close_diff()
@@ -219,14 +224,15 @@ function M.show_diff(item, focus)
     vim.wo[state.base_win].winbar = '%#Comment# HEAD  ' .. (item.old or item.path):gsub('%%', '%%%%')
     for _, win in ipairs { state.base_win, state.work_win } do
       vim.api.nvim_win_call(win, function() vim.cmd 'diffthis' end)
-      vim.wo[win].foldenable = false
+      vim.wo[win].foldenable = state.fold or false
     end
     vim.api.nvim_win_set_width(state.panel_win, state.width)
     vim.cmd 'wincmd ='
     vim.api.nvim_win_set_width(state.panel_win, state.width)
     vim.api.nvim_win_call(state.work_win, function()
-      vim.api.nvim_win_set_cursor(0, { 1, 0 })
-      if vim.fn.diff_hlID(1, 1) == 0 then vim.cmd 'silent! normal! ]c' end
+      local line = at_end and vim.api.nvim_buf_line_count(0) or 1
+      vim.api.nvim_win_set_cursor(0, { line, 0 })
+      if vim.fn.diff_hlID(line, 1) == 0 then vim.cmd('silent! normal! ' .. (at_end and '[c' or ']c')) end
     end)
     state.shown = item.path
     remember_views()
@@ -249,6 +255,82 @@ local function activate(focus)
     render()
   else
     M.show_diff(row.item, focus)
+  end
+end
+
+local function file_rows()
+  local rows = {}
+  for row = 1, vim.api.nvim_buf_line_count(state.panel_buf) do
+    if state.rows[row] and state.rows[row].item then rows[#rows + 1] = row end
+  end
+  return rows
+end
+
+-- Like IntelliJ's diff viewer: F7 walks changes and carries on into the next file.
+function M.jump(forward)
+  if not valid() then return end
+  local current = vim.api.nvim_get_current_win()
+  local in_diff = current == state.work_win or current == state.base_win
+  if state.work_win and vim.api.nvim_win_is_valid(state.work_win) then
+    local win = in_diff and current or state.work_win
+    local before = vim.api.nvim_win_get_cursor(win)[1]
+    vim.api.nvim_win_call(win, function() vim.cmd('silent! normal! ' .. (forward and ']c' or '[c')) end)
+    if vim.api.nvim_win_get_cursor(win)[1] ~= before then return end
+  end
+  local rows, at = file_rows(), nil
+  for index, row in ipairs(rows) do
+    if state.rows[row].item.path == state.shown then at = index end
+  end
+  local next_row = rows[(at or (forward and 0 or #rows + 1)) + (forward and 1 or -1)]
+  if not next_row then return vim.notify(forward and 'Last change' or 'First change') end
+  vim.api.nvim_win_set_cursor(state.panel_win, { next_row, 0 })
+  M.show_diff(state.rows[next_row].item, in_diff, not forward)
+end
+
+local function items_under(row)
+  if row.item then return { row.item } end
+  return vim.tbl_filter(function(item) return vim.startswith(item.path, row.dir .. '/') end, state.items)
+end
+
+function M.toggle_stage()
+  local row = valid() and target()
+  if not row then return end
+  local items = items_under(row)
+  local paths, staged = {}, true
+  for _, item in ipairs(items) do
+    paths[#paths + 1] = item.path
+    if item.old then paths[#paths + 1] = item.old end
+    staged = staged and item.staged
+  end
+  if #paths == 0 then return end
+  local args = staged and { 'reset', '-q', '--' } or { 'add', '-A', '--' }
+  local ok, err = git(state.root, vim.list_extend(args, paths))
+  if not ok then vim.notify('Git ' .. args[1] .. ' failed: ' .. tostring(err), vim.log.levels.ERROR) end
+  M.refresh()
+end
+
+function M.commit()
+  if not valid() then return end
+  local root = state.root
+  local everything = (git(root, { 'diff', '--cached', '--name-only' }) or '') == ''
+  if everything then
+    if #state.items == 0 then return vim.notify 'Nothing to commit' end
+    if vim.fn.confirm('Nothing is staged. Commit all ' .. #state.items .. ' changed files?', '&Commit all\n&Cancel', 2) ~= 1 then return end
+  end
+  vim.ui.input({ prompt = 'Commit message' }, function(message)
+    if not message or message:match '^%s*$' then return end
+    if everything then git(root, { 'add', '-A' }) end
+    local ok, err = git(root, { 'commit', '-q', '-m', message })
+    if ok then vim.notify('Committed: ' .. message) else vim.notify('Commit failed: ' .. tostring(err), vim.log.levels.ERROR) end
+    M.refresh()
+  end)
+end
+
+function M.toggle_fold()
+  if not valid() then return end
+  state.fold = not state.fold
+  for _, win in ipairs { state.base_win, state.work_win } do
+    if win and vim.api.nvim_win_is_valid(win) then vim.wo[win].foldenable = state.fold end
   end
 end
 
@@ -312,6 +394,9 @@ function M.open(root)
   key('<2-LeftMouse>', function() activate(true) end, 'Open change')
   key('<LeftRelease>', function() local row = target(); if row and row.dir then activate(false) end end, 'Toggle folder')
   key('r', M.refresh, 'Refresh changes')
+  key('s', M.toggle_stage, 'Stage or unstage')
+  key('c', M.commit, 'Commit')
+  key('f', M.toggle_fold, 'Fold unchanged lines')
   key('q', M.close, 'Close changes')
   key('<Esc>', M.close, 'Close changes')
   local group = vim.api.nvim_create_augroup('JvimChanges', { clear = true })
@@ -322,6 +407,7 @@ function M.open(root)
   vim.api.nvim_create_autocmd('BufEnter', { group = group, buffer = buf, callback = function() vim.cmd.stopinsert() end })
   vim.api.nvim_create_autocmd('BufWritePost', { group = group, callback = function() vim.schedule(M.refresh) end })
   vim.api.nvim_create_autocmd('WinScrolled', { group = group, callback = sync_scroll })
+  vim.api.nvim_create_autocmd('User', { group = group, pattern = 'GitSignsUpdate', callback = function() vim.schedule(M.refresh) end })
   vim.api.nvim_create_autocmd('TabClosed', {
     group = group,
     callback = function() if state and not vim.api.nvim_tabpage_is_valid(state.tab) then state = nil end end,

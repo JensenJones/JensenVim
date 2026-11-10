@@ -342,6 +342,15 @@ map('i', '<M-S-Down>', '<Esc><cmd>move .+1<CR>==gi', { desc = 'Move line down' }
 
 action({ '<F35>35', '<D-S-t>' }, function() require('jvim.files').reopen_closed() end, 'Reopen closed file')
 action({ '<F35>77', '<C-S-g>' }, function() require('jvim.changes').open() end, 'Show Git changes')
+-- Terminals report Shift+F7 as F19 (Recent files), so WezTerm sends transport code 80 for it.
+for keys, forward in pairs { [{ '<F7>' }] = true, [{ '<F35>80', '<S-F7>' }] = false } do
+  action(keys, function()
+    local changes = require 'jvim.changes'
+    if changes.is_open() then return changes.jump(forward) end
+    local ok, signs = pcall(require, 'gitsigns')
+    if ok then signs.nav_hunk(forward and 'next' or 'prev') end
+  end, forward and 'Next change' or 'Previous change')
+end
 vim.api.nvim_create_user_command('Changes', function() require('jvim.changes').open() end, { desc = 'Show Git changes' })
 
 local group = vim.api.nvim_create_augroup('clion-editing', { clear = true })
