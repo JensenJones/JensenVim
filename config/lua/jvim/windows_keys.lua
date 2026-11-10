@@ -1,7 +1,7 @@
 local M = {}
 
 function M.setup()
-  if vim.fn.has 'win32' ~= 1 then return end
+  if vim.fn.has 'win32' ~= 1 and vim.fn.has 'linux' ~= 1 then return end
   -- Neovide forwards these directly; terminals may reserve Ctrl combinations.
   for _, mode in ipairs { 'n', 'i', 's', 'x', 'c' } do
     for _, mapping in ipairs(vim.api.nvim_get_keymap(mode)) do

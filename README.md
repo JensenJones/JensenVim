@@ -4,14 +4,14 @@ By Jensen Jones.
 
 A lightweight Neovim setup with ordinary typing, mouse selection, CLion-style Mac shortcuts, a single-click project tree, Markdown rendering and autosave. Based on kickstart.nvim; the original MIT license is preserved in LICENSE.
 
-**Mac + iTerm2, including existing Herdr panes, is the primary setup. Windows + Neovide support is experimental and has not been tested on a Windows machine.** Run configurations and conflict resolution use Neovim's terminal and diff engine. CLion's debugger and full refactoring engine are not reproduced.
+**Mac + iTerm2, including existing Herdr panes, is the primary setup.** Linux and Windows run the same editor with Ctrl in place of Cmd: see [Linux](#linux-installation) and [Windows](#windows-installation-experimental). Run configurations and conflict resolution use Neovim's terminal and diff engine. CLion's debugger and full refactoring engine are not reproduced.
 
 ## macOS installation
 
 Install Python 3, Neovim 0.12 or newer, ripgrep, Git, Poppler, ImageMagick and iTerm2. Poppler renders PDF pages and ImageMagick displays them through the terminal graphics protocol. Development checks used Neovim 0.12.5. With Homebrew, for example:
 
 ```sh
-brew install neovim ripgrep python poppler imagemagick
+brew install neovim ripgrep tree-sitter-cli python poppler imagemagick
 brew install --cask iterm2
 ```
 
@@ -23,7 +23,7 @@ installs it, adds the launcher to your shell PATH, and opens the current folder:
 
 ```sh
 PROJECT_DIR="$PWD"
-brew install neovim ripgrep python poppler imagemagick &&
+brew install neovim ripgrep tree-sitter-cli python poppler imagemagick &&
 brew install --cask iterm2 &&
 git clone https://github.com/JensenJones/JensenVim.git "$HOME/JensenVim" &&
 "$HOME/JensenVim/install-macos.sh" --apply &&
@@ -45,6 +45,53 @@ The configuration installs separately at `~/.config/jvim` using `NVIM_APPNAME=jv
 Within iTerm/Herdr, keyboard mappings apply while the editor pane is focused and restore afterward. The launcher does not create tabs or windows. Code hyperlinks default off to keep the editor free of dashed link underlines. Use **Ctrl-click** or **Cmd+B** for definitions. The bridge enables Ctrl-click reporting while jvim is focused and restores the prior behavior afterward. In the action menu, **Toggle Cmd-click code links (dashed underlines)** opts into native Cmd-click and its link decoration, only for jvim. The installer does not change iTerm's global underline preference.
 
 In another terminal, the editor can start but the Mac shortcut transport and native Cmd-click are not provided. Use the primary setup for the full workflow.
+
+## Linux installation
+
+Distribution packages of Neovim and tree-sitter are usually too old, so the simplest route is [Homebrew on Linux](https://brew.sh). If `brew` is not installed yet, run this first (Debian/Ubuntu shown; it asks for your password once):
+
+```sh
+sudo apt-get install -y build-essential procps curl file git xclip &&
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" &&
+eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+```
+
+On Fedora install the prerequisites with `sudo dnf group install development-tools && sudo dnf install procps-ng curl file git xclip`, and on Arch with `sudo pacman -S base-devel procps-ng curl file git xclip`. On Wayland, use `wl-clipboard` instead of `xclip`. Then paste this block in the folder you want to open:
+
+```sh
+PROJECT_DIR="$PWD"
+brew install neovim ripgrep tree-sitter-cli poppler imagemagick &&
+git clone https://github.com/JensenJones/JensenVim.git "$HOME/JensenVim" &&
+"$HOME/JensenVim/install-linux.sh" --apply &&
+export PATH="$HOME/.local/bin:$PATH" &&
+jvim "$PROJECT_DIR"
+```
+
+The installer copies `config/` to `~/.config/jvim`, adds a `jvim` launcher in `~/.local/bin` and puts that folder on PATH in your shell's startup file. It first moves any previous installation into `~/.local/state/jvim/backups`. Shortcuts use Ctrl where the Mac uses Cmd (Ctrl+S, Ctrl+W, Ctrl+Shift+A, Ctrl+0). Telling Ctrl+Shift shortcuts apart needs a terminal with the kitty keyboard protocol, such as kitty, WezTerm, foot, Ghostty or Alacritty. The iTerm/Herdr bridge is macOS only.
+
+## Windows installation (experimental)
+
+Windows support has not been tested on a Windows machine. Paste this into PowerShell in the folder you want to open:
+
+```powershell
+$project = $PWD.Path
+winget install -e --id Neovim.Neovim; winget install -e --id Neovide.Neovide
+winget install -e --id BurntSushi.ripgrep.MSVC; winget install -e --id Git.Git
+winget install -e --id tree-sitter.tree-sitter-cli
+$env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned -Force
+git clone https://github.com/JensenJones/JensenVim.git "$HOME\JensenVim"
+& "$HOME\JensenVim\install-windows.ps1" -Apply
+$bin = "$env:LOCALAPPDATA\JensenVim\bin"
+$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+if (($userPath -split ';') -notcontains $bin) { [Environment]::SetEnvironmentVariable('Path', "$userPath;$bin", 'User') }
+$env:Path += ";$bin"
+jvim.ps1 $project
+```
+
+Tree-sitter parsers also need a C compiler: install **Visual Studio Build Tools** with the *Desktop development with C++* workload. jvim installs separately at `%LOCALAPPDATA%\jvim`, backing up existing managed files, and opens in Neovide. Pass `-Frontend nvim` to the installer to use a terminal instead.
+
+On Windows, Cmd-based editor mappings become Ctrl-based mappings: Ctrl+B for definition, F4 for the tree, Ctrl+W to close, and Ctrl+Alt+arrows for history. Ctrl-click is mapped inside Neovim. These mappings have been checked through Neovim's mapping API, but real Windows keyboard delivery, mouse delivery and real dependency installation still need Windows testing. CI includes isolated PowerShell installer tests. OS-reserved keys may need remapping. Windows Terminal integration and Herdr on Windows are not included.
 
 ## Everyday editing
 
@@ -92,22 +139,9 @@ Click **Config** in the status line to create a run configuration: give it a nam
 
 Use **Check jvim health** in the picker, or `:checkhealth jvim`, to inspect configuration, dependency policies and tools.
 
-## Windows (experimental)
-
-Install Neovim 0.12+, Neovide, ripgrep and Git, plus a compiler suitable for Tree-sitter and your projects. Neovide is a lightweight Neovim GUI; iTerm2 is not required. Run the following from PowerShell in this extracted repository:
-
-```powershell
-./install-windows.ps1         # preview
-./install-windows.ps1 -Apply  # install
-```
-
-Add `%LOCALAPPDATA%\JensenVim\bin` to PATH, then run `jvim.ps1 .`. This installs separately at `%LOCALAPPDATA%\jvim`, backing up existing managed files. PowerShell's execution policy must permit local scripts.
-
-On Windows, Cmd-based editor mappings become Ctrl-based mappings: Ctrl+B for definition, F4 for the tree, Ctrl+W to close, and Ctrl+Alt+arrows for history. Ctrl-click is mapped inside Neovim. These mappings have been checked through Neovim's mapping API, but real Windows keyboard delivery, mouse delivery and real dependency installation still need Windows testing. CI includes isolated PowerShell installer tests. OS-reserved keys may need remapping. Windows Terminal integration and Herdr on Windows are not included.
-
 ## Repository contents and updating
 
-`config/` is the editor; `bin/` contains the Mac launchers; `integrations/macos/` contains the shortcut preset, AppleScript sources and Python requirements. No compiled Mac app, plugin cache, Python environment, editing history, credentials, sockets or project source is bundled. The installer builds the app and runtime on the destination computer.
+`config/` is the editor; `install-linux.sh` and `install-windows.ps1` install it on Linux and Windows; `bin/` contains the Mac launchers; `integrations/macos/` contains the shortcut preset, AppleScript sources and Python requirements. No compiled Mac app, plugin cache, Python environment, editing history, credentials, sockets or project source is bundled. The installer builds the app and runtime on the destination computer.
 
 After updating the repository, rerun the installer. It backs up the previous managed installation. To roll back, close jvim and restore the desired files from the reported backup directory. The installer does not alter iTerm's global underline preference.
 
