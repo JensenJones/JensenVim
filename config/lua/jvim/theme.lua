@@ -46,6 +46,9 @@ local function apply_focus(name)
   for group, spec in pairs(focus_groups[name] or {}) do
     vim.api.nvim_set_hl(0, group, spec)
   end
+  local selected = vim.api.nvim_get_hl(0, { name = 'TabLineSel', link = false })
+  local tabs = vim.api.nvim_get_hl(0, { name = 'TabLine', link = false })
+  vim.api.nvim_set_hl(0, 'JvimTabLineSelNC', { fg = selected.bg or selected.fg, bg = tabs.bg, bold = true, underline = true })
 end
 
 function M.names()

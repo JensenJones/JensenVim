@@ -6,7 +6,7 @@ Run in your existing Herdr pane:
 
 The editor stays in that pane. It does not create iTerm tabs or windows. Its terminal keyboard mappings apply only while its pane is focused; your normal mappings return when you leave. Fonts and window layout are preserved.
 
-`jvim` and `jvim /project/path/` start in the project tree without an empty file tab. Opening a file creates the editor pane beside the tree. Each editor pane has its own clickable file tabs; Ctrl+Tab and Ctrl+Shift+Tab switch only among that pane's files. Closing a file keeps the remaining file visible.
+`jvim` and `jvim /project/path/` start in the project tree without an empty file tab. Opening a file creates the editor pane beside the tree. Each editor pane has its own clickable file tabs and remembers its own cursor and scroll position in each file; Ctrl+Tab and Ctrl+Shift+Tab switch only among that pane's files. The focused pane's current tab is filled in; other panes show their current tab underlined. Closing a file keeps the remaining file visible, and closing a pane's last file closes the pane. **Cmd+Shift+T** reopens the last closed file in its pane at the same location, recreating the pane if it was closed.
 
 - **Ctrl-click a code symbol:** jump to its definition, using the language server. Native Cmd-click is optional: search **Toggle Cmd-click code links (dashed underlines)** in the action menu.
 - **Cmd+B:** keyboard navigation to a definition. Autosave preserves edits and undo without formatting or sorting imports; explicit saves can format.
@@ -19,7 +19,7 @@ The editor stays in that pane. It does not create iTerm tabs or windows. Its ter
 - **Cmd+W:** close the current file; closing the last file exits jvim.
 - **Single-click** a tree folder to expand/collapse it or a file to open it.
 - Markdown renders in the editor, including while typing. Find **Toggle Markdown preview** in the action menu to switch between preview and source.
-- **Cmd+Shift+W:** save the current project's open files, pane layout, tab order, and scroll positions, then close the editor after asking about unsaved files. Launch jvim in that project again to restore the workspace. Choose **Save workspace and close editor** in the action menu to do the same.
+- **Cmd+Shift+W:** save the current project's split layout and sizes, each pane's tabs, and cursor and scroll positions, then close the editor after asking about unsaved files. Launch jvim in that project again to restore the workspace. Choose **Save workspace and close editor** in the action menu to do the same.
 
 Typing, mouse selection, Shift-selection and clipboard shortcuts use ordinary editing. Double-click selects a word; typing replaces the selected text. Escape cancels a selection or popup and keeps you ready to type.
 

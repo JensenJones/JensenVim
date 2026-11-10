@@ -82,6 +82,45 @@ elseif case == 'edit' then
   equal(data.configurations, {})
   assert(vim.bo.modified)
   assert(vim.fn.filereadable(root .. '/.jvim/run.json') == 0, 'edit unexpectedly wrote configuration')
+elseif case == 'steps' then
+  local run = require 'jvim.run'
+  vim.o.shell = 'sh'
+  save_config { version = 1, configurations = { { name = 'Steps', commands = {
+    'echo "first step" > order.txt', 'echo second | tr a-z A-Z >> order.txt && echo "$JVIM_STEP"', 'exit 3', 'echo never >> order.txt',
+  }, env = { JVIM_STEP = 'env reached' } } } }
+  local session = assert(run.run('Steps', root))
+  wait_for(function() return session.status == 'exited' end)
+  equal(session.exit_code, 3)
+  equal(vim.fn.readfile(root .. '/order.txt'), { 'first step', 'SECOND' })
+  local text = table.concat(vim.api.nvim_buf_get_lines(session.buf, 0, -1, false), '\n')
+  for _, value in ipairs { '$ echo "first step" > order.txt', 'env reached', '$ exit 3' } do assert(text:find(value, 1, true), text) end
+  assert(not text:find('$ echo never', 1, true), 'run continued after a failing step: ' .. text)
+elseif case == 'form' then
+  local run = require 'jvim.run'
+  local buf = run.form(root)
+  assert(vim.bo[buf].buftype == 'acwrite' and vim.api.nvim_win_get_config(0).relative == 'editor', 'form is not a floating editor')
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, { '# comment', 'Name: Build and run', '', '# Commands', 'echo one', '', '  echo two  ' })
+  vim.cmd.write()
+  wait_for(function() return not vim.api.nvim_buf_is_valid(buf) end)
+  local entries = assert(run.load(root))
+  equal(entries[1].name, 'Build and run')
+  equal(entries[1].commands, { 'echo one', 'echo two' })
+  assert(table.concat(vim.fn.readfile(root .. '/.jvim/run.json'), '\n'):find('"name": "Build and run",\n      "commands": [', 1, true),
+    'run.json is not readable: ' .. table.concat(vim.fn.readfile(root .. '/.jvim/run.json'), '\n'))
+  equal(select(2, run.current(root)), 'Build and run')
+  save_config(configuration { 'sh', '-c', 'echo legacy' })
+  buf = run.form(root, 'Example')
+  equal(vim.api.nvim_buf_get_lines(buf, 5, 6, false), { "sh -c 'echo legacy'" })
+  vim.api.nvim_buf_set_lines(buf, 1, 2, false, { 'Name: Renamed' })
+  vim.cmd.write()
+  wait_for(function() return not vim.api.nvim_buf_is_valid(buf) end)
+  entries = assert(run.load(root))
+  equal({ entries[1].name, entries[1].commands, entries[1].command, entries[1].env.JVIM_WORKFLOW_VALUE }, { 'Renamed', { "sh -c 'echo legacy'" }, nil, 'hello spaces' })
+  assert(not run.save_form(root, nil, { 'Name: Renamed', 'echo x' }), 'duplicate name accepted')
+  assert(not run.save_form(root, nil, { 'Name: Empty' }), 'configuration without commands accepted')
+  equal(run.save_form(root, 'Renamed', { 'Name: Renamed' }), false)
+  equal(assert(run.load(root)), {})
+  assert(#vim.tbl_filter(function(b) return vim.bo[b].buftype == 'terminal' end, vim.api.nvim_list_bufs()) == 0, 'saving the form ran a command')
 elseif case == 'project' then
   local run = require 'jvim.run'
   vim.fn.mkdir(root .. '/tools', 'p')

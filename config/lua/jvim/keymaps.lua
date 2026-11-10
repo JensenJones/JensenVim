@@ -175,7 +175,6 @@ action({ '<F18>', '<D-S-f>', '<C-S-f>' }, telescope 'live_grep', 'Search project
 action({ '<F19>', '<D-e>' }, telescope 'oldfiles', 'Recent files')
 action({ '<F35>38', '<C-S-a>', '<D-S-a>' }, function() require('jvim.action_picker').open() end, 'Find action or shortcut')
 vim.api.nvim_create_user_command('Shortcuts', function() require('jvim.action_picker').open() end, { desc = 'Find an editor action or shortcut' })
-local closed_files = {}
 action({ '<F20>', '<D-w>' }, function()
   if vim.b.jvim_command_terminal then
     require('jvim.command_terminal').hide()
@@ -190,10 +189,7 @@ action({ '<F20>', '<D-w>' }, function()
     return
   end
   if settings.features.autosave then require('jvim.autosave').save_all() end
-  local buf, name = vim.api.nvim_get_current_buf(), vim.api.nvim_buf_get_name(0)
-  local files = require 'jvim.files'
-  if not files.close_current_tab() then vim.cmd 'confirm qall'; return end
-  if name ~= '' and (not vim.api.nvim_buf_is_valid(buf) or not vim.bo[buf].buflisted) then table.insert(closed_files, name) end
+  if not require('jvim.files').close_current_tab() then vim.cmd 'confirm qall' end
 end, 'Close file')
 local function toggle_project_tree()
   local available, tree = pcall(require, 'neo-tree.command')
@@ -289,10 +285,7 @@ map('n', '<M-S-Down>', '<cmd>move .+1<CR>==', { desc = 'Move line down' })
 map('i', '<M-S-Up>', '<Esc><cmd>move .-2<CR>==gi', { desc = 'Move line up' })
 map('i', '<M-S-Down>', '<Esc><cmd>move .+1<CR>==gi', { desc = 'Move line down' })
 
-action({ '<F35>35', '<D-S-t>' }, function()
-  local name = table.remove(closed_files)
-  if name then vim.cmd.edit(vim.fn.fnameescape(name)) end
-end, 'Reopen closed file')
+action({ '<F35>35', '<D-S-t>' }, function() require('jvim.files').reopen_closed() end, 'Reopen closed file')
 
 local group = vim.api.nvim_create_augroup('clion-editing', { clear = true })
 vim.api.nvim_create_autocmd({ 'BufWinEnter', 'FileType' }, {
@@ -310,6 +303,16 @@ vim.api.nvim_create_autocmd({ 'VimEnter', 'BufEnter', 'WinEnter' }, {
   group = group,
   callback = function() vim.schedule(resume_editing) end,
 })
+-- Wheel scrolling leaves Terminal mode; typing afterwards goes back to the shell instead of running Normal commands.
+vim.on_key(function(_, typed)
+  if not (typed:match('^[%g ]$') or typed == '\r') or vim.api.nvim_get_mode().mode ~= 'nt' or not editing.running_terminal() then return end
+  local job = vim.b.terminal_job_id
+  vim.schedule(function()
+    vim.cmd.startinsert()
+    vim.api.nvim_chan_send(job, typed)
+  end)
+  return ''
+end, vim.api.nvim_create_namespace 'jvim-terminal-typing')
 -- Bracketed paste should not replace the system clipboard with deleted text.
 local original_paste = vim.paste
 vim.paste = function(lines, phase)

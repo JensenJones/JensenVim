@@ -34,6 +34,12 @@ class WorkflowTests(unittest.TestCase):
     def test_shell_terminal_reuses_hidden_session(self):
         self.check_case('shell')
 
+    def test_shell_line_steps_run_in_order_and_stop_on_failure(self):
+        self.check_case('steps')
+
+    def test_form_creates_edits_and_deletes_named_configurations(self):
+        self.check_case('form')
+
     def test_project_discovery_and_configuration_path_executable(self):
         self.check_case('project')
 

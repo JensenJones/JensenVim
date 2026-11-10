@@ -4,14 +4,32 @@ Open **Cmd+Shift+A** to search actions. File lookup is **Cmd+Shift+O**. **F4** t
 
 ## Run configurations
 
-Choose **Edit run configurations** to open `.jvim/run.json` in your project. Add configurations, save, then use **Choose run configuration** or click **Config**. Click **Run** to run the selected configuration in a terminal split.
+Click **Config** in the status line. With no configurations yet, it opens a small form; otherwise pick **+ New configuration**. Write a name and one or more commands, one per line, then press **Cmd+S**:
+
+```
+Name: Build and run
+
+cmake -B build
+cmake --build build
+./build/app --verbose
+```
+
+Each line runs in your shell exactly as you would type it, so pipes, `&&`, quotes and globs work. Lines run in order and the run stops at the first command that fails, showing its exit status. Lines starting with `#` are ignored. Choose a configuration in **Config** to make it the one **Run** starts, and pick **Edit "<name>"** there to change it; remove every command and save to delete it. **Cmd+W** or **Esc** closes the form without saving.
+
+The form writes `.jvim/run.json`, which you can also edit directly through **Open .jvim/run.json**:
 
 ```json
 {
   "version": 1,
   "configurations": [
-    { "name": "Build", "command": ["make"], "cwd": "." },
-    { "name": "Tests", "command": ["make", "test-all"], "cwd": "." },
+    {
+      "name": "Build and run",
+      "commands": [
+        "cmake -B build",
+        "cmake --build build",
+        "./build/app --verbose"
+      ]
+    },
     {
       "name": "Program",
       "command": ["./build/program", "--verbose"],
@@ -22,9 +40,9 @@ Choose **Edit run configurations** to open `.jvim/run.json` in your project. Add
 }
 ```
 
-Commands are argument arrays. Paths containing spaces remain single arguments. Relative working directories resolve against the project; environment entries override inherited values. Configuration names must be unique. Configurations are loaded only for an explicit run/selection action; opening a repository never runs them.
+`command` is an alternative to `commands`: a single argument array run without a shell, so paths containing spaces stay single arguments. Relative working directories resolve against the project; environment entries override inherited values and are kept when you edit a configuration in the form. Configuration names must be unique. Configurations are loaded only for an explicit run or selection; opening a repository never runs them.
 
-A running configuration reopens its existing terminal. Completed output is retained. **Rerun selected configuration** starts it again; **Stop run** stops it; **Show run output** reopens the split. **Cmd+W** hides the terminal without killing the process. For shell features such as pipes, explicitly use a shell command array, for example `["sh", "-c", "make && ./build/program"]`.
+A running configuration reopens its existing terminal. Completed output is retained. **Rerun selected configuration** starts it again; **Stop run** stops it; **Show run output** reopens the split. **Cmd+W** hides the terminal without killing the process.
 
 **Cmd+Option+semicolon** opens/reuses an interactive project shell. Shells and run output accept ordinary terminal input. Project discovery prefers an ancestor `.jvim/run.json`, then common project markers, then the current working directory.
 

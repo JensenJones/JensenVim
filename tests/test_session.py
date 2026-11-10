@@ -27,3 +27,15 @@ class SessionTests(unittest.TestCase):
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
 
+
+    def test_split_tabs_cycle_locally_and_reopen_recreates_closed_split(self):
+        with tempfile.TemporaryDirectory(prefix='jvim-panes-') as temporary:
+            project = Path(temporary)/'project'
+            project.mkdir()
+            env = dict(os.environ, HOME=temporary, NVIM_APPNAME='jvim', JVIM_TEST_CONFIG=str(ROOT/'config'),
+                       JVIM_TEST_PROJECT=str(project), JVIM_SESSION_PHASE='panes')
+            result = subprocess.run(
+                ['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(ROOT/'tests/session.lua')],
+                env=env, capture_output=True, text=True, timeout=15,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)

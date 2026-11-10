@@ -9,11 +9,12 @@ local function project_root(root)
   return vim.uv.fs_realpath(root) or root
 end
 
-local function paths(root)
+local active_root
+
+local function metadata_path(root)
   local directory = vim.fn.stdpath('state') .. '/jvim/sessions'
   vim.fn.mkdir(directory, 'p')
-  local stem = directory .. '/' .. vim.fn.sha256(root)
-  return stem .. '.vim', stem .. '.json'
+  return directory .. '/' .. vim.fn.sha256(root) .. '.json'
 end
 
 function M.root(root)
@@ -21,15 +22,14 @@ function M.root(root)
   return vim.fs.root(root, markers) or root
 end
 
+-- Saves under the root jvim started in, so closing and relaunching in that repository use the same workspace.
 function M.save(root)
-  root = M.root(root)
-  local session_path, metadata_path = paths(root)
-  local ok, err = pcall(vim.cmd, 'mksession! ' .. vim.fn.fnameescape(session_path))
-  if not ok then return false, err end
-  local metadata = { root = root, panes = require('jvim.files').snapshot() }
-  local file, open_err = io.open(metadata_path, 'w')
+  root = M.root(root or active_root)
+  local layout = require('jvim.files').snapshot()
+  if not layout then return false, 'no editor splits to save' end
+  local file, open_err = io.open(metadata_path(root), 'w')
   if not file then return false, open_err end
-  local wrote, write_err = pcall(file.write, file, vim.json.encode(metadata))
+  local wrote, write_err = pcall(file.write, file, vim.json.encode { version = 2, root = root, layout = layout })
   file:close()
   if not wrote then return false, write_err end
   return true
@@ -37,21 +37,19 @@ end
 
 function M.restore(root)
   root = M.root(root)
-  local session_path, metadata_path = paths(root)
-  if vim.fn.filereadable(session_path) ~= 1 or vim.fn.filereadable(metadata_path) ~= 1 then return false end
-  local file = io.open(metadata_path, 'r')
+  active_root = root
+  local file = io.open(metadata_path(root), 'r')
   if not file then return false end
   local contents = file:read('*a')
   file:close()
   local ok, metadata = pcall(vim.json.decode, contents)
-  if not ok or type(metadata) ~= 'table' or metadata.root ~= root or type(metadata.panes) ~= 'table' then return false end
-  local sourced, err = pcall(vim.cmd, 'silent source ' .. vim.fn.fnameescape(session_path))
-  if not sourced then
+  if not ok or type(metadata) ~= 'table' or metadata.version ~= 2 or metadata.root ~= root then return false end
+  local restored, err = pcall(require('jvim.files').restore_snapshot, metadata.layout)
+  if not restored then
     vim.notify('Could not restore jvim workspace: ' .. tostring(err), vim.log.levels.WARN)
     return false
   end
-  require('jvim.files').restore_snapshot(metadata.panes)
-  return true
+  return err
 end
 
 return M

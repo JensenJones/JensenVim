@@ -7,9 +7,17 @@ function M.eligible(buf)
     and vim.fn.isdirectory(vim.api.nvim_buf_get_name(buf)) == 0
 end
 
+function M.running_terminal(buf)
+  buf = buf or vim.api.nvim_get_current_buf()
+  local job = vim.bo[buf].buftype == 'terminal' and vim.b[buf].terminal_job_id
+  return job and vim.fn.jobwait({ job }, 0)[1] == -1 or false
+end
+
 function M.resume()
   if vim.bo.filetype == 'neo-tree' then
     vim.cmd.stopinsert()
+  elseif M.running_terminal() then
+    if vim.fn.mode() ~= 't' then vim.cmd.startinsert() end
   elseif M.eligible() and vim.fn.mode() == 'n' then
     vim.cmd.startinsert()
   end

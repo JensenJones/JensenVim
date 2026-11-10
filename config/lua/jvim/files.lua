@@ -5,6 +5,9 @@ local panes = {}
 local last_editor_win
 local click_targets = {}
 local next_click_target = 0
+local closed_tabs = {}
+-- Buffers that have belonged to a pane; others (such as extra startup arguments) join the pane that cycles first.
+local placed = {}
 
 local function image_buffer(buf)
   return vim.api.nvim_buf_is_valid(buf) and vim.bo[buf].filetype == 'image_nvim'
@@ -60,7 +63,7 @@ local function ensure_pane(win)
   if valid_file(buf) then
     if not vim.tbl_contains(pane.tabs, buf) then pane.tabs[#pane.tabs + 1] = buf end
     if not vim.tbl_contains(pane.recent, buf) then pane.recent[#pane.recent + 1] = buf end
-    pane.current = buf
+    pane.current, placed[buf] = buf, true
   end
   last_editor_win = win
   return pane
@@ -70,7 +73,7 @@ local function touch(pane, buf)
   if not vim.tbl_contains(pane.tabs, buf) then pane.tabs[#pane.tabs + 1] = buf end
   pane.recent = remove_value(pane.recent, buf)
   table.insert(pane.recent, 1, buf)
-  pane.current = buf
+  pane.current, placed[buf] = buf, true
 end
 
 local function save_view(win, pane, buf)
@@ -98,6 +101,8 @@ function M.render_winbar(win)
   local pane = ensure_pane(win)
   if not pane then return '' end
   local current = vim.api.nvim_win_get_buf(win)
+  local focused = tonumber(vim.g.actual_curwin) or vim.api.nvim_get_current_win()
+  local selected_group = win == focused and 'TabLineSel' or 'JvimTabLineSelNC'
   local parts = {}
   for _, buf in ipairs(pane.tabs) do
     if valid_file(buf) then
@@ -106,7 +111,7 @@ function M.render_winbar(win)
       local name = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(buf), ':t'):gsub('%%', '%%%%')
       if name == '' then name = '[No Name]' end
       if vim.bo[buf].modified then name = name .. ' +' end
-      local group = buf == current and 'TabLineSel' or 'TabLine'
+      local group = buf == current and selected_group or 'TabLine'
       parts[#parts + 1] = ('%%#%s#%%T%%%d@v:lua.JvimTabClick@ %s %%T'):format(group, next_click_target, name)
     end
   end
@@ -118,10 +123,19 @@ function M.click_tab(target)
   if item and editor_window(item.win) and valid_file(item.buf) then M.show(item.buf, false, item.win) end
 end
 
+local function split_anchor(win)
+  for _, side in ipairs { { 'h', 'right' }, { 'l', 'left' }, { 'k', 'below' }, { 'j', 'above' } } do
+    local neighbour = vim.api.nvim_win_call(win, function() return vim.fn.win_getid(vim.fn.winnr(side[1])) end)
+    if neighbour ~= win and editor_window(neighbour) then return neighbour, side[2] end
+  end
+end
+
 function M.close_current_tab()
   local win, buf = vim.api.nvim_get_current_win(), vim.api.nvim_get_current_buf()
   local pane = ensure_pane(win)
   if not pane then return false end
+  save_view(win, pane, buf)
+  local closed = { path = vim.api.nvim_buf_get_name(buf), view = pane.views[buf], win = win }
   local tab_position = vim.fn.index(pane.tabs, buf) + 1
   pane.tabs = remove_value(pane.tabs, buf)
   pane.recent = remove_value(pane.recent, buf)
@@ -133,6 +147,7 @@ function M.close_current_tab()
     for _, candidate in ipairs(pane.tabs) do if valid_file(candidate) then next_buf = candidate; break end end
   end
   if next_buf then
+    if closed.path ~= '' then closed_tabs[#closed_tabs + 1] = closed end
     M.show(next_buf, false, win)
     pane.tabs = remove_value(pane.tabs, buf)
     pane.recent = remove_value(pane.recent, buf)
@@ -155,6 +170,8 @@ function M.close_current_tab()
     if candidate ~= win and editor_window(candidate) then other_win = candidate; break end
   end
   if other_win then
+    closed.win, closed.anchor, closed.split = nil, split_anchor(win)
+    if closed.path ~= '' then closed_tabs[#closed_tabs + 1] = closed end
     vim.api.nvim_win_close(win, true)
     if vim.api.nvim_buf_is_valid(buf) and #vim.fn.win_findbuf(buf) == 0 then pcall(vim.cmd, 'confirm bdelete ' .. buf) end
     return true
@@ -182,7 +199,7 @@ function M.show(buf, cycling, target_win)
     local pane = ensure_pane(win)
     if pane then
       for _, previous_buf in ipairs(recent) do
-        if valid_file(previous_buf) and not vim.tbl_contains(pane.tabs, previous_buf) then pane.tabs[#pane.tabs + 1] = previous_buf end
+        if valid_file(previous_buf) and not vim.tbl_contains(pane.tabs, previous_buf) then pane.tabs[#pane.tabs + 1], placed[previous_buf] = previous_buf, true end
       end
       touch(pane, buf)
     end
@@ -224,11 +241,7 @@ function M.cycle(direction)
   prune(pane)
   local current = vim.api.nvim_win_get_buf(win)
   for _, buf in ipairs(M.list()) do
-    local owned_elsewhere = false
-    for other_win, other_pane in pairs(panes) do
-      if other_win ~= win and vim.tbl_contains(other_pane.tabs, buf) then owned_elsewhere = true; break end
-    end
-    if not owned_elsewhere and not vim.tbl_contains(pane.tabs, buf) then pane.tabs[#pane.tabs + 1] = buf end
+    if not placed[buf] then pane.tabs[#pane.tabs + 1], placed[buf] = buf, true end
   end
   if #pane.tabs < 2 then return end
 
@@ -257,41 +270,6 @@ function M.cycle(direction)
   M.show(target, true, win)
 end
 
-function M.snapshot()
-  local result = {}
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if editor_window(win) then
-      local pane = ensure_pane(win)
-      local current = vim.api.nvim_win_get_buf(win)
-      save_view(win, pane, current)
-      local function paths(buffers)
-        local values = {}
-        for _, buf in ipairs(buffers) do
-          if valid_file(buf) then
-            local path = vim.api.nvim_buf_get_name(buf)
-            if path ~= '' then values[#values + 1] = path end
-          end
-        end
-        return values
-      end
-      local views = {}
-      for buf, view in pairs(pane.views) do
-        if valid_file(buf) then
-          local path = vim.api.nvim_buf_get_name(buf)
-          if path ~= '' then views[path] = vim.deepcopy(view) end
-        end
-      end
-      result[#result + 1] = {
-        tabs = paths(pane.tabs),
-        recent = paths(pane.recent),
-        current = vim.api.nvim_buf_get_name(current),
-        views = views,
-      }
-    end
-  end
-  return result
-end
-
 local function buffer_for_path(path)
   if type(path) ~= 'string' or path == '' or vim.fn.filereadable(path) ~= 1 then return nil end
   local buf = vim.fn.bufnr(path)
@@ -304,13 +282,13 @@ end
 
 local function record_opened_buffer(event_win, buf)
   if not valid_file(buf) then return end
-  local win = editor_window(event_win) and event_win or nil
+  -- A file joins only a pane that is showing it; events can arrive late or from another window's context.
+  local win = editor_window(event_win) and vim.api.nvim_win_get_buf(event_win) == buf and event_win or nil
   if not win then
     for _, candidate in ipairs(vim.fn.win_findbuf(buf)) do
       if editor_window(candidate) then win = candidate; break end
     end
   end
-  if not win and editor_window(last_editor_win) then win = last_editor_win end
   if not win then remember(buf); last_file = buf; return end
   local pane = ensure_pane(win)
   if not pane then return end
@@ -320,44 +298,130 @@ local function record_opened_buffer(event_win, buf)
   last_file = buf
 end
 
-function M.restore_snapshot(snapshot)
-  if type(snapshot) ~= 'table' then return false end
-  local wins = {}
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if editor_window(win) then wins[#wins + 1] = win end
+local function pane_state(win)
+  local pane = ensure_pane(win)
+  save_view(win, pane, vim.api.nvim_win_get_buf(win))
+  local function paths(buffers)
+    local values = {}
+    for _, buf in ipairs(buffers) do
+      if valid_file(buf) and vim.api.nvim_buf_get_name(buf) ~= '' then values[#values + 1] = vim.api.nvim_buf_get_name(buf) end
+    end
+    return values
   end
-  for index, saved in ipairs(snapshot) do
-    local win = wins[index]
-    if win and type(saved) == 'table' then
-      local pane = { tabs = {}, recent = {}, views = {}, current = nil }
-      panes[win] = pane
-      for _, path in ipairs(saved.tabs or {}) do
-        local buf = buffer_for_path(path)
-        if buf then pane.tabs[#pane.tabs + 1] = buf end
-      end
-      for _, path in ipairs(saved.recent or {}) do
-        local buf = buffer_for_path(path)
-        if buf and vim.tbl_contains(pane.tabs, buf) and not vim.tbl_contains(pane.recent, buf) then
-          pane.recent[#pane.recent + 1] = buf
-        end
-      end
-      for path, view in pairs(saved.views or {}) do
-        local buf = buffer_for_path(path)
-        if buf and type(view) == 'table' then pane.views[buf] = view end
-      end
-      local current = buffer_for_path(saved.current)
-      if current then
-        if not vim.tbl_contains(pane.tabs, current) then pane.tabs[#pane.tabs + 1] = current end
-        touch(pane, current)
-        pane.expected_buf = current
-        vim.api.nvim_win_set_buf(win, current)
-        pane.expected_buf = nil
-        local view = pane.views[current]
-        if view then pcall(vim.api.nvim_win_call, win, function() vim.fn.winrestview(view) end) end
-      end
-      last_editor_win = win
+  local views = {}
+  for buf, view in pairs(pane.views) do
+    if valid_file(buf) and vim.api.nvim_buf_get_name(buf) ~= '' then views[vim.api.nvim_buf_get_name(buf)] = vim.deepcopy(view) end
+  end
+  return {
+    tabs = paths(pane.tabs), recent = paths(pane.recent), views = views,
+    current = vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(win)),
+    width = vim.api.nvim_win_get_width(win), height = vim.api.nvim_win_get_height(win),
+    focused = win == vim.api.nvim_get_current_win() or nil,
+  }
+end
+
+-- The editor splits of the current tab page as a tree; tool windows such as the tree and terminals are left out.
+function M.snapshot()
+  local function walk(node)
+    if node[1] == 'leaf' then
+      return editor_window(node[2]) and { kind = 'leaf', pane = pane_state(node[2]) } or nil
+    end
+    local children = {}
+    for _, child in ipairs(node[2]) do children[#children + 1] = walk(child) end
+    if #children <= 1 then return children[1] end
+    return { kind = node[1], children = children }
+  end
+  return walk(vim.fn.winlayout())
+end
+
+local function restore_pane(win, saved)
+  local pane = { tabs = {}, recent = {}, views = {}, current = nil }
+  panes[win] = pane
+  for _, path in ipairs(saved.tabs or {}) do
+    local buf = buffer_for_path(path)
+    if buf and not vim.tbl_contains(pane.tabs, buf) then pane.tabs[#pane.tabs + 1], placed[buf] = buf, true end
+  end
+  for _, path in ipairs(saved.recent or {}) do
+    local buf = buffer_for_path(path)
+    if buf and vim.tbl_contains(pane.tabs, buf) and not vim.tbl_contains(pane.recent, buf) then pane.recent[#pane.recent + 1] = buf end
+  end
+  for path, view in pairs(saved.views or {}) do
+    local buf = buffer_for_path(path)
+    if buf and type(view) == 'table' then pane.views[buf] = view end
+  end
+  local current = buffer_for_path(saved.current) or pane.recent[1] or pane.tabs[1]
+  if not current then return false end
+  touch(pane, current)
+  pane.expected_buf = current
+  vim.api.nvim_win_set_buf(win, current)
+  pane.expected_buf = nil
+  local view = pane.views[current]
+  if view then pcall(vim.api.nvim_win_call, win, function() vim.fn.winrestview(view) end) end
+  return true
+end
+
+function M.restore_snapshot(layout)
+  if type(layout) ~= 'table' or not layout.kind then return false end
+  local root = vim.api.nvim_get_current_win()
+  if not editor_window(root) then return false end
+  local placeholder = vim.api.nvim_win_get_buf(root)
+  vim.cmd 'silent! only'
+  local leaves, focused = {}, nil
+  local function build(node, win)
+    if node.kind == 'leaf' and type(node.pane) == 'table' then
+      leaves[#leaves + 1] = { win = win, pane = node.pane }
+      return
+    end
+    local children = type(node.children) == 'table' and node.children or {}
+    local wins = { win }
+    for index = 2, #children do
+      wins[index] = vim.api.nvim_open_win(vim.api.nvim_win_get_buf(wins[index - 1]), false,
+        { win = wins[index - 1], split = node.kind == 'row' and 'right' or 'below' })
+    end
+    for index, child in ipairs(children) do build(child, wins[index]) end
+  end
+  build(layout, root)
+  local empty = {}
+  for _, leaf in ipairs(leaves) do
+    if restore_pane(leaf.win, leaf.pane) then
+      if leaf.pane.focused then focused = leaf.win end
+    else
+      empty[#empty + 1] = leaf.win
     end
   end
+  for _, win in ipairs(empty) do
+    if #vim.api.nvim_tabpage_list_wins(0) > 1 then vim.api.nvim_win_close(win, true) end
+  end
+  for _, leaf in ipairs(leaves) do
+    if vim.api.nvim_win_is_valid(leaf.win) then
+      if tonumber(leaf.pane.width) then pcall(vim.api.nvim_win_set_width, leaf.win, leaf.pane.width) end
+      if tonumber(leaf.pane.height) then pcall(vim.api.nvim_win_set_height, leaf.win, leaf.pane.height) end
+    end
+  end
+  focused = focused and vim.api.nvim_win_is_valid(focused) and focused or vim.api.nvim_get_current_win()
+  vim.api.nvim_set_current_win(focused)
+  last_editor_win = focused
+  if vim.api.nvim_buf_is_valid(placeholder) and not valid_file(placeholder) and not vim.bo[placeholder].modified
+    and #vim.fn.win_findbuf(placeholder) == 0 then
+    pcall(vim.api.nvim_buf_delete, placeholder, {})
+  end
+  return true
+end
+
+function M.reopen_closed()
+  local closed = table.remove(closed_tabs)
+  if not closed then return false end
+  local buf = buffer_for_path(closed.path)
+  if not buf then
+    vim.notify('Cannot reopen ' .. closed.path .. ': the file no longer exists', vim.log.levels.WARN)
+    return false
+  end
+  local win = editor_window(closed.win) and closed.win or nil
+  if not win and editor_window(closed.anchor) then
+    win = vim.api.nvim_open_win(buf, true, { win = closed.anchor, split = closed.split })
+  end
+  M.show(buf, false, win)
+  if closed.view then pcall(vim.fn.winrestview, closed.view) end
   return true
 end
 

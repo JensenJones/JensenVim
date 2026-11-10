@@ -52,7 +52,7 @@ In another terminal, the editor can start but the Mac shortcut transport and nat
 | --- | --- |
 | Cmd+S | Save all; choose a filename for an unnamed buffer |
 | Cmd+W | Close file; exit after the last file |
-| Cmd+Shift+W | Exit, asking about unsaved buffers |
+| Cmd+Shift+W | Save the workspace (splits, tabs, positions) and exit, asking about unsaved buffers |
 | F4 (Fn+F4 if needed) | Toggle the project tree from any editor mode |
 | Cmd+N | Add a file beside the selected tree file or inside the selected folder |
 | Cmd+Shift+A | Search actions and shortcuts |
@@ -84,7 +84,7 @@ Clangd can omit dependent template references from Rename. These are not changed
 
 Keep your own settings in `~/.config/jvim-user/init.lua`, outside the managed installation. Choose **Edit personal jvim configuration** in the action picker. Profiles, company language-server overrides and `JVIM_OFFLINE=1` are documented in [Configuration and company integrations](docs/CONFIGURATION.md). The public `require('jvim').setup()` API can add jvim editing to an existing company Neovim configuration without taking over its plugin manager or servers.
 
-Click **Config** in the status line to choose a run configuration, then **Run** to open its terminal split. **Edit run configurations** creates `.jvim/run.json`; commands run only when requested. Terminal output survives hiding the pane with Cmd+W. The action picker exposes rerun, stop and output actions.
+Click **Config** in the status line to create a run configuration: give it a name and one or more shell commands, one per line. **Run** runs them in order in a terminal split, stopping at the first failure; commands run only when requested. Terminal output survives hiding the pane with Cmd+W. The action picker exposes rerun, stop and output actions.
 
 **Resolve merge conflicts** opens native diff previews and an editable result, with clickable Ours/Theirs/Both/Base controls and undo. See [Project workflows](docs/WORKFLOWS.md) for run configuration examples, merge controls and moving files in the tree.
 

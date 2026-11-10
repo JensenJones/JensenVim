@@ -155,6 +155,9 @@ end })
     def test_code_action_picker_starts_with_empty_query(self):
         self.check_startup(True, 'code_action_picker')
 
+    def test_terminal_returns_to_input_after_focus_and_click(self):
+        self.check_startup(True, 'terminal_focus')
+
     def test_shift_enter_transport_opens_line_below(self):
         self.check_startup(True, 'shift_enter')
 
@@ -172,6 +175,34 @@ end })
         row, col = pos['row'] - 1, pos['col'] - 1
         def mouse(button, action):
             lua(f"vim.api.nvim_input_mouse('{button}','{action}','',0,{row},{col})")
+        if interaction == 'terminal_focus':
+            lua("(function() require('jvim.command_terminal').open(); return true end)()")
+            time.sleep(0.3)
+            self.assertEqual(state('vim.fn.mode()'), 't')
+            terminal = state('vim.api.nvim_get_current_win()')
+            lua("(function() vim.cmd.stopinsert(); vim.cmd.wincmd('p'); return true end)()")
+            time.sleep(0.2)
+            self.assertNotEqual(state('vim.api.nvim_get_current_win()'), terminal)
+            lua(f"(function() vim.api.nvim_set_current_win({terminal}); return true end)()")
+            time.sleep(0.2)
+            self.assertEqual(state('vim.fn.mode()'), 't', 'returning to the terminal window left Terminal mode off')
+            pos = state(f'vim.fn.win_screenpos({terminal})')
+            lua(f"vim.api.nvim_input_mouse('wheel','up','',0,{pos[0]},{pos[1] + 2})")
+            time.sleep(0.2)
+            self.assertEqual(state('vim.fn.mode(1)'), 'nt')
+            os.write(master, b'echo jvim_typed_$((40+2))\r')
+            time.sleep(0.5)
+            self.assertEqual(state('vim.fn.mode()'), 't', 'typing after scrolling did not return to the shell')
+            lines = state(f'vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf({terminal}),0,-1,false)')
+            self.assertTrue(any('jvim_typed_42' in line for line in lines), lines)
+            lua("(function() vim.cmd.stopinsert(); return true end)()")
+            time.sleep(0.2)
+            for action in ('press', 'release'):
+                lua(f"vim.api.nvim_input_mouse('left','{action}','',0,{pos[0]},{pos[1] + 2})")
+                time.sleep(0.1)
+            time.sleep(0.2)
+            self.assertEqual(state('vim.fn.mode()'), 't', 'clicking the terminal left Terminal mode off')
+            return
         if interaction == 'surround_selection':
             for lines, start, sequence, expected in (
                 (['αβ tail'], [1,0], b'\x1b[1;2C' * 2, ['(αβ) tail']),
