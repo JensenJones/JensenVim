@@ -13,7 +13,9 @@ function M.setup()
           key = key:gsub('%-([A-Z])>$', '-S-%1>')
         end
         -- An explicit Ctrl mapping wins over a translated Cmd one, e.g. Ctrl+Shift+G for Git changes.
-        if vim.fn.maparg(key, mode) == '' then
+        -- Neovim's own default mappings (Insert-mode Ctrl+W, Normal-mode Ctrl+L) don't count.
+        local existing = vim.fn.maparg(key, mode, false, true)
+        if vim.tbl_isempty(existing) or (existing.desc or ''):find '^:help ' then
           vim.keymap.set(mode, key, mapping.callback or mapping.rhs, {
             desc = mapping.desc,
             expr = mapping.expr == 1,
