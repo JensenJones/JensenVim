@@ -198,7 +198,14 @@ function M.close_current_tab()
     if vim.api.nvim_buf_is_valid(buf) and #vim.fn.win_findbuf(buf) == 0 then pcall(vim.cmd, 'confirm bdelete ' .. buf) end
     return true
   end
-  return false
+  -- Closing the last file leaves the project tree, the reverse of starting jvim on a folder.
+  local tree = M.focus_tree()
+  if not tree or tree.winid == win then return false end
+  closed.win = nil
+  if closed.path ~= '' then closed_tabs[#closed_tabs + 1] = closed end
+  vim.api.nvim_win_close(win, true)
+  if vim.api.nvim_buf_is_valid(buf) and #vim.fn.win_findbuf(buf) == 0 then pcall(vim.cmd, 'confirm bdelete ' .. buf) end
+  return true
 end
 
 function M.show(buf, cycling, target_win)

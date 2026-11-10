@@ -69,6 +69,9 @@ class NavigationTests(unittest.TestCase):
     def test_pane_local_file_cycling(self):
         self.check_case('pane_local_file_cycling')
 
+    def test_closing_the_last_tab_leaves_the_tree(self):
+        self.check_case('last_tab_leaves_tree')
+
     def test_opening_text_after_image_preview_reuses_the_same_pane(self):
         self.check_case('image_file_replacement')
 

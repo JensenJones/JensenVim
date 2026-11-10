@@ -197,6 +197,7 @@ action({ '<F20>', '<D-w>' }, function()
     return
   end
   if vim.bo.filetype == 'neo-tree' then
+    if #require('jvim.files').editor_windows() == 0 then return vim.cmd 'confirm qall' end
     require('neo-tree.command').execute { action = 'close', position = 'left' }
     return
   end
