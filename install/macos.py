@@ -69,7 +69,7 @@ def install(home, *, apply=False, runtime=True, registration=True):
     share = home/'.local/share/jvim'
     bindir = home/'.local/bin'
     profile = home/'Library/Application Support/iTerm2/DynamicProfiles/jvim.json'
-    shared_names = ['host-profile.applescript', 'open-location.applescript', 'requirements.txt', 'runtime.json']
+    shared_names = ['host-profile.applescript', 'open-location.applescript', 'requirements.txt', 'runtime.json', 'wezterm.lua']
     if runtime:
         shared_names.append('runtime')
     if registration:
@@ -123,6 +123,7 @@ def install(home, *, apply=False, runtime=True, registration=True):
             return path
         # A link keeps the editor running the repository's files, so edits never drift from the source.
         prepared(config).symlink_to(SOURCE/'config', target_is_directory=True)
+        prepared(share/'wezterm.lua').symlink_to(SOURCE/'integrations/wezterm/jvim.lua')
         for name in ('host-profile.applescript', 'open-location.applescript', 'requirements.txt'):
             shutil.copy2(SOURCE/'integrations/macos'/name, prepared(share/name))
         for name in ('jvim', 'jvim-host-profile', 'jvim-open-location'):

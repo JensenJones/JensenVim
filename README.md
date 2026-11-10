@@ -42,6 +42,17 @@ The first editor launch downloads plugins and language tools, including Git read
 
 The configuration is linked from this checkout to `~/.config/jvim` and runs with `NVIM_APPNAME=jvim`, so editing `config/` takes effect on the next launch without reinstalling. Keep the checkout where it is; moving it breaks the link until you reinstall. It leaves `~/.config/nvim` in place. The Mac integration manages `~/.local/bin/jvim*`, selected integration files under `~/.local/share/jvim` and iTerm's `DynamicProfiles/jvim.json`. Updates stage files before replacement and restore the old installation if publication fails. Existing managed files move into a timestamped backup under `~/.local/state/jvim/backups`; plugin, parser and Mason caches stay in place. Python runtimes use versioned directories for rollback. Inspect the preview before applying. Custom XDG directory overrides are not supported by these installers.
 
+On a Mac with WezTerm instead of iTerm2, load jvim's key table from `~/.wezterm.lua`. The installer links it into `~/.local/share/jvim`, so keys stay in step with the checkout:
+
+```lua
+local wezterm = require 'wezterm'
+local config = wezterm.config_builder()
+local jvim = wezterm.home_dir .. '/.local/share/jvim/wezterm.lua'
+wezterm.add_to_config_reload_watch_list(jvim)
+dofile(jvim).apply(config)
+return config
+```
+
 Within iTerm/Herdr, keyboard mappings apply while the editor pane is focused and restore afterward. The launcher does not create tabs or windows. Code hyperlinks default off to keep the editor free of dashed link underlines. Use **Ctrl-click** or **Cmd+B** for definitions. The bridge enables Ctrl-click reporting while jvim is focused and restores the prior behavior afterward. In the action menu, **Toggle Cmd-click code links (dashed underlines)** opts into native Cmd-click and its link decoration, only for jvim. The installer does not change iTerm's global underline preference.
 
 In another terminal, the editor can start but the Mac shortcut transport and native Cmd-click are not provided. Use the primary setup for the full workflow.
@@ -67,7 +78,7 @@ export PATH="$HOME/.local/bin:$PATH" &&
 jvim "$PROJECT_DIR"
 ```
 
-The installer links `config/` to `~/.config/jvim`, adds a `jvim` launcher in `~/.local/bin` and puts that folder on PATH in your shell's startup file. It first moves any previous installation into `~/.local/state/jvim/backups`. Shortcuts use Ctrl where the Mac uses Cmd (Ctrl+S, Ctrl+W, Ctrl+Shift+A, Ctrl+0). Telling Ctrl+Shift shortcuts apart needs a terminal with the kitty keyboard protocol, such as kitty, WezTerm, foot, Ghostty or Alacritty. The iTerm/Herdr bridge is macOS only.
+The installer links `config/` to `~/.config/jvim`, adds a `jvim` launcher in `~/.local/bin` and puts that folder on PATH in your shell's startup file. It first moves any previous installation into `~/.local/state/jvim/backups`. Shortcuts use Ctrl where the Mac uses Cmd (Ctrl+S, Ctrl+W, Ctrl+Shift+A). Telling Ctrl+Shift shortcuts apart needs a terminal with the kitty keyboard protocol, such as kitty, WezTerm, foot, Ghostty or Alacritty. The iTerm/Herdr bridge is macOS only.
 
 ## Windows installation (experimental)
 
