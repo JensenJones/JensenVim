@@ -47,7 +47,9 @@ elseif case == 'execution' then
   wait_for(function() return session.status == 'exited' end)
   equal(session.exit_code, 7)
   local text = table.concat(vim.api.nvim_buf_get_lines(session.buf, 0, -1, false), '\n')
-  for _, value in ipairs { root, 'hello spaces', 'literal $HOME; space' } do assert(text:find(value, 1, true), text) end
+  -- Long paths wrap at the terminal width, so search the output with wrapped lines rejoined.
+  local joined = text:gsub('\n', '')
+  for _, value in ipairs { root, 'hello spaces', 'literal $HOME; space' } do assert(joined:find(value, 1, true), text) end
   assert(text:find('exit 7', 1, true), 'terminal output omitted exit status: ' .. text)
 elseif case == 'lifecycle' then
   local run = require 'jvim.run'
