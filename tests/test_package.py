@@ -590,7 +590,7 @@ local line = 'auto [price, priveLevelIt] = *book.begin();'
 vim.api.nvim_buf_set_lines(0, 0, -1, false, { line })
 local paren = assert(line:find('()', 1, true)) - 1
 vim.api.nvim_win_set_cursor(0, { 1, paren })
-local move = vim.fn.maparg('<M-Right>', 'i', false, true).callback()
+local move = vim.fn.maparg('<C-Right>', 'i', false, true).callback()
 assert(move == '<C-o>3l', 'Insert-mode Option+Right should advance over ();, got ' .. move)
 line = 'listener->onFullyFilled(FullyFilledMessage message);'
 vim.api.nvim_buf_set_lines(0,0,-1,false,{line})

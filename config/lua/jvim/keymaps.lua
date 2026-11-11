@@ -300,33 +300,36 @@ action({ '<F37>', '<C-S-Tab>' }, function() require('jvim.files').cycle(-1) end,
 action({ '<F2>' }, function() vim.diagnostic.jump { count = 1, float = true } end, 'Next problem')
 action({ '<S-F2>' }, function() vim.diagnostic.jump { count = -1, float = true } end, 'Previous problem')
 -- Keep Option+arrows for word movement, as on macOS.
-map('i', '<M-Left>', '<C-Left>')
-map('i', '<M-Right>', '<C-Right>')
 map('s', '<M-Left>', '<C-Left>')
 map('s', '<M-Right>', '<C-Right>')
-for _, key in ipairs { '<C-Left>', '<M-Left>' } do
-  map('n', key, function()
+-- Like a Mac text field, word movement carries on past a line end to the neighbouring line.
+local function word_motion(direction)
+  map('n', direction > 0 and '<C-Right>' or '<C-Left>', function()
     local cursor = vim.api.nvim_win_get_cursor(0)
-    vim.api.nvim_win_set_cursor(0, { cursor[1], identifier_target(-1, false) })
-  end, { desc = 'Move to previous identifier' })
-  map('i', key, function()
+    local target = identifier_target(direction, false)
+    local row = cursor[1] + direction
+    if target == cursor[2] and row >= 1 and row <= vim.api.nvim_buf_line_count(0) then
+      local line = vim.api.nvim_buf_get_lines(0, row - 1, row, false)[1]
+      return vim.api.nvim_win_set_cursor(0, { row, direction > 0 and 0 or selection.previous(line, #line) })
+    end
+    vim.api.nvim_win_set_cursor(0, { cursor[1], target })
+  end, { desc = direction > 0 and 'Move to next identifier' or 'Move to previous identifier' })
+  map('i', direction > 0 and '<C-Right>' or '<C-Left>', function()
     local cursor = vim.api.nvim_win_get_cursor(0)
-    local target = identifier_target(-1, true)
+    local target = identifier_target(direction, true)
     local distance = selection.distance(vim.api.nvim_get_current_line(), target, cursor[2])
-    return distance == 0 and '' or '<C-o>' .. distance .. (target < cursor[2] and 'h' or 'l')
-  end, { expr = true, replace_keycodes = true, desc = 'Move to previous identifier' })
+    if distance == 0 then
+      local row = cursor[1] + direction
+      if row < 1 or row > vim.api.nvim_buf_line_count(0) then return '' end
+      return direction > 0 and '<Down><Home>' or '<Up><End>'
+    end
+    return '<C-o>' .. distance .. (target < cursor[2] and 'h' or 'l')
+  end, { expr = true, replace_keycodes = true, desc = direction > 0 and 'Move to next identifier' or 'Move to previous identifier' })
 end
-for _, key in ipairs { '<C-Right>', '<M-Right>' } do
-  map('n', key, function()
-    local cursor = vim.api.nvim_win_get_cursor(0)
-    vim.api.nvim_win_set_cursor(0, { cursor[1], identifier_target(1, false) })
-  end, { desc = 'Move to next identifier' })
-  map('i', key, function()
-    local cursor = vim.api.nvim_win_get_cursor(0)
-    local target = identifier_target(1, true)
-    local distance = selection.distance(vim.api.nvim_get_current_line(), target, cursor[2])
-    return distance == 0 and '' or '<C-o>' .. distance .. (target < cursor[2] and 'h' or 'l')
-  end, { expr = true, replace_keycodes = true, desc = 'Move to next identifier' })
+word_motion(-1)
+word_motion(1)
+for key, target in pairs { ['<M-Left>'] = '<C-Left>', ['<M-Right>'] = '<C-Right>' } do
+  map({ 'n', 'i' }, key, target, { remap = true })
 end
 
 for _, key in ipairs { '<C-_>', '<D-/>', '<F29>' } do

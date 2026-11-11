@@ -613,13 +613,20 @@ end })
             self.assertEqual(state('vim.fn.getline(1)'), '    indented value', 'Cmd+Left inserted key-sequence text')
             return
         if interaction == 'option_word_motion':
-            lua("(function() vim.api.nvim_buf_set_lines(0,0,1,false,{'leftIt->timestamp, call()'}); vim.api.nvim_win_set_cursor(0,{1,0}); vim.cmd.startinsert(); return true end)()")
+            lua("(function() vim.api.nvim_buf_set_lines(0,0,1,false,{'leftIt->timestamp, call()', 'next line'}); vim.api.nvim_win_set_cursor(0,{1,0}); vim.cmd.startinsert(); return true end)()")
             for expected in (6, 17, 23):
                 os.write(master, b'\x1b[1;5C')
                 time.sleep(0.05)
                 actual = state('vim.api.nvim_win_get_cursor(0)[2]')
                 self.assertEqual(actual, expected, f'Option+Right should stop at the next identifier boundary, got {actual}')
             self.assertEqual(state('vim.fn.getline(1)'), 'leftIt->timestamp, call()', 'Option+Right inserted text')
+            # Like a Mac text field, word movement carries on across line ends in both directions.
+            for key, expected in ((b'\x1b[1;5C', [1, 25]), (b'\x1b[1;5C', [2, 0]), (b'\x1b[1;5C', [2, 4]),
+                                  (b'\x1b[1;5D', [2, 0]), (b'\x1b[1;5D', [1, 25])):
+                os.write(master, key)
+                time.sleep(0.05)
+                self.assertEqual(state('vim.api.nvim_win_get_cursor(0)'), expected, 'Option+arrow did not continue across the line end')
+            self.assertEqual(state('vim.fn.mode()'), 'i', 'word movement left typing mode')
             return
         if interaction == 'terminal_normal_cmdw':
             lua("(function() _G.jvim_test_terminal=require('jvim.command_terminal').open(); return true end)()")
