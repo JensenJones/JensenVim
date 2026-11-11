@@ -17,7 +17,7 @@ if vim.env.JVIM_TEST_CASE == 'live_swap' then
   local work = vim.tbl_filter(function(win) return vim.bo[vim.api.nvim_win_get_buf(win)].buftype == '' end, diffs)[1]
   assert(vim.bo[vim.api.nvim_win_get_buf(work)].readonly, 'file open elsewhere should be read-only: ' .. vim.inspect({ messages, vim.o.directory, vim.fn.swapname(vim.api.nvim_win_get_buf(work)), vim.fn.glob(vim.fn.stdpath('state') .. '/swap/*') }))
   vim.wait(200, function() return #messages > 0 end)
-  assert(messages[1] and messages[1]:find('open in another editor', 1, true), vim.inspect(messages))
+  assert(messages[1] and messages[1]:find('open in another jvim', 1, true), vim.inspect(messages))
   vim.cmd 'qall!'
 end
 if vim.env.JVIM_TEST_CASE == 'scroll' then

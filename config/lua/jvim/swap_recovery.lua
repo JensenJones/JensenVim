@@ -9,6 +9,33 @@ local function preserve_swap(path)
   return ok and backup or nil
 end
 
+local function opened_read_only(name)
+  vim.schedule(function() vim.notify(vim.fs.basename(name) .. ' is open in another jvim; opened read-only') end)
+end
+
+-- With the ATTENTION message suppressed, Neovim gives the buffer the next free swap name (.swo, ...)
+-- when another editor holds .swp; a live owner of .swp means the file is being edited elsewhere.
+local function held_elsewhere(buf)
+  local swap = vim.fn.swapname(buf)
+  if swap == '' or swap:match '%.swp$' then return false end
+  local info = vim.fn.swapinfo((swap:gsub('%.sw.$', '.swp')))
+  return not info.error and info.pid > 0 and info.pid ~= vim.fn.getpid()
+end
+
+-- Load a buffer in the background without the swap ATTENTION screen; files open in another jvim become read-only.
+function M.load(buf)
+  local shortmess = vim.o.shortmess
+  vim.opt.shortmess:append 'A'
+  local ok, err = pcall(vim.fn.bufload, buf)
+  vim.o.shortmess = shortmess
+  if not vim.api.nvim_buf_is_loaded(buf) then return false, err end
+  if held_elsewhere(buf) then
+    vim.bo[buf].readonly = true
+    opened_read_only(vim.api.nvim_buf_get_name(buf))
+  end
+  return true
+end
+
 function M.setup()
   local group = vim.api.nvim_create_augroup('JvimSwapRecovery', { clear = true })
   vim.api.nvim_create_autocmd('SwapExists', {
@@ -16,9 +43,16 @@ function M.setup()
     callback = function()
       local swap = vim.v.swapname
       local info = vim.fn.swapinfo(swap)
-      -- Keep Neovim's own handling for a live local owner, and leave remote
-      -- owners or unreadable swapfiles to the usual warning prompt.
-      if info.error or info.pid > 0 then return end
+      -- Unreadable swapfiles keep the usual warning prompt.
+      if info.error then return end
+      -- A running jvim on this machine is editing the file: open it read-only instead of prompting.
+      if info.pid > 0 then
+        if info.host == vim.uv.os_gethostname() then
+          vim.v.swapchoice = 'o'
+          opened_read_only(vim.fn.expand '<afile>:p')
+        end
+        return
+      end
 
       local original = info.fname and vim.fn.expand(info.fname) or ''
       local stat = original ~= '' and vim.uv.fs_stat(original) or nil

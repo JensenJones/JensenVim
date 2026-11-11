@@ -178,3 +178,19 @@ class UiSessionTests(unittest.TestCase):
         self.assertNotIn('29', screen.split('pasted-42')[0][-40:], 'shortcut digits reached the shell')
         editor.send(b'\x1b[23;5~67')
         editor.wait_for('vim.bo.buftype ~= "terminal"')
+
+    def test_second_editor_restores_files_held_by_the_first_without_swap_warnings(self):
+        first = self.editor()
+        first.lua('vim.cmd.edit "chapters/intro.tex"; vim.cmd.edit "main.tex"; return true')
+        self.assertTrue(first.lua('return require("jvim.session").save() and true or false'))
+        second = self.editor()
+        second.wait_for('vim.api.nvim_buf_get_name(0):match("%.tex$") ~= nil')
+        state = second.lua('local buf = vim.api.nvim_get_current_buf(); return { mode = vim.api.nvim_get_mode().mode, '
+                           'readonly = vim.bo[buf].readonly, lines = vim.api.nvim_buf_line_count(buf), '
+                           'first = vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] }')
+        self.assertFalse(state['mode'].startswith('r'), f"restoring left a swap prompt waiting (mode {state['mode']})")
+        self.assertTrue(state['readonly'], 'a file open in the other jvim should restore read-only')
+        self.assertGreater(state['lines'], 1, 'restored file came back empty')
+        self.assertTrue(state['first'].startswith('\\'), state)
+        messages = second.lua('return vim.api.nvim_exec2("messages", { output = true }).output')
+        self.assertNotIn('Found a swap file', messages)
