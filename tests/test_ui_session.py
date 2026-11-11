@@ -194,3 +194,30 @@ class UiSessionTests(unittest.TestCase):
         self.assertTrue(state['first'].startswith('\\'), state)
         messages = second.lua('return vim.api.nvim_exec2("messages", { output = true }).output')
         self.assertNotIn('Found a swap file', messages)
+
+    def test_clicking_a_checkbox_ticks_the_file_for_commit(self):
+        editor = self.editor()
+        editor.lua('require("jvim.changes").open(); return true')
+        editor.wait_for('vim.bo.filetype == "jvim-changes"')
+        find_row = ('for line, text in ipairs(vim.api.nvim_buf_get_lines(0, 0, -1, false)) do '
+                    'if text:find("long.txt", 1, true) then local win = vim.api.nvim_get_current_win() '
+                    'local box = vim.fn.screenpos(win, line, #text:match("^ *") + 1) '
+                    'local name = vim.fn.screenpos(win, line, (text:find("long.txt", 1, true))) '
+                    'return { row = box.row - 1, col = box.col - 1, name = name.col - 1, text = text } end end')
+        target = editor.lua(find_row)
+        self.assertTrue(target['text'].lstrip().startswith('☐'), target)
+
+        def click(col):
+            editor.lua(f'vim.api.nvim_input_mouse("left", "press", "", 0, {target["row"]}, {col}); '
+                       f'vim.api.nvim_input_mouse("left", "release", "", 0, {target["row"]}, {col}); return true')
+
+        click(target['name'])
+        time.sleep(0.5)
+        self.assertTrue(editor.lua(find_row)['text'].lstrip().startswith('☐'), 'clicking the file name ticked it')
+        click(target['col'])
+        ticked = editor.wait_for('(function() ' + find_row + ' end)().text:find("☑") ~= nil')
+        self.assertTrue(ticked)
+        staged = subprocess.run(['git', 'diff', '--cached', '--name-only'], cwd=self.project, capture_output=True, text=True).stdout
+        self.assertEqual(staged.strip(), 'long.txt')
+        click(target['col'])
+        editor.wait_for('(function() ' + find_row + ' end)().text:find("☐") ~= nil')

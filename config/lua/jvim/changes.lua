@@ -42,6 +42,7 @@ function M.collect(root)
       elseif item.old then item.status = 'R'
       else item.status = 'M' end
       item.staged = x ~= ' ' and x ~= '?' and y == ' '
+      item.partial = x ~= ' ' and x ~= '?' and y ~= ' '
       items[#items + 1], by_path[path] = item, item
     end
     index = index + 1
@@ -81,6 +82,22 @@ end
 
 local status_groups = { M = 'Changed', A = 'Added', U = 'Added', D = 'Removed', R = 'Changed' }
 
+local function items_under(row)
+  if row.item then return { row.item } end
+  return vim.tbl_filter(function(item) return vim.startswith(item.path, row.dir .. '/') end, state.items)
+end
+
+-- Ticked means staged for the next commit; a folder or partly staged file shows a mixed box.
+local function checkbox(items)
+  local staged, mixed = 0, false
+  for _, item in ipairs(items) do
+    if item.staged then staged = staged + 1 elseif item.partial then mixed = true end
+  end
+  if #items > 0 and staged == #items then return '☑', 'Added' end
+  if staged > 0 or mixed then return '◩', 'Changed' end
+  return '☐', 'Comment'
+end
+
 local function render()
   local lines, marks, rows = {}, {}, {}
   local function add(text, row_target, highlights)
@@ -98,6 +115,11 @@ local function render()
     { #summary + #tostring(added) + 4, #summary + #counts, 'Removed' },
   })
   if #state.items == 0 then add('  No changes against HEAD') end
+  if #state.items > 0 then
+    local ticked = #vim.tbl_filter(function(item) return item.staged end, state.items)
+    local selection = ('%d of %d selected to commit'):format(ticked, #state.items)
+    add(selection, nil, { { 0, #selection, ticked > 0 and 'Added' or 'Comment' } })
+  end
   local function walk(node, depth)
     local names = vim.tbl_keys(node.dirs)
     table.sort(names)
@@ -109,22 +131,29 @@ local function render()
       end
       local indent = string.rep('  ', depth)
       local open = not collapsed[dir.path]
-      local text = indent .. (open and '▾ ' or '▸ ') .. label
-      add(text, { dir = dir.path }, { { #indent, #text, 'Directory' } })
+      local arrow = indent .. (open and '▾ ' or '▸ ')
+      local box, box_group = checkbox(items_under { dir = dir.path })
+      local text = arrow .. box .. ' ' .. label
+      add(text, { dir = dir.path, box = vim.fn.strdisplaywidth(arrow) }, {
+        { #indent, #arrow, 'Directory' },
+        { #arrow, #arrow + #box, box_group },
+        { #arrow + #box + 1, #text, 'Directory' },
+      })
       if open then walk(dir, depth + 1) end
     end
     for _, file in ipairs(node.files) do
       local item = file.item
       local indent = string.rep('  ', depth)
-      local prefix = indent .. item.status .. (item.staged and '●' or ' ') .. ' '
+      local box, box_group = checkbox { item }
+      local prefix = indent .. box .. ' ' .. item.status .. '  '
       local name = file.name .. (item.old and ('  ← ' .. item.old) or '')
       local plus, minus = item.added > 0 and ('+' .. item.added) or '', item.removed > 0 and ('-' .. item.removed) or ''
       local stats = plus .. (plus ~= '' and minus ~= '' and ' ' or '') .. minus
       local text = prefix .. name .. (stats ~= '' and '  ' .. stats or '')
       local stats_start = #prefix + #name + 2
-      add(text, { item = item }, {
-        { #indent, #indent + 1, status_groups[item.status] },
-        { #indent + 1, #prefix - 1, 'Added' },
+      add(text, { item = item, box = vim.fn.strdisplaywidth(indent) }, {
+        { #indent, #indent + #box, box_group },
+        { #indent + #box + 1, #indent + #box + 2, status_groups[item.status] },
         { stats_start, stats_start + #plus, 'Added' },
         { #text - #minus, #text, 'Removed' },
       })
@@ -132,8 +161,9 @@ local function render()
   end
   walk(build_tree(state.items), 0)
   add('')
-  local hint = 's stage  c commit  f fold'
-  add(hint, nil, { { 0, #hint, 'Comment' } })
+  for _, hint in ipairs { 'click/space  tick', 'c commit  f fold' } do
+    add(hint, nil, { { 0, #hint, 'Comment' } })
+  end
   local buf = state.panel_buf
   vim.bo[buf].modifiable = true
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
@@ -301,20 +331,20 @@ function M.jump(forward)
   M.show_diff(state.rows[next_row].item, in_diff, not forward)
 end
 
-local function items_under(row)
-  if row.item then return { row.item } end
-  return vim.tbl_filter(function(item) return vim.startswith(item.path, row.dir .. '/') end, state.items)
-end
-
-function M.toggle_stage()
-  local row = valid() and target()
-  if not row then return end
-  local items = items_under(row)
-  local paths, staged = {}, true
-  for _, item in ipairs(items) do
-    paths[#paths + 1] = item.path
-    if item.old then paths[#paths + 1] = item.old end
-    staged = staged and item.staged
+-- Ticks or unticks the rows given (default: the row under the cursor); a mixed set becomes ticked.
+function M.toggle_stage(rows)
+  if not valid() then return end
+  rows = rows or { target() }
+  local paths, seen, staged = {}, {}, true
+  for _, row in ipairs(rows) do
+    for _, item in ipairs(items_under(row)) do
+      if not seen[item.path] then
+        seen[item.path] = true
+        paths[#paths + 1] = item.path
+        if item.old then paths[#paths + 1] = item.old end
+        staged = staged and item.staged
+      end
+    end
   end
   if #paths == 0 then return end
   local args = staged and { 'reset', '-q', '--' } or { 'add', '-A', '--' }
@@ -405,10 +435,39 @@ function M.open(root)
   end
   local function key(lhs, fn, desc) vim.keymap.set('n', lhs, fn, { buffer = buf, nowait = true, desc = desc }) end
   key('<CR>', function() activate(true) end, 'Open change')
-  key('<2-LeftMouse>', function() activate(true) end, 'Open change')
-  key('<LeftRelease>', function() local row = target(); if row and row.dir then activate(false) end end, 'Toggle folder')
+  local function clicked_checkbox()
+    local mouse = vim.fn.getmousepos()
+    local row = state.rows[mouse.line]
+    if row and row.box and mouse.column - 1 >= row.box and mouse.column - 1 <= row.box + 1 then return row end
+  end
+  -- A second quick click on a checkbox is a double-click; it flips the box again rather than opening the file.
+  key('<2-LeftMouse>', function()
+    local row = clicked_checkbox()
+    if row then return M.toggle_stage { row } end
+    activate(true)
+  end, 'Open change')
+  key('<LeftRelease>', function()
+    local box_row = clicked_checkbox()
+    if box_row then return M.toggle_stage { box_row } end
+    local row = state.rows[vim.fn.getmousepos().line]
+    if row and row.dir then activate(false) end
+  end, 'Tick a checkbox or toggle a folder')
   key('r', M.refresh, 'Refresh changes')
-  key('s', M.toggle_stage, 'Stage or unstage')
+  key('s', function() M.toggle_stage() end, 'Tick or untick for commit')
+  key('<Space>', function() M.toggle_stage() end, 'Tick or untick for commit')
+  local function toggle_selected()
+    local first, last = vim.fn.line 'v', vim.fn.line '.'
+    if first > last then first, last = last, first end
+    vim.api.nvim_feedkeys(vim.keycode '<Esc>', 'nx', false)
+    local rows = {}
+    for line = first, last do
+      if state.rows[line] then rows[#rows + 1] = state.rows[line] end
+    end
+    if #rows > 0 then M.toggle_stage(rows) end
+  end
+  for _, lhs in ipairs { 's', '<Space>' } do
+    vim.keymap.set({ 'x', 's' }, lhs, toggle_selected, { buffer = buf, nowait = true, desc = 'Tick or untick selected rows' })
+  end
   key('c', M.commit, 'Commit')
   key('f', M.toggle_fold, 'Fold unchanged lines')
   key('q', M.close, 'Close changes')
