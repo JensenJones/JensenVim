@@ -221,3 +221,33 @@ class UiSessionTests(unittest.TestCase):
         self.assertEqual(staged.strip(), 'long.txt')
         click(target['col'])
         editor.wait_for('(function() ' + find_row + ' end)().text:find("☐") ~= nil')
+
+    def test_selecting_lines_and_clicking_a_hunk_box_stages_only_those_lines(self):
+        long = self.project/'long.txt'
+        lines = long.read_text().splitlines()
+        lines[4], lines[5] = 'changed 5', 'changed 6'
+        long.write_text('\n'.join(lines) + '\n')
+        editor = self.editor()
+        editor.lua('require("jvim.changes").open(); return true')
+        editor.wait_for('vim.bo.filetype == "jvim-changes"')
+        editor.lua('for line, text in ipairs(vim.api.nvim_buf_get_lines(0, 0, -1, false)) do '
+                   'if text:find("long.txt", 1, true) then vim.api.nvim_win_set_cursor(0, { line, 0 }) end end return true')
+        work = editor.wait_for('(function() for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do '
+                               'if vim.wo[win].statuscolumn ~= "" then return win end end end)()')
+        box = editor.lua(f'vim.api.nvim_set_current_win({work}); vim.api.nvim_win_set_cursor(0, {{ 5, 0 }}); vim.cmd "normal! V"; '
+                         f'local pos = vim.fn.screenpos({work}, 5, 1); '
+                         f'return {{ row = pos.row - 1, col = pos.col - 1 - vim.fn.getwininfo({work})[1].textoff }}')
+        editor.lua(f'vim.api.nvim_input_mouse("left", "press", "", 0, {box["row"]}, {box["col"]}); '
+                   f'vim.api.nvim_input_mouse("left", "release", "", 0, {box["row"]}, {box["col"]}); return true')
+
+        def staged():
+            return subprocess.run(['git', 'diff', '--cached', '-U0'], cwd=self.project, capture_output=True, text=True).stdout
+
+        deadline = time.monotonic() + 5
+        while '+changed 5' not in staged() and time.monotonic() < deadline:
+            time.sleep(0.1)
+        self.assertIn('-line 5\n+changed 5\n', staged())
+        self.assertNotIn('changed 6', staged())
+        self.assertNotIn('-line 50', staged())
+        editor.lua('require("jvim.changes").close(); vim.cmd.buffer(vim.fn.bufnr("long.txt")); return true')
+        self.assertEqual(editor.lua('return vim.wo.statuscolumn'), '', 'checkbox column followed the file out of the diff')

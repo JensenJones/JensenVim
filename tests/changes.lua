@@ -20,6 +20,51 @@ if vim.env.JVIM_TEST_CASE == 'live_swap' then
   assert(messages[1] and messages[1]:find('open in another jvim', 1, true), vim.inspect(messages))
   vim.cmd 'qall!'
 end
+if vim.env.JVIM_TEST_CASE == 'lines' then
+  local function git(...)
+    return vim.system({ 'git', '-C', root, ... }, { text = true }):wait().stdout
+  end
+  local function staged(path) return (git('diff', '--cached', '-U0', '--', path):gsub('^.-\n@@', '@@'):gsub('(@@ [^@]- @@)[^\n]*', '%1')) end
+  changes.open()
+  local work = vim.iter(vim.api.nvim_tabpage_list_wins(0)):find(function(win)
+    return vim.wo[win].diff and vim.bo[vim.api.nvim_win_get_buf(win)].buftype == ''
+  end)
+  local function box(line)
+    return vim.api.nvim_eval_statusline(vim.wo[work].statuscolumn, { winid = work, use_statuscol_lnum = line }).str:match '^(%S+)'
+  end
+  equal({ box(2), box(3), box(10), box(11) }, { '☐', nil, '☐', nil })
+  changes.stage_lines(10, 10)
+  equal(staged 'code.txt', '@@ -10 +10 @@\n-j\n+J\n')
+  equal({ box(2), box(10) }, { '☐', '☑' })
+  changes.stage_lines(3, 3)
+  equal(staged 'code.txt', '@@ -3 +3 @@\n-c\n+C\n@@ -10 +10 @@\n-j\n+J\n')
+  equal(box(2), '◩')
+  changes.stage_lines(10, 10)
+  equal(staged 'code.txt', '@@ -3 +3 @@\n-c\n+C\n')
+  changes.stage_lines(2, 3)
+  equal(staged 'code.txt', '@@ -2,2 +2,2 @@\n-b\n-c\n+B\n+C\n')
+  changes.stage_lines(2, 2)
+  equal(staged 'code.txt', '@@ -3 +3 @@\n-c\n+C\n')
+  -- A partly staged hunk is completed first, like ticking a ◩ folder.
+  changes.stage_lines(2, 3)
+  equal(staged 'code.txt', '@@ -2,2 +2,2 @@\n-b\n-c\n+B\n+C\n')
+  changes.stage_lines(2, 3)
+  equal(staged 'code.txt', '')
+  equal(git('status', '--porcelain', '--', 'code.txt'), ' M code.txt\n')
+  local panel = vim.api.nvim_get_current_win()
+  for line, text in ipairs(vim.api.nvim_buf_get_lines(0, 0, -1, false)) do
+    if text:find('fresh.txt', 1, true) then vim.api.nvim_win_set_cursor(panel, { line, 0 }) end
+  end
+  vim.api.nvim_exec_autocmds('CursorMoved', { buffer = 0 })
+  work = vim.iter(vim.api.nvim_tabpage_list_wins(0)):find(function(win)
+    return vim.wo[win].diff and vim.bo[vim.api.nvim_win_get_buf(win)].buftype == ''
+  end)
+  changes.stage_lines(2, 2)
+  equal(git('show', ':fresh.txt'), 'second\n')
+  changes.stage_lines(2, 2)
+  equal(git('status', '--porcelain', '--', 'fresh.txt'), '?? fresh.txt\n')
+  vim.cmd 'qall!'
+end
 if vim.env.JVIM_TEST_CASE == 'scroll' then
   changes.open()
   local panel = vim.api.nvim_get_current_win()

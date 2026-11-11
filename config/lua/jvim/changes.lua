@@ -190,7 +190,7 @@ local function close_diff()
       vim.api.nvim_win_close(win, true)
     end
   end
-  state.base_win, state.work_win, state.shown = nil, nil, nil
+  state.base_win, state.work_win, state.shown, state.lines = nil, nil, nil, nil
 end
 
 local function scratch(name, lines, filetype)
@@ -200,6 +200,134 @@ local function scratch(name, lines, filetype)
   pcall(vim.api.nvim_buf_set_name, buf, name)
   if filetype then vim.bo[buf].filetype = filetype end
   return buf
+end
+
+local function lines_of(text)
+  if not text or text == '' then return {} end
+  return vim.split(text:gsub('\n$', ''), '\n', { plain = true })
+end
+
+local function joined(lines) return #lines == 0 and '' or table.concat(lines, '\n') .. '\n' end
+
+-- Each hunk is { start_a, count_a, start_b, count_b }; a zero count means the change sits after that start line.
+local function hunks(a, b) return vim.diff(joined(a), joined(b), { result_type = 'indices' }) end
+
+local function touches(start, count, first, last)
+  if count == 0 then return start >= first - 1 and start <= last end
+  return start <= last and start + count - 1 >= first
+end
+
+-- Applies the parts of the a->b hunks that touch [first, last], measured on side b (or side a with on_a), to a.
+local function apply(a, b, changes, first, last, on_a)
+  local out, next_a = {}, 1
+  local function keep(to)
+    for line = next_a, to do out[#out + 1] = a[line] end
+    next_a = math.max(next_a, to + 1)
+  end
+  for _, h in ipairs(changes) do
+    local sa, ca, sb, cb = h[1], h[2], h[3], h[4]
+    local top_a = ca > 0 and sa or sa + 1
+    keep(top_a - 1)
+    local s, c = sb, cb
+    if on_a then s, c = sa, ca end
+    if not touches(s, c, first, last) then
+      keep(top_a + ca - 1)
+    else
+      next_a = top_a + ca
+      local whole = c == 0 or (first <= s and last >= s + c - 1)
+      for k = 0, math.max(ca, cb) - 1 do
+        if whole or (k >= first - s and k <= last - s) then
+          if k < cb then out[#out + 1] = b[sb + k] end
+        elseif k < ca then
+          out[#out + 1] = a[top_a + k]
+        end
+      end
+    end
+  end
+  keep(#a)
+  return out
+end
+
+-- The index line a working line corresponds to, given the index->work hunks.
+local function to_index(unstaged, line)
+  local delta = 0
+  for _, h in ipairs(unstaged) do
+    local si, ci, sw, cw = h[1], h[2], h[3], h[4]
+    if cw > 0 and line >= sw and line < sw + cw then return ci > 0 and si + math.min(line - sw, ci - 1) or si end
+    if cw > 0 and line < sw or cw == 0 and line <= sw then break end
+    delta = delta + cw - ci
+  end
+  return line - delta
+end
+
+local function line_state()
+  local lines = state.lines
+  if not lines or not state.work_win or not vim.api.nvim_win_is_valid(state.work_win) then return end
+  lines.work = vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(state.work_win), 0, -1, false)
+  lines.index = lines_of(git(state.root, { 'show', ':' .. lines.path }))
+  lines.unstaged = hunks(lines.index, lines.work)
+  lines.staged = hunks(lines.index, lines.head)
+  lines.boxes = {}
+  for _, h in ipairs(hunks(lines.head, lines.work)) do
+    local first = math.max(h[3], 1)
+    local last = h[4] > 0 and h[3] + h[4] - 1 or first
+    local unstaged = vim.iter(lines.unstaged):any(function(u) return touches(u[3], u[4], first, last) end)
+    local i_first, i_last = to_index(lines.unstaged, first), to_index(lines.unstaged, last)
+    local staged = vim.iter(lines.staged):any(function(u) return touches(u[1], u[2], i_first, i_last) end)
+    lines.boxes[first] = { first = first, last = last, staged = staged, unstaged = unstaged }
+  end
+  return lines
+end
+
+local box_marks = { [true] = { '☑', 'Added' }, partial = { '◩', 'Changed' }, [false] = { '☐', 'Comment' } }
+
+function M.line_box()
+  local lines = state and state.lines
+  local box = vim.v.virtnum == 0 and lines and lines.boxes and lines.boxes[vim.v.lnum]
+  if not box then return '  ' end
+  local mark = box_marks[box.staged and box.unstaged and 'partial' or box.staged]
+  return '%#' .. mark[2] .. '#' .. mark[1] .. '%* '
+end
+
+-- Stages [first, last] of the working file if any of it is unstaged, otherwise unstages it.
+function M.stage_lines(first, last)
+  local lines = valid() and line_state()
+  if not lines then return end
+  if first > last then first, last = last, first end
+  local stage = vim.iter(lines.unstaged):any(function(u) return touches(u[3], u[4], first, last) end)
+  local result
+  if stage then
+    result = apply(lines.index, lines.work, lines.unstaged, first, last)
+  else
+    result = apply(lines.index, lines.head, lines.staged, to_index(lines.unstaged, first), to_index(lines.unstaged, last), true)
+  end
+  local ok, err
+  if #result == 0 and #lines.head == 0 then
+    ok, err = git(state.root, { 'rm', '--cached', '-f', '-q', '--', lines.path })
+  else
+    local hashed = vim.system({ 'git', '-C', state.root, 'hash-object', '-w', '--stdin' }, { stdin = joined(result), text = true }):wait()
+    local mode = (git(state.root, { 'ls-files', '-s', '--', lines.path }) or ''):match '^(%d+)' or '100644'
+    ok, err = hashed.code == 0, hashed.stderr
+    if ok then ok, err = git(state.root, { 'update-index', '--add', '--cacheinfo', mode .. ',' .. vim.trim(hashed.stdout) .. ',' .. lines.path }) end
+  end
+  if not ok then vim.notify('Git staging failed: ' .. tostring(err), vim.log.levels.ERROR) end
+  M.refresh()
+end
+
+-- A click on a hunk's box toggles that hunk, or only the selected lines when lines in it are selected.
+function M.click_line_box()
+  local mouse = vim.fn.getmousepos()
+  local lines = valid() and mouse.winid == state.work_win and state.lines
+  local box = lines and lines.boxes and lines.boxes[mouse.line]
+  if not box then return end
+  local first, last = box.first, box.last
+  if vim.api.nvim_get_current_win() == state.work_win and vim.fn.mode():find '^[vVsS\22\19]' then
+    local from, to = vim.fn.line 'v', vim.fn.line '.'
+    if from > to then from, to = to, from end
+    vim.api.nvim_feedkeys(vim.keycode '<Esc>', 'nx', false)
+    if from <= last and to >= first then first, last = math.max(first, from), math.min(last, to) end
+  end
+  M.stage_lines(first, last)
 end
 
 local function view_key(win)
@@ -279,6 +407,12 @@ function M.show_diff(item, focus, at_end)
       if vim.fn.diff_hlID(line, 1) == 0 then vim.cmd('silent! normal! ' .. (at_end and '[c' or ']c')) end
     end)
     state.shown = item.path
+    state.lines = nil
+    if item.status ~= 'D' and not item.old and vim.bo[work_buf].buftype == '' then
+      state.lines = { path = item.path, head = base_lines }
+      line_state()
+      vim.wo[state.work_win].statuscolumn = '%@v:lua.require\'jvim.changes\'.click_line_box@%{%v:lua.require\'jvim.changes\'.line_box()%}%X%s%=%l '
+    end
     remember_views()
   end
   if focus then
@@ -387,6 +521,7 @@ function M.refresh()
   state.items = items
   render()
   if state.shown and not vim.iter(items):any(function(item) return item.path == state.shown end) then close_diff() end
+  if state.lines then line_state() end
   for row, value in pairs(state.rows) do
     if path and value.item and value.item.path == path then vim.api.nvim_win_set_cursor(state.panel_win, { row, 0 }) end
   end
