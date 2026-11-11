@@ -48,6 +48,16 @@ if vim.env.JVIM_TEST_CASE == 'scroll' then
   equal(vim.api.nvim_win_get_cursor(work)[1], change_line)
   changes.toggle_fold()
   assert(vim.wo[base].foldenable and vim.wo[work].foldenable, 'fold toggle did not fold unchanged lines')
+  local asked
+  vim.fn.confirm = function(_, choices) asked = choices; return 2 end
+  local head = vim.system({ 'git', '-C', root, 'rev-parse', 'HEAD' }, { text = true }):wait().stdout
+  changes.commit()
+  local keys = {}
+  for key in assert(asked, 'committing with nothing staged did not ask first'):gmatch '&(.)' do
+    assert(not keys[key:lower()], 'commit buttons share the shortcut ' .. key .. ': ' .. asked)
+    keys[key:lower()] = true
+  end
+  equal(vim.system({ 'git', '-C', root, 'rev-parse', 'HEAD' }, { text = true }):wait().stdout, head)
   vim.cmd 'qall!'
 end
 local items = assert(changes.collect(root))

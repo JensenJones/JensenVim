@@ -329,7 +329,7 @@ function M.commit()
   local everything = (git(root, { 'diff', '--cached', '--name-only' }) or '') == ''
   if everything then
     if #state.items == 0 then return vim.notify 'Nothing to commit' end
-    if vim.fn.confirm('Nothing is staged. Commit all ' .. #state.items .. ' changed files?', '&Commit all\n&Cancel', 2) ~= 1 then return end
+    if vim.fn.confirm('Nothing is staged. Commit all ' .. #state.items .. ' changed files?', '&Commit all\n&Not now', 2) ~= 1 then return end
   end
   vim.ui.input({ prompt = 'Commit message' }, function(message)
     if not message or message:match '^%s*$' then return end
