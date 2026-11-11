@@ -41,7 +41,8 @@ local wezterm = require 'wezterm'
 local config = wezterm.config_builder()
 local jvim = wezterm.home_dir .. '/.local/share/jvim/wezterm.lua'
 wezterm.add_to_config_reload_watch_list(jvim)
-dofile(jvim).apply(config)
+local loaded, module = pcall(dofile, jvim)
+if loaded then module.apply(config) else wezterm.log_error('jvim keys not loaded: ' .. tostring(module)) end
 return config
 ```
 

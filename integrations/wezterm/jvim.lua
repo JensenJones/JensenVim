@@ -115,13 +115,15 @@ local function clipboard_image_path()
 end
 
 local function jvim_focused(pane)
-  if pane:get_foreground_process_name():match '[^/]*$' ~= 'herdr' then
-    return pane:get_title():match '^jvim' ~= nil
+  -- The foreground process name is unavailable for some panes; treat those like any non-Herdr pane.
+  local process = pane:get_foreground_process_name() or ''
+  if process:match '[^/]*$' ~= 'herdr' then
+    return (pane:get_title() or ''):match '^jvim' ~= nil
   end
   local ok, stdout = wezterm.run_child_process { '/opt/homebrew/bin/herdr', 'pane', 'list' }
   if not ok then return false end
   for _, herdr_pane in ipairs(wezterm.json_parse(stdout).result.panes) do
-    if herdr_pane.focused then return herdr_pane.terminal_title:match '^jvim' ~= nil end
+    if herdr_pane.focused then return (herdr_pane.terminal_title or ''):match '^jvim' ~= nil end
   end
   return false
 end
@@ -165,7 +167,9 @@ function M.apply(config)
         if key == 'c' and mods == 'CMD' and window:get_selection_text_for_pane(pane) ~= '' then
           return window:perform_action(act.CopyTo 'Clipboard', pane)
         end
-        local focused = jvim_focused(pane)
+        -- A failed check must fall back to the key's normal action rather than swallow the key.
+        local checked, focused = pcall(jvim_focused, pane)
+        focused = checked and focused
         local image = not focused and key == 'v' and mods == 'CMD' and clipboard_image_path()
         if image then return pane:send_paste(image) end
         window:perform_action(focused and act.SendString(bytes) or fallback, pane)
