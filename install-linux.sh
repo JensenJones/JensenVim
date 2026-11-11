@@ -6,6 +6,7 @@ CONFIG_HOME=${XDG_CONFIG_HOME:-$HOME/.config}
 STATE_HOME=${XDG_STATE_HOME:-$HOME/.local/state}
 CONFIG="$CONFIG_HOME/jvim"
 BIN="$HOME/.local/bin"
+SHARE="$HOME/.local/share/jvim"
 NVIM=${JVIM_NVIM:-nvim}
 
 case "$(basename "${SHELL:-sh}")" in
@@ -17,6 +18,7 @@ PATH_LINE='export PATH="$HOME/.local/bin:$PATH"'
 
 echo "Configuration: $CONFIG"
 echo "Launcher: $BIN/jvim"
+echo "WezTerm settings: $SHARE/wezterm-config.lua"
 echo "PATH entry: $PROFILE"
 if [ "${1:-}" != "--apply" ]; then
   echo "Preview only. Run $0 --apply to install."
@@ -34,6 +36,9 @@ fi
 for tool in git rg; do
   command -v "$tool" >/dev/null 2>&1 || echo "Warning: $tool is not on PATH; some features will be unavailable." >&2
 done
+if ! command -v wl-copy >/dev/null 2>&1 && ! command -v xclip >/dev/null 2>&1 && ! command -v xsel >/dev/null 2>&1; then
+  echo "Warning: no clipboard tool (wl-clipboard or xclip), so copy and paste cannot reach other apps. See README.md." >&2
+fi
 
 BACKUP="$STATE_HOME/jvim/backups/$(date +%Y%m%d-%H%M%S)-$$"
 for entry in "$CONFIG:config" "$BIN/jvim:launcher"; do
@@ -53,6 +58,17 @@ cat > "$BIN/jvim" <<EOF
 NVIM_APPNAME=jvim exec "\${JVIM_NVIM:-$NVIM}" "\$@"
 EOF
 chmod +x "$BIN/jvim"
+
+mkdir -p "$SHARE"
+ln -sfn "$SOURCE/integrations/wezterm/jvim.lua" "$SHARE/wezterm.lua"
+ln -sfn "$SOURCE/integrations/wezterm/wezterm.lua" "$SHARE/wezterm-config.lua"
+if [ -e "$HOME/.wezterm.lua" ] || [ -e "$CONFIG_HOME/wezterm/wezterm.lua" ]; then
+  echo "WezTerm config left unchanged. To use jvim's terminal settings, see README.md."
+else
+  cp "$SOURCE/integrations/wezterm/starter.lua" "$HOME/.wezterm.lua"
+  echo "Created ~/.wezterm.lua with jvim's terminal settings; add your own settings at its end."
+fi
+command -v wezterm >/dev/null 2>&1 || echo "WezTerm is not installed. jvim runs in any terminal, but its shortcuts need WezTerm; see README.md." >&2
 
 touch "$PROFILE"
 grep -qxF "$PATH_LINE" "$PROFILE" || printf '%s\n' "$PATH_LINE" >> "$PROFILE"

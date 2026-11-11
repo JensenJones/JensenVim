@@ -34,17 +34,20 @@ export PATH="$HOME/.local/bin:$PATH" &&
 jvim "$PROJECT_DIR"
 ```
 
-Load jvim's key table from `~/.wezterm.lua`; keep your own font, colours and background below the `apply` line. The installer links it into `~/.local/share/jvim`, so keys stay in step with the checkout:
+### Terminal setup
 
-```lua
-local wezterm = require 'wezterm'
-local config = wezterm.config_builder()
-local jvim = wezterm.home_dir .. '/.local/share/jvim/wezterm.lua'
-wezterm.add_to_config_reload_watch_list(jvim)
-local loaded, module = pcall(dofile, jvim)
-if loaded then module.apply(config) else wezterm.log_error('jvim keys not loaded: ' .. tostring(module)) end
-return config
-```
+jvim's WezTerm settings live in this checkout ([`integrations/wezterm/`](integrations/wezterm)) and every installer sets them up the same way, so a new Mac, Linux or Windows machine gets the same terminal in one step. If you have no WezTerm config yet, the installer creates `~/.wezterm.lua`, which loads jvim's settings and leaves room for your own at the end (font, colours, background). If you already have one, the installer leaves it alone: copy [`integrations/wezterm/starter.lua`](integrations/wezterm/starter.lua) over it and move your settings to its end.
+
+The settings give jvim its shortcuts and make shells and prompts outside jvim (zsh, bash, Claude Code, Codex) edit like a Mac text field:
+
+| | macOS | Linux and Windows |
+|---|---|---|
+| Paste | Cmd+V | Ctrl+V (or Ctrl+Shift+V) |
+| Copy selected text | Cmd+C | Ctrl+C (interrupts when nothing is selected) |
+| Delete to start of line | Cmd+Backspace | Ctrl+Backspace |
+| Delete word | Option+Backspace | Alt+Backspace |
+
+Every jvim shortcut follows the same rule: on Linux and Windows press Ctrl wherever the Mac uses Cmd, and Alt for Option. Super stays with the desktop, because GNOME and Windows already use Super+V, Super+A, Super+L and Super+arrows. A few Cmd shortcuts whose Ctrl form jvim already uses keep the Ctrl meaning; for example Ctrl+Left and Ctrl+Right move to the previous and next file, so use Home and End for line start and end. The settings update with the checkout and WezTerm reloads them automatically.
 
 To open a file later, run `jvim path/to/file.cpp` from any terminal in which the shell PATH is loaded. Herdr panes inside WezTerm get the same keys, since WezTerm checks which pane is running jvim.
 
@@ -63,12 +66,21 @@ In another terminal, the editor can start but the Mac shortcut transport and nat
 Distribution packages of Neovim and tree-sitter are usually too old, so the simplest route is [Homebrew on Linux](https://brew.sh). If `brew` is not installed yet, run this first (Debian/Ubuntu shown; it asks for your password once):
 
 ```sh
-sudo apt-get install -y build-essential procps curl file git xclip &&
+sudo apt-get install -y build-essential procps curl file git gpg wl-clipboard xclip &&
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" &&
 eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
 ```
 
-On Fedora install the prerequisites with `sudo dnf group install development-tools && sudo dnf install procps-ng curl file git xclip`, and on Arch with `sudo pacman -S base-devel procps-ng curl file git xclip`. On Wayland, use `wl-clipboard` instead of `xclip`. Then paste this block in the folder you want to open:
+Then install WezTerm from its official package repository (Debian/Ubuntu):
+
+```sh
+curl -fsSL https://apt.fury.io/wez/gpg.key | sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm-fury.gpg &&
+echo 'deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *' | sudo tee /etc/apt/sources.list.d/wezterm.list &&
+sudo chmod 644 /usr/share/keyrings/wezterm-fury.gpg &&
+sudo apt-get update && sudo apt-get install -y wezterm
+```
+
+On Fedora install the prerequisites with `sudo dnf group install development-tools && sudo dnf install procps-ng curl file git wl-clipboard xclip`, and on Arch with `sudo pacman -S base-devel procps-ng curl file git wl-clipboard xclip wezterm`; for WezTerm on other distributions see [wezterm.org](https://wezterm.org/install/linux.html). Neovim needs `wl-clipboard` (Wayland) or `xclip` (X11) to share the clipboard with other apps; fresh Ubuntu ships neither. Then paste this block in the folder you want to open:
 
 ```sh
 PROJECT_DIR="$PWD"
@@ -79,7 +91,7 @@ export PATH="$HOME/.local/bin:$PATH" &&
 jvim "$PROJECT_DIR"
 ```
 
-The installer links `config/` to `~/.config/jvim`, adds a `jvim` launcher in `~/.local/bin` and puts that folder on PATH in your shell's startup file. It first moves any previous installation into `~/.local/state/jvim/backups`. Shortcuts use Ctrl where the Mac uses Cmd (Ctrl+S, Ctrl+W, Ctrl+Shift+A). Telling Ctrl+Shift shortcuts apart needs a terminal with the kitty keyboard protocol, such as kitty, WezTerm, foot, Ghostty or Alacritty. The iTerm/Herdr bridge is macOS only.
+The installer links `config/` to `~/.config/jvim`, adds a `jvim` launcher in `~/.local/bin`, puts that folder on PATH in your shell's startup file and sets up WezTerm as described in [Terminal setup](#terminal-setup). It first moves any previous installation into `~/.local/state/jvim/backups`. Open WezTerm and run `jvim .`; shortcuts use Ctrl where the Mac uses Cmd (Ctrl+S, Ctrl+W, Ctrl+Shift+A). In another terminal jvim still runs, but shortcuts that terminal reserves or cannot encode will not arrive. The iTerm bridge is macOS only; Herdr panes inside WezTerm get the same keys.
 
 ## Windows installation
 
@@ -94,6 +106,8 @@ Then open a project with `jvim .` (open a new terminal first if `jvim` is not fo
 Optional settings, set in the same PowerShell window before running it: `$env:JVIM_FRONTEND = 'nvim'` runs jvim inside your terminal instead of Neovide, and `$env:JVIM_DIR = 'D:\src\jvim'` clones somewhere else.
 
 Tree-sitter builds syntax parsers with a C compiler. An existing Visual Studio installation with the C++ workload is found automatically; otherwise the script prints the command to install **Visual Studio Build Tools**. C++ compiler checks need Python 3 (the `py` launcher is used, because the Microsoft Store `python` alias is only a placeholder).
+
+For terminal mode, install WezTerm with `winget install wez.wezterm`; the installer sets it up as described in [Terminal setup](#terminal-setup). The WezTerm setup on Windows has been checked by tests on macOS and Linux only.
 
 To install from an existing checkout instead, run `install-windows.ps1 -Apply -AddToPath` (add `-Frontend nvim` for terminal mode). jvim installs separately at `%LOCALAPPDATA%\jvim`, backs up existing managed files, and keeps plugins in `%LOCALAPPDATA%\jvim-data`. Personal settings go in `%LOCALAPPDATA%\jvim-user\init.lua`.
 

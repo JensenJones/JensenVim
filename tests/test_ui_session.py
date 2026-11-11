@@ -133,6 +133,9 @@ class UiSessionTests(unittest.TestCase):
         if state['parser']:
             self.assertTrue(state['highlighted'], 'restored file is not highlighted')
 
+        # Startup opens the tree after restoring the file; a person cannot press Cmd+W before that settles.
+        second.wait_for('vim.iter(vim.api.nvim_tabpage_list_wins(0)):any(function(w) '
+                        'return vim.bo[vim.api.nvim_win_get_buf(w)].filetype == "neo-tree" end)')
         second.send(b'\x1b[23;5~20')
         second.wait_for('vim.bo.filetype == "neo-tree"')
         chapters = str(self.project/'chapters')

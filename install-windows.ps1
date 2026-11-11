@@ -14,6 +14,7 @@ if (!$env:LOCALAPPDATA) { throw 'LOCALAPPDATA is required to locate the isolated
 $source = $PSScriptRoot
 $config = Join-Path $env:LOCALAPPDATA 'jvim'
 $bin = Join-Path $env:LOCALAPPDATA 'JensenVim/bin'
+$wezterm = Join-Path $env:LOCALAPPDATA 'JensenVim/wezterm'
 Write-Host "Configuration: $config"
 Write-Host "Launcher: $bin/jvim.cmd ($Frontend)"
 Write-Host 'Windows support is experimental; iTerm/Herdr integration is macOS only.'
@@ -76,9 +77,13 @@ powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0lib\jvim.p
 exit /b %ERRORLEVEL%
 '@
 $shim | Set-Content -LiteralPath (Join-Path $preparedBin 'jvim.cmd') -Encoding ASCII
+$preparedWezterm = Join-Path $stage 'wezterm'
+New-Item -ItemType Directory -Path $preparedWezterm | Out-Null
+Copy-Item -LiteralPath (Join-Path $source 'integrations/wezterm/jvim.lua') -Destination (Join-Path $preparedWezterm 'wezterm.lua')
+Copy-Item -LiteralPath (Join-Path $source 'integrations/wezterm/wezterm.lua') -Destination (Join-Path $preparedWezterm 'wezterm-config.lua')
 $changed = [System.Collections.Generic.List[object]]::new()
 try {
-    foreach ($replacement in @(@($config, $preparedConfig), @($bin, $preparedBin))) {
+    foreach ($replacement in @(@($config, $preparedConfig), @($bin, $preparedBin), @($wezterm, $preparedWezterm))) {
         $target = $replacement[0]
         $prepared = $replacement[1]
         $saved = Join-Path $backup (Split-Path $target -Leaf)
@@ -109,6 +114,13 @@ try {
 }
 # Only empty staging directories remain after successful publication.
 Remove-Item -LiteralPath $stage
+$userWezterm = Join-Path $env:USERPROFILE '.wezterm.lua'
+if ((Test-Path -LiteralPath $userWezterm) -or (Test-Path -LiteralPath (Join-Path $env:USERPROFILE '.config/wezterm/wezterm.lua'))) {
+    Write-Host "WezTerm config left unchanged. To use jvim's terminal settings, see README.md."
+} else {
+    Copy-Item -LiteralPath (Join-Path $source 'integrations/wezterm/starter.lua') -Destination $userWezterm
+    Write-Host "Created $userWezterm with jvim's terminal settings; add your own settings at its end."
+}
 $binPath = (Resolve-Path -LiteralPath $bin).Path
 if ($AddToPath) {
     $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')

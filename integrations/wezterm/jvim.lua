@@ -1,8 +1,10 @@
--- jvim keys for WezTerm. Load from ~/.wezterm.lua:
---   dofile(wezterm.home_dir .. '/.local/share/jvim/wezterm.lua').apply(config)
+-- jvim keys for WezTerm, applied by wezterm.lua in this folder.
 local wezterm = require 'wezterm'
 local act = wezterm.action
 local M = {}
+local mac = wezterm.target_triple:find 'darwin' ~= nil
+-- Off the Mac, Ctrl does what Cmd does: GNOME and Windows keep most Super combinations for themselves.
+local primary = mac and 'CMD' or 'CTRL'
 
 -- { key, mods, bytes sent while jvim is focused }; jvim reads ESC[23;5~NN as <F35>NN.
 M.keys = {
@@ -100,6 +102,14 @@ M.keys = {
   { '|', 'CMD|SHIFT', '\x1b[23;5~79' },
 }
 
+-- Outside jvim, shells and prompts get Mac text-field editing: paste, delete line and delete word.
+local shell = {
+  ['v:CMD'] = act.PasteFrom 'Clipboard',
+  ['Backspace:CMD'] = act.SendString '\x15',
+  ['Backspace:ALT'] = act.SendString '\x1b\x7f',
+  ['Delete:ALT'] = act.SendString '\x1bd',
+}
+
 -- Like iTerm2: when the clipboard holds only an image, save it and paste its path instead.
 local function clipboard_image_path()
   local ok, text = wezterm.run_child_process { '/usr/bin/pbpaste' }
@@ -120,7 +130,7 @@ local function jvim_focused(pane)
   if process:match '[^/]*$' ~= 'herdr' then
     return (pane:get_title() or ''):match '^jvim' ~= nil
   end
-  local ok, stdout = wezterm.run_child_process { '/opt/homebrew/bin/herdr', 'pane', 'list' }
+  local ok, stdout = wezterm.run_child_process { process, 'pane', 'list' }
   if not ok then return false end
   for _, herdr_pane in ipairs(wezterm.json_parse(stdout).result.panes) do
     if herdr_pane.focused then return (herdr_pane.terminal_title or ''):match '^jvim' ~= nil end
@@ -157,24 +167,36 @@ function M.apply(config)
     defaults[binding_id(binding.key, binding.mods)] = binding.action
   end
 
+  local explicit = {}
   for _, entry in ipairs(M.keys) do
-    local key, mods, bytes = entry[1], entry[2], entry[3]
-    local fallback = defaults[binding_id(key, mods)] or act.SendKey { key = key, mods = mods }
+    if not entry[2]:find 'CMD' then explicit[binding_id(entry[1], entry[2])] = true end
+  end
+
+  local function bind(key, mods, bytes, fallback)
     table.insert(config.keys, {
       key = key,
       mods = mods,
       action = wezterm.action_callback(function(window, pane)
-        if key == 'c' and mods == 'CMD' and window:get_selection_text_for_pane(pane) ~= '' then
+        if key == 'c' and mods == primary and window:get_selection_text_for_pane(pane) ~= '' then
           return window:perform_action(act.CopyTo 'Clipboard', pane)
         end
         -- A failed check must fall back to the key's normal action rather than swallow the key.
         local checked, focused = pcall(jvim_focused, pane)
         focused = checked and focused
-        local image = not focused and key == 'v' and mods == 'CMD' and clipboard_image_path()
+        local image = mac and not focused and key == 'v' and mods == 'CMD' and clipboard_image_path()
         if image then return pane:send_paste(image) end
         window:perform_action(focused and act.SendString(bytes) or fallback, pane)
       end),
     })
+  end
+
+  for _, entry in ipairs(M.keys) do
+    local key, bytes = entry[1], entry[3]
+    local mods = entry[2]:gsub('CMD', primary)
+    -- A key the table already binds with Ctrl keeps that meaning, as Ctrl+Left does for the previous file.
+    if mods == entry[2] or not explicit[binding_id(key, mods)] then
+      bind(key, mods, bytes, shell[key .. ':' .. entry[2]] or defaults[binding_id(key, mods)] or act.SendKey { key = key, mods = mods })
+    end
   end
 end
 

@@ -29,6 +29,11 @@ class LinuxInstallTests(unittest.TestCase):
             self.assertEqual(first.returncode, 0, first.stderr)
             self.assertTrue((home/'.config/jvim').is_symlink())
             self.assertEqual((home/'.config/jvim').resolve(), (ROOT/'config').resolve())
+            share = home/'.local/share/jvim'
+            self.assertEqual((share/'wezterm.lua').resolve(), (ROOT/'integrations/wezterm/jvim.lua').resolve())
+            self.assertEqual((share/'wezterm-config.lua').resolve(), (ROOT/'integrations/wezterm/wezterm.lua').resolve())
+            self.assertEqual((home/'.wezterm.lua').read_text(), (ROOT/'integrations/wezterm/starter.lua').read_text())
+            (home/'.wezterm.lua').write_text('my own wezterm settings')
             launcher = home/'.local/bin/jvim'
             self.assertTrue(os.access(launcher, os.X_OK))
             appname = subprocess.run([str(launcher), '--headless', '-u', 'NONE', '-i', 'NONE', '+lua io.write(vim.env.NVIM_APPNAME)', '+qall!'],
@@ -42,6 +47,7 @@ class LinuxInstallTests(unittest.TestCase):
             self.assertTrue((backups[0]/'launcher').is_file())
             self.assertEqual(sorted(path.name for path in (ROOT/'config').iterdir()), before, 'reinstalling wrote into the repository')
             self.assertEqual((home/'.bashrc').read_text().count('.local/bin'), 1, 'PATH entry duplicated')
+            self.assertEqual((home/'.wezterm.lua').read_text(), 'my own wezterm settings', 'reinstalling replaced the WezTerm config')
 
     def test_existing_copied_configuration_is_backed_up(self):
         with tempfile.TemporaryDirectory(prefix='jvim-linux-') as temporary:

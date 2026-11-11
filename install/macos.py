@@ -62,6 +62,15 @@ def publish(replacements, home, backup, stage, registration_app=None):
         raise
 
 
+def install_wezterm_starter(home):
+    """Give WezTerm jvim's settings unless the user already has a WezTerm config of their own."""
+    if (home/'.wezterm.lua').exists() or (home/'.config/wezterm/wezterm.lua').exists():
+        print('WezTerm config left unchanged. To use jvim\'s terminal settings, see README.md.')
+        return
+    shutil.copy2(SOURCE/'integrations/wezterm/starter.lua', home/'.wezterm.lua')
+    print('Created ~/.wezterm.lua with jvim\'s terminal settings; add your own settings at its end.')
+
+
 def install(home, *, apply=False, runtime=True, registration=True):
     check_environment()
     home = Path(home).expanduser().resolve()
@@ -69,7 +78,7 @@ def install(home, *, apply=False, runtime=True, registration=True):
     share = home/'.local/share/jvim'
     bindir = home/'.local/bin'
     profile = home/'Library/Application Support/iTerm2/DynamicProfiles/jvim.json'
-    shared_names = ['host-profile.applescript', 'open-location.applescript', 'requirements.txt', 'runtime.json', 'wezterm.lua']
+    shared_names = ['host-profile.applescript', 'open-location.applescript', 'requirements.txt', 'runtime.json', 'wezterm.lua', 'wezterm-config.lua']
     if runtime:
         shared_names.append('runtime')
     if registration:
@@ -124,6 +133,7 @@ def install(home, *, apply=False, runtime=True, registration=True):
         # A link keeps the editor running the repository's files, so edits never drift from the source.
         prepared(config).symlink_to(SOURCE/'config', target_is_directory=True)
         prepared(share/'wezterm.lua').symlink_to(SOURCE/'integrations/wezterm/jvim.lua')
+        prepared(share/'wezterm-config.lua').symlink_to(SOURCE/'integrations/wezterm/wezterm.lua')
         for name in ('host-profile.applescript', 'open-location.applescript', 'requirements.txt'):
             shutil.copy2(SOURCE/'integrations/macos'/name, prepared(share/name))
         for name in ('jvim', 'jvim-host-profile', 'jvim-open-location'):
@@ -164,6 +174,7 @@ def install(home, *, apply=False, runtime=True, registration=True):
                 raise
             prepared(share/'runtime').symlink_to(versioned_runtime, target_is_directory=True)
         publish(replacements, home, backup, stage, share/'JvimLinks.app' if app else None)
+    install_wezterm_starter(home)
     print('Installed. Add ~/.local/bin to PATH, enable iTerm Settings > General > Magic > Python API, then run jvim .')
     print('First launch may download plugins/tools according to your jvim settings. This installer does not run Git or open terminal windows.')
     if backup.exists():

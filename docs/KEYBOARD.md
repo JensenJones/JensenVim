@@ -113,7 +113,7 @@ Run `python3 scripts/check.py` for syntax and isolated tests. Optional plugin/pa
 
 ## Terminal integration
 
-In WezTerm, `integrations/wezterm/jvim.lua` (linked to `~/.local/share/jvim/wezterm.lua`) sends jvim's shortcut codes only while the focused pane, or focused Herdr pane, is running jvim; elsewhere each key keeps its normal WezTerm action.
+In WezTerm, `integrations/wezterm/jvim.lua` (linked to `~/.local/share/jvim/wezterm.lua`) sends jvim's shortcut codes only while the focused pane, or focused Herdr pane, is running jvim. Elsewhere each key keeps its normal WezTerm action, except paste, delete line and delete word, which edit like a Mac text field in shells and prompts. On Linux and Windows the same table uses Ctrl in place of Cmd; see [Terminal setup](../README.md#terminal-setup).
 
 In iTerm2, jvim uses your already-enabled iTerm scripting API to apply only keyboard mappings, through a small local helper that exits with the editor. It does not change the default profile or font settings. Profile focus ownership is shared safely between jvim panes.
 

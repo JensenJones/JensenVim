@@ -42,11 +42,11 @@ local selection = require('jvim.selection')
 vim.api.nvim_buf_set_lines(0,0,-1,false,{'αβ next'})
 vim.api.nvim_win_set_cursor(0,{1,0})
 assert(selection.target(1,true)==4)
-assert(selection.select(1)=='<S-Right><S-Right>')
+assert(selection.select(1)=='<S-Right><S-Right><C-g>', 'word selection must end in Select mode')
 assert(selection.target(1,false)==2, 'normal target must start on β')
 vim.o.virtualedit='onemore'
 vim.api.nvim_win_set_cursor(0,{1,4})
-assert(selection.select(-1)=='<S-Left><S-Left>')
+assert(selection.select(-1)=='<S-Left><S-Left><C-g>')
 """)
 
     def test_cycle_includes_unvisited_listed_files(self):

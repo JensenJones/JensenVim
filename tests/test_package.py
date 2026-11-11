@@ -153,8 +153,13 @@ class PackageTests(unittest.TestCase):
             linked = self.home/'.config/jvim'
             self.assertTrue(linked.is_symlink())
             self.assertEqual(linked.resolve(), (ROOT/'config').resolve())
+            starter = self.home/'.wezterm.lua'
+            self.assertEqual(starter.read_text(), (ROOT/'integrations/wezterm/starter.lua').read_text())
+            starter.write_text('my own wezterm settings')
             self.install(apply=True, runtime=False, registration=False)
             self.assertEqual(linked.resolve(), (ROOT/'config').resolve())
+        self.assertEqual(starter.read_text(), 'my own wezterm settings', 'reinstalling replaced the WezTerm config')
+        self.assertEqual((self.home/'.local/share/jvim/wezterm-config.lua').resolve(), (ROOT/'integrations/wezterm/wezterm.lua').resolve())
         self.assertEqual(existing.read_text(), 'original user settings')
         profile = json.loads((self.home/'Library/Application Support/iTerm2/DynamicProfiles/jvim.json').read_text())['Profiles'][0]
         self.assertEqual(profile['Name'], 'jvim')

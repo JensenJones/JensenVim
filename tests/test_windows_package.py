@@ -23,7 +23,7 @@ class WindowsPackageTests(unittest.TestCase):
             text = '@echo off\n'
             text += 'echo %NVIM_APPNAME%:%~1\nexit /b 17\n' if name == 'nvim' else 'exit /b 0\n'
             (tools/(name+'.cmd')).write_text(text)
-        self.env = dict(os.environ, LOCALAPPDATA=str(self.local), PATH=str(tools)+os.pathsep+os.environ['PATH'])
+        self.env = dict(os.environ, LOCALAPPDATA=str(self.local), USERPROFILE=str(self.home), PATH=str(tools)+os.pathsep+os.environ['PATH'])
         for name in ('XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_CACHE_HOME', 'JVIM_NVIM'):
             self.env.pop(name, None)
 
@@ -35,6 +35,9 @@ class WindowsPackageTests(unittest.TestCase):
         installed = self.run_script(ROOT/'install-windows.ps1', '-Apply', '-Frontend', 'nvim')
         self.assertEqual(installed.returncode, 0, installed.stderr)
         self.assertTrue((self.local/'jvim/init.lua').is_file())
+        self.assertTrue((self.local/'JensenVim/wezterm/wezterm-config.lua').is_file())
+        self.assertTrue((self.local/'JensenVim/wezterm/wezterm.lua').is_file())
+        self.assertEqual((self.home/'.wezterm.lua').read_text(), (ROOT/'integrations/wezterm/starter.lua').read_text())
         launched = self.run_script(self.local/'JensenVim/bin/lib/jvim.ps1', 'file with spaces.cpp')
         self.assertEqual(launched.returncode, 17, launched.stderr)
         self.assertEqual(launched.stdout.strip(), 'jvim:file with spaces.cpp')

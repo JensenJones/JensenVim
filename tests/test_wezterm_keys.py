@@ -86,3 +86,12 @@ vim.cmd 'qall!'
         self.assertEqual(unmapped, [], 'iTerm sends codes jvim does not map')
         for binding, action in expected.items():
             self.assertEqual(actions[str(codes[binding])], action, f'iTerm {binding} reaches the wrong action')
+
+    def test_linux_and_windows_use_ctrl_where_the_mac_uses_cmd(self):
+        for triple in ('x86_64-unknown-linux-gnu', 'aarch64-apple-darwin'):
+            with self.subTest(triple=triple), tempfile.TemporaryDirectory(prefix='jvim-wezterm-') as temporary:
+                result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(ROOT/'tests/wezterm_keys.lua')],
+                                        env=dict(os.environ, HOME=temporary, JVIM_TEST_TRIPLE=triple,
+                                                 JVIM_TEST_MODULE=str(ROOT/'integrations/wezterm/jvim.lua')),
+                                        capture_output=True, text=True, timeout=15)
+                self.assertEqual(result.returncode, 0, result.stderr)
