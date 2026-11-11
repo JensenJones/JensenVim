@@ -1,7 +1,10 @@
 local M = {}
 
 local themes = {
-  { name = 'jvim-charcoal', label = 'CoderPad-inspired (default)' },
+  { name = 'jvim-charcoal', label = 'Gangster Jvim (default)' },
+  { name = 'jvim-neon-dusk', label = 'Neon Dusk (synthwave midnight)' },
+  { name = 'jvim-ember', label = 'Ember (warm fire on charcoal)' },
+  { name = 'jvim-aurora', label = 'Aurora (polar night, northern lights)' },
   { name = 'dark-ubuntu', label = 'Dark Ubuntu (previous)' },
   { name = 'habamax', label = 'Habamax' },
   { name = 'slate', label = 'Slate' },
@@ -31,17 +34,12 @@ local focus_groups = {
   },
 }
 
+local default_rainbow = { yellow = '#e6cc00', blue = '#69a9df', violet = '#c17cbf', cyan = '#56b8df', orange = '#d28e76', green = '#95b86d', red = '#e88a85' }
+
 local function apply_focus(name)
-  for group, colour in pairs {
-    RainbowDelimiterYellow = '#e6cc00',
-    RainbowDelimiterBlue = '#69a9df',
-    RainbowDelimiterViolet = '#c17cbf',
-    RainbowDelimiterCyan = '#56b8df',
-    RainbowDelimiterOrange = '#d28e76',
-    RainbowDelimiterGreen = '#95b86d',
-    RainbowDelimiterRed = '#e88a85',
-  } do
-    vim.api.nvim_set_hl(0, group, { fg = colour })
+  local rainbow = require('jvim.palette').rainbow[name] or default_rainbow
+  for colour, value in pairs(rainbow) do
+    vim.api.nvim_set_hl(0, 'RainbowDelimiter' .. colour:sub(1, 1):upper() .. colour:sub(2), { fg = value })
   end
   for group, spec in pairs(focus_groups[name] or {}) do
     vim.api.nvim_set_hl(0, group, spec)

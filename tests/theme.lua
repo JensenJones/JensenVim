@@ -26,6 +26,16 @@ local function assert_text_contrast(name, fg, bg)
   assert(ratio >= 4.5, string.format('%s contrast is %.2f:1, expected at least 4.5:1', name, ratio))
 end
 
+local function each_jvim_theme(check)
+  theme.setup()
+  for _, entry in ipairs(theme.names()) do
+    if entry.name:match '^jvim%-' then
+      assert(theme.apply(entry.name), 'could not apply ' .. entry.name)
+      check(entry.name)
+    end
+  end
+end
+
 if case == 'default' then
   theme.setup()
   assert(vim.g.colors_name == 'jvim-charcoal', 'jvim startup theme is not jvim-charcoal')
@@ -43,33 +53,36 @@ elseif case == 'invalid' then
   assert(vim.g.colors_name == 'jvim-charcoal', 'unknown theme changed colorscheme')
   assert(vim.deep_equal(before, highlight('Normal')), 'unknown theme changed Normal highlight')
 elseif case == 'groups' then
-  theme.setup()
-  for _, name in ipairs {
-    'Normal', 'NormalFloat', 'Cursor', 'CursorLine', 'Visual', 'MatchParen', 'JvimWord', 'JvimFoldButton',
-    'Comment', 'String', 'Number', 'Function', 'Type', 'Keyword', 'Constant', 'DiagnosticError',
-    'DiagnosticWarn', 'DiagnosticInfo', 'DiagnosticHint', 'Pmenu', 'PmenuSel', 'StatusLine', 'StatusLineNC',
-    'NeoTreeNormal', 'NeoTreeDirectoryName', 'TelescopeResultsNormal', 'TelescopePromptNormal',
-    'BlinkCmpMenu', 'BlinkCmpMenuSelection',
-  } do
-    assert(next(highlight(name)) ~= nil, name .. ' is not defined')
-  end
+  each_jvim_theme(function(theme_name)
+    for _, name in ipairs {
+      'Normal', 'NormalFloat', 'Cursor', 'CursorLine', 'Visual', 'MatchParen', 'JvimWord', 'JvimFoldButton',
+      'Comment', 'String', 'Number', 'Function', 'Type', 'Keyword', 'Constant', 'DiagnosticError',
+      'DiagnosticWarn', 'DiagnosticInfo', 'DiagnosticHint', 'Pmenu', 'PmenuSel', 'StatusLine', 'StatusLineNC',
+      'NeoTreeNormal', 'NeoTreeDirectoryName', 'TelescopeResultsNormal', 'TelescopePromptNormal',
+      'BlinkCmpMenu', 'BlinkCmpMenuSelection',
+    } do
+      assert(next(highlight(name)) ~= nil, theme_name .. ': ' .. name .. ' is not defined')
+    end
+  end)
 elseif case == 'contrast' then
-  theme.setup()
-  local normal, cursor = highlight('Normal'), highlight('Cursor')
-  assert_text_contrast('Normal', normal.fg, normal.bg)
-  for _, name in ipairs { 'Comment', 'String', 'Number', 'Function', 'Type', 'Keyword', 'Constant', 'DiagnosticError', 'DiagnosticWarn', 'DiagnosticInfo', 'DiagnosticHint' } do
-    assert_text_contrast(name, highlight(name).fg, normal.bg)
-  end
-  local visual = highlight('Visual')
-  assert_text_contrast('Visual', normal.fg, visual.bg)
-  assert_text_contrast('Cursor', cursor.fg, cursor.bg)
+  each_jvim_theme(function()
+    local normal, cursor = highlight('Normal'), highlight('Cursor')
+    assert_text_contrast('Normal', normal.fg, normal.bg)
+    for _, name in ipairs { 'Comment', 'String', 'Number', 'Function', 'Type', 'Keyword', 'Constant', 'DiagnosticError', 'DiagnosticWarn', 'DiagnosticInfo', 'DiagnosticHint' } do
+      assert_text_contrast(name, highlight(name).fg, normal.bg)
+    end
+    local visual = highlight('Visual')
+    assert_text_contrast('Visual', normal.fg, visual.bg)
+    assert_text_contrast('Cursor', cursor.fg, cursor.bg)
+  end)
 elseif case == 'picker_groups' then
-  theme.setup()
-  for _, name in ipairs { 'TelescopeResultsNormal', 'TelescopePromptNormal', 'TelescopeSelection', 'BlinkCmpMenu', 'BlinkCmpMenuSelection' } do
-    local group = highlight(name)
-    assert(group.fg and group.bg, name .. ' needs explicit foreground and background colors')
-    assert_text_contrast(name, group.fg, group.bg)
-  end
+  each_jvim_theme(function()
+    for _, name in ipairs { 'TelescopeResultsNormal', 'TelescopePromptNormal', 'TelescopeSelection', 'BlinkCmpMenu', 'BlinkCmpMenuSelection' } do
+      local group = highlight(name)
+      assert(group.fg and group.bg, name .. ' needs explicit foreground and background colors')
+      assert_text_contrast(name, group.fg, group.bg)
+    end
+  end)
 elseif case == 'coderpad_palette' then
   theme.setup()
   local expected = {
