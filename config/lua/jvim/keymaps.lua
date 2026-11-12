@@ -428,8 +428,8 @@ local terminal_keys = {
   [70] = { send_to_job '\1', 'Move to line start' },
 }
 local editor_wide = { [16] = true, [17] = true, [18] = true, [19] = true, [38] = true, [44] = true, [45] = true,
-                      [68] = true, [77] = true, [78] = true, [79] = true }
-for number = 13, 80 do
+                      [63] = true, [68] = true, [77] = true, [78] = true, [79] = true }
+for number = 13, 99 do
   local key = number <= 37 and number ~= 35 and ('<F' .. number .. '>') or ('<F35>' .. number)
   local terminal_key, editor = terminal_keys[number], vim.fn.maparg(key, 'n', false, true)
   if terminal_key then

@@ -424,12 +424,17 @@ function M.restore_snapshot(layout)
   for _, win in ipairs(empty) do
     if #vim.api.nvim_tabpage_list_wins(0) > 1 then vim.api.nvim_win_close(win, true) end
   end
+  -- A saved height can be smaller than the screen (the run output was open below); setting it on a window
+  -- with no pane above or below would hand the spare rows to the command line.
+  local cmdheight = vim.o.cmdheight
   for _, leaf in ipairs(leaves) do
     if vim.api.nvim_win_is_valid(leaf.win) then
       if tonumber(leaf.pane.width) then pcall(vim.api.nvim_win_set_width, leaf.win, leaf.pane.width) end
-      if tonumber(leaf.pane.height) then pcall(vim.api.nvim_win_set_height, leaf.win, leaf.pane.height) end
+      local stacked = vim.api.nvim_win_call(leaf.win, function() return vim.fn.winnr 'j' ~= vim.fn.winnr() or vim.fn.winnr 'k' ~= vim.fn.winnr() end)
+      if stacked and tonumber(leaf.pane.height) then pcall(vim.api.nvim_win_set_height, leaf.win, leaf.pane.height) end
     end
   end
+  vim.o.cmdheight = cmdheight
   focused = focused and vim.api.nvim_win_is_valid(focused) and focused or vim.api.nvim_get_current_win()
   vim.api.nvim_set_current_win(focused)
   last_editor_win = focused

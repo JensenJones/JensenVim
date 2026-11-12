@@ -202,6 +202,22 @@ class UiSessionTests(unittest.TestCase):
         editor.send(b'\x1b[23;5~20')
         editor.wait_for('vim.bo.filetype == "neo-tree" and not (' + terminal_open + ')')
 
+    def test_saving_with_run_output_open_restores_without_a_tall_command_line(self):
+        (self.project/'.jvim').mkdir()
+        (self.project/'.jvim/run.json').write_text(json.dumps({'version': 1, 'configurations': [{'name': 'Quick', 'command': ['true']}]}))
+        editor = self.editor()
+        editor.lua('vim.cmd.edit "main.tex" return true')
+        editor.lua('require("jvim.run").run("Quick") return true')
+        editor.wait_for('(function() local s = require("jvim.run").current() return s and s.status == "exited" end)()')
+        editor.send(b'\x1b[23;5~63')
+        editor.process.wait(timeout=5)
+        editor.close()
+        editor = self.editor()
+        editor.wait_for('vim.fn.expand("%:t") == "main.tex"')
+        time.sleep(0.5)
+        self.assertEqual(editor.lua('return vim.o.cmdheight'), 0)
+        self.assertEqual(editor.lua('return vim.api.nvim_win_get_height(0)'), editor.lua('return vim.o.lines - 1'))
+
     def test_second_editor_restores_files_held_by_the_first_without_swap_warnings(self):
         first = self.editor()
         first.lua('vim.cmd.edit "chapters/intro.tex"; vim.cmd.edit "main.tex"; return true')
