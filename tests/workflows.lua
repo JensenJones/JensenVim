@@ -85,6 +85,36 @@ elseif case == 'edit' then
   equal(data.configurations, {})
   assert(vim.bo.modified)
   assert(vim.fn.filereadable(root .. '/.jvim/run.json') == 0, 'edit unexpectedly wrote configuration')
+elseif case == 'compose' then
+  local run = require 'jvim.run'
+  vim.o.shell = 'sh'
+  vim.fn.mkdir(root .. '/paper', 'p')
+  local log = root .. '/order.txt'
+  save_config { version = 1, configurations = {
+    { name = 'Clean', commands = { 'printf "clean %s %s\\n" "$(basename "$PWD")" "$STAGE" >> ' .. vim.fn.shellescape(log) }, cwd = 'paper', env = { STAGE = 'one' } },
+    { name = 'Legacy', command = { 'sh', '-c', 'echo legacy >> ' .. vim.fn.shellescape(log) } },
+    { name = 'Build', commands = { 'Run: Clean', 'Run: Legacy', 'printf "build %s %s\\n" "$(basename "$PWD")" "${STAGE:-unset}" >> ' .. vim.fn.shellescape(log) } },
+    { name = 'Fails', commands = { 'false' } },
+    { name = 'Stops', commands = { 'Run: Fails', 'echo never >> ' .. vim.fn.shellescape(log) } },
+    { name = 'Loop A', commands = { 'Run: Loop B' } },
+    { name = 'Loop B', commands = { 'Run: Loop A' } },
+    { name = 'Missing', commands = { 'Run: Nope' } },
+  } }
+  local session = assert(run.run('Build', root))
+  wait_for(function() return session.status == 'exited' end)
+  equal(session.exit_code, 0)
+  equal(vim.fn.readfile(log), { 'clean paper one', 'legacy', 'build project with spaces unset' })
+  session = assert(run.run('Stops', root))
+  wait_for(function() return session.status == 'exited' end)
+  equal(session.exit_code, 1)
+  equal(#vim.fn.readfile(log), 3)
+  local notified = {}
+  vim.notify = function(message) notified[#notified + 1] = message end
+  assert(not run.run('Loop A', root) and not run.run('Missing', root))
+  equal(notified, { 'Run configurations call each other in a loop: Loop A -> Loop B -> Loop A', '"Missing" runs "Nope", which does not exist' })
+  equal(run.save_form(root, 'Clean', { 'Name: Tidy', 'Directory: paper', 'true' }), 'Tidy')
+  local build = vim.tbl_filter(function(entry) return entry.name == 'Build' end, assert(run.load(root)))[1]
+  equal(build.commands[1], 'Run: Tidy')
 elseif case == 'steps' then
   local run = require 'jvim.run'
   vim.o.shell = 'sh'
@@ -124,7 +154,7 @@ elseif case == 'form' then
   buf = run.form(root, 'Example')
   -- Legacy argv commands become one shell line quoted for the user's shell (cmd.exe uses double quotes).
   local legacy = vim.fn.has 'win32' == 1 and 'sh -c "echo legacy"' or "sh -c 'echo legacy'"
-  equal(vim.api.nvim_buf_get_lines(buf, 8, 9, false), { legacy })
+  equal(vim.api.nvim_buf_get_lines(buf, 9, 10, false), { legacy })
   equal(vim.api.nvim_buf_get_lines(buf, 4, 5, false), { 'Directory: ' .. root })
   vim.api.nvim_buf_set_lines(buf, 1, 2, false, { 'Name: Renamed' })
   vim.cmd.write()
@@ -153,7 +183,7 @@ elseif case == 'form' then
   local editor_win = vim.api.nvim_get_current_win()
   buf = run.form(root)
   vim.api.nvim_buf_set_lines(buf, 1, 2, false, { 'Name: Keys' })
-  vim.api.nvim_buf_set_lines(buf, 8, 9, false, { 'echo keys' })
+  vim.api.nvim_buf_set_lines(buf, 9, 10, false, { 'echo keys' })
   vim.api.nvim_feedkeys(vim.keycode '<F35>16', 'xt', false)
   wait_for(function() return not vim.api.nvim_buf_is_valid(buf) end)
   equal(assert(run.load(root))[1].name, 'Keys')

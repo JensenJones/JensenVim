@@ -68,16 +68,60 @@ function M.load(root)
   return entries
 end
 
+local function shell_word(arg)
+  if arg:match('^[%w%-%._/=:,+@%%]+$') then return arg end
+  return vim.fn.shellescape(arg)
+end
+
+local function lines_of(entry)
+  return entry.commands or { table.concat(vim.tbl_map(shell_word, entry.command), ' ') }
+end
+
+-- A line "Run: <name>" runs that configuration in its own directory and environment.
+local function reference(line) return line:match('^Run:%s*(.-)%s*$') end
+
+local windows = vim.fn.has('win32') == 1
+
 -- Each line runs in the user's shell; the first failing line ends the run with its status.
-local function shell_steps(commands)
-  -- No space before &&: cmd.exe keeps it, so 'echo hi && ...' would print 'hi ' with a trailing space.
-  if vim.fn.has('win32') == 1 then return { 'cmd.exe', '/s', '/c', table.concat(commands, '&& ') } end
+local function shell_script(entry, by_name, chain)
   local script = {}
-  for _, line in ipairs(commands) do
-    script[#script + 1] = 'printf \'\\033[1m$ %s\\033[0m\\n\' ' .. vim.fn.shellescape(line)
-    script[#script + 1] = '{ ' .. line .. '\n} || exit $?'
+  for _, line in ipairs(lines_of(entry)) do
+    local name = reference(line)
+    if name then
+      local target = by_name[name]
+      if not target then error(('"%s" runs "%s", which does not exist'):format(entry.name, name), 0) end
+      if vim.tbl_contains(chain, name) then
+        error('Run configurations call each other in a loop: ' .. table.concat(chain, ' -> ') .. ' -> ' .. name, 0)
+      end
+      local inner = shell_script(target, by_name, vim.list_extend(vim.deepcopy(chain), { name }))
+      if windows then
+        local setup = { 'cd /d "' .. target.cwd .. '"' }
+        for key, value in pairs(target.env or {}) do setup[#setup + 1] = 'set "' .. key .. '=' .. value .. '"' end
+        script[#script + 1] = '(' .. table.concat(setup, '&& ') .. '&& ' .. inner .. ')'
+      else
+        local block = { 'printf \'\\033[1m> Run: %s\\033[0m\\n\' ' .. vim.fn.shellescape(name), '(', 'cd ' .. vim.fn.shellescape(target.cwd) .. ' || exit $?' }
+        for key, value in pairs(target.env or {}) do block[#block + 1] = 'export ' .. key .. '=' .. vim.fn.shellescape(value) end
+        block[#block + 1] = inner
+        block[#block + 1] = ') || exit $?'
+        script[#script + 1] = table.concat(block, '\n')
+      end
+    elseif windows then
+      script[#script + 1] = line
+    else
+      script[#script + 1] = 'printf \'\\033[1m$ %s\\033[0m\\n\' ' .. vim.fn.shellescape(line) .. '\n{ ' .. line .. '\n} || exit $?'
+    end
   end
-  return { vim.o.shell, '-c', table.concat(script, '\n') }
+  -- No space before &&: cmd.exe keeps it, so 'echo hi && ...' would print 'hi ' with a trailing space.
+  return table.concat(script, windows and '&& ' or '\n')
+end
+
+local function shell_steps(entry, entries)
+  local by_name = {}
+  for _, item in ipairs(entries) do by_name[item.name] = item end
+  local ok, script = pcall(shell_script, entry, by_name, { entry.name })
+  if not ok then return nil, script end
+  if windows then return { 'cmd.exe', '/s', '/c', script } end
+  return { vim.o.shell, '-c', script }
 end
 
 local function error_message(err)
@@ -89,7 +133,7 @@ local function find(name, root)
   local entries, err = M.load(root)
   if not entries then return nil, err end
   for _, entry in ipairs(entries) do
-    if entry.name == name then return entry end
+    if entry.name == name then return entry, entries end
   end
   return nil, 'No run configuration named ' .. tostring(name)
 end
@@ -121,11 +165,12 @@ function M.run(name, root, restart)
   root = vim.fs.normalize(root or M.root())
   name = name or selected[root]
   if not name then return M.choose(root, true) end
-  local entry, err = find(name, root)
-  if not entry then return error_message(err) end
-  local command
+  local entry, entries = find(name, root)
+  if not entry then return error_message(entries) end
+  local command, err
   if entry.commands then
-    command = shell_steps(entry.commands)
+    command, err = shell_steps(entry, entries)
+    if not command then return error_message(err) end
   else
     command, err = resolve(entry)
     if not command then return error_message(err) end
@@ -170,10 +215,6 @@ local function encode(data)
   return vim.split(table.concat(out, '\n'), '\n')
 end
 
-local function shell_word(arg)
-  if arg:match('^[%w%-%._/=:,+@%%]+$') then return arg end
-  return vim.fn.shellescape(arg)
-end
 
 local function parse_form(lines)
   local name, commands, directory
@@ -223,6 +264,13 @@ function M.save_form(root, original, lines)
     local item = index and data.configurations[index] or {}
     item.name, item.commands, item.command, item.cwd = name, commands, nil, directory
     if not index then data.configurations[#data.configurations + 1] = item end
+    if original and original ~= name then
+      for _, other in ipairs(data.configurations) do
+        for i, line in ipairs(type(other) == 'table' and list(other.commands) and other.commands or {}) do
+          if type(line) == 'string' and reference(line) == original then other.commands[i] = 'Run: ' .. name end
+        end
+      end
+    end
     selected[root] = name
   end
   vim.fn.mkdir(root .. '/.jvim', 'p')
@@ -256,6 +304,7 @@ function M.form(root, original)
     '',
     '# Commands, one per line. They run in order in your shell',
     '# and stop at the first one that fails. Remove them all to delete.',
+    '# "Run: <name>" runs another configuration at that point.',
   }
   local first_command = #lines + 1
   vim.list_extend(lines, #commands > 0 and commands or { '' })

@@ -23,6 +23,10 @@ class WorkflowTests(unittest.TestCase):
                                     env=env, capture_output=True, text=True, timeout=15)
             self.assertEqual(result.returncode, 0, result.stderr)
 
+    @unittest.skipIf(os.name == 'nt', 'POSIX sh command; Windows runs shell lines through cmd.exe')
+    def test_configurations_run_other_configurations_in_their_own_directory(self):
+        self.check_case('compose')
+
     @unittest.skipIf(os.name == 'nt', 'fake wezterm is a POSIX script')
     def test_pop_out_saves_releases_and_opens_the_file_in_a_new_wezterm_window(self):
         self.check_case('pop_out')
