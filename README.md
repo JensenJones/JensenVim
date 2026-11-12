@@ -85,7 +85,7 @@ Last, hand jvim the desktop shortcuts that clash with it. On a stock Ubuntu desk
 ~/JensenVim/integrations/linux/desktop-keys.py --apply
 ```
 
-Before your first session, check:
+Setting up with Claude Code or another coding agent? Ask it to "set up and check jvim on this machine"; [AGENTS.md](AGENTS.md) tells it to install, run the test suite and fix what fails. Otherwise, before your first session, check:
 
 - `wl-copy --version` (Wayland) or `xclip -version` (X11) works, or copy and paste will not reach other apps. The first command above installs both.
 - `~/JensenVim/integrations/linux/desktop-keys.py` says "No desktop shortcuts clash with jvim."
@@ -128,6 +128,7 @@ On Windows, Cmd-based editor mappings become Ctrl-based mappings: Ctrl+B for def
 | Ctrl+Shift+G | Git changes: changed-file tree with side-by-side diffs |
 | Cmd+Shift+T | Reopen the last closed file, recreating its split if needed |
 | Cmd+Option+\\ | Move the current file to a new jvim window (WezTerm), for example to put it on another monitor |
+| Cmd+Option+R | Run the selected configuration in its own window instead of the output pane (WezTerm) |
 | Cmd+B / Ctrl-click | Go to definition (Cmd-click is optional) |
 | Cmd+Option+Left / Right | Navigate back / forward |
 | Cmd+Z / Cmd+Shift+Z | Undo / redo |

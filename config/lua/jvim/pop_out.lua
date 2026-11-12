@@ -2,7 +2,7 @@ local M = {}
 
 local function notify(message) vim.notify(message, vim.log.levels.WARN) end
 
-local function wezterm()
+function M.wezterm()
   local found = vim.fn.exepath 'wezterm'
   if found ~= '' then return found end
   local gui = vim.env.WEZTERM_EXECUTABLE
@@ -20,7 +20,7 @@ end
 
 -- Arguments for the new window; the caller closes the file here first so the new jvim can edit it.
 function M.command(path, cursor, root)
-  local cli = wezterm()
+  local cli = M.wezterm()
   if not cli or not vim.env.WEZTERM_PANE then return nil, 'Opening a file in a new window needs WezTerm' end
   local command = { cli, 'cli', 'spawn', '--new-window', '--cwd', root, '--' }
   vim.list_extend(command, jvim_command())

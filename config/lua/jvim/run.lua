@@ -161,25 +161,65 @@ local function resolve(entry)
   return command
 end
 
+local function prepare(name, root)
+  local entry, entries = find(name, root)
+  if not entry then return nil, entries end
+  local command, err
+  if entry.commands then
+    command, err = shell_steps(entry, entries)
+  else
+    command, err = resolve(entry)
+  end
+  if not command then return nil, err end
+  return entry, command
+end
+
 function M.run(name, root, restart)
   root = vim.fs.normalize(root or M.root())
   name = name or selected[root]
   if not name then return M.choose(root, true) end
-  local entry, entries = find(name, root)
-  if not entry then return error_message(entries) end
-  local command, err
-  if entry.commands then
-    command, err = shell_steps(entry, entries)
-    if not command then return error_message(err) end
-  else
-    command, err = resolve(entry)
-    if not command then return error_message(err) end
-  end
+  local entry, command = prepare(name, root)
+  if not entry then return error_message(command) end
   selected[root] = name
   return require('jvim.command_terminal').open {
     key = 'run:' .. root .. ':' .. name, cwd = entry.cwd, command = command,
     env = entry.env, title = name, restart = restart, root = root,
   }
+end
+
+-- Arguments that run the configuration in a new WezTerm window; it stays open after the run to show the result.
+function M.window_command(name, root)
+  root = vim.fs.normalize(root or M.root())
+  local entry, command = prepare(name, root)
+  if not entry then return nil, command end
+  local cli = require('jvim.pop_out').wezterm()
+  if not cli or not vim.env.WEZTERM_PANE then return nil, 'Running in a new window needs WezTerm' end
+  local spawn = { cli, 'cli', 'spawn', '--new-window', '--cwd', entry.cwd, '--' }
+  local keys = vim.tbl_keys(entry.env or {})
+  table.sort(keys)
+  if windows then
+    local line = command[1] == 'cmd.exe' and command[4] or table.concat(vim.tbl_map(shell_word, command), ' ')
+    for i = #keys, 1, -1 do line = 'set "' .. keys[i] .. '=' .. entry.env[keys[i]] .. '"&& ' .. line end
+    return vim.list_extend(spawn, { 'cmd.exe', '/k', line })
+  end
+  spawn[#spawn + 1] = 'env'
+  for _, key in ipairs(keys) do spawn[#spawn + 1] = key .. '=' .. entry.env[key] end
+  vim.list_extend(spawn, { 'sh', '-c', '"$@"; status=$?; printf "\\n[%s: exit %s] Press Enter to close this window.\\n" "$0" "$status"; read _', name })
+  return vim.list_extend(spawn, command)
+end
+
+-- Runs a configuration in its own window, for example on another monitor; Run keeps using the output pane.
+function M.run_in_window(name, root)
+  root = vim.fs.normalize(root or M.root())
+  name = name or selected[root]
+  if not name then return M.choose(root, M.run_in_window) end
+  local command, err = M.window_command(name, root)
+  if not command then return error_message(err) end
+  selected[root] = name
+  vim.system(command, { text = true }, function(result)
+    if result.code ~= 0 then vim.schedule(function() error_message('Could not open a new window: ' .. vim.trim(result.stderr)) end) end
+  end)
+  return command
 end
 
 local function read_raw(path)
@@ -366,7 +406,7 @@ function M.choose(root, execute)
   if execute then
     return vim.ui.select(entries, { prompt = 'Run configuration', format_item = function(item) return item.name end }, function(entry)
       if not entry then return end
-      M.run(entry.name, root)
+      ;(type(execute) == 'function' and execute or M.run)(entry.name, root)
       vim.cmd.redrawstatus()
     end)
   end

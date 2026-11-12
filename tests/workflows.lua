@@ -115,6 +115,42 @@ elseif case == 'compose' then
   equal(run.save_form(root, 'Clean', { 'Name: Tidy', 'Directory: paper', 'true' }), 'Tidy')
   local build = vim.tbl_filter(function(entry) return entry.name == 'Build' end, assert(run.load(root)))[1]
   equal(build.commands[1], 'Run: Tidy')
+elseif case == 'window' then
+  local run = require 'jvim.run'
+  vim.o.shell = 'sh'
+  vim.fn.mkdir(root .. '/paper', 'p')
+  vim.fn.mkdir(root .. '/bin', 'p')
+  vim.fn.writefile({ '#!/bin/sh' }, root .. '/bin/wezterm')
+  vim.fn.setfperm(root .. '/bin/wezterm', 'rwxr-xr-x')
+  vim.env.PATH = root .. '/bin:' .. vim.env.PATH
+  vim.env.WEZTERM_EXECUTABLE = nil
+  save_config { version = 1, configurations = {
+    { name = 'Clean', commands = { 'echo "clean in $(basename "$PWD")"' }, cwd = 'paper' },
+    { name = 'Build', commands = { 'Run: Clean', 'echo "build $STAGE"' }, env = { STAGE = 'two words' } },
+    { name = 'Argv', command = { 'sh', '-c', 'exit 4' } },
+  } }
+  vim.env.WEZTERM_PANE = nil
+  equal({ run.window_command('Build', root) }, { nil, 'Running in a new window needs WezTerm' })
+  vim.env.WEZTERM_PANE = '1'
+  local function window(name)
+    local command = assert(run.window_command(name, root))
+    equal(vim.list_slice(command, 1, 6), { root .. '/bin/wezterm', 'cli', 'spawn', '--new-window', '--cwd', root })
+    -- Run what the new window would run, answering its "Press Enter" prompt.
+    local result = vim.system(vim.list_slice(command, 8), { cwd = command[6], stdin = '\n', text = true }):wait()
+    equal(result.code, 0)
+    return result.stdout
+  end
+  local output = window('Build')
+  for _, expected in ipairs { 'clean in paper', 'build two words', '[Build: exit 0] Press Enter to close this window.' } do
+    assert(output:find(expected, 1, true), output)
+  end
+  assert(window('Argv'):find('[Argv: exit 4]', 1, true))
+  local spawned
+  vim.system = function(command) spawned = command; return {} end
+  run.run_in_window('Build', root)
+  equal(spawned[3], 'spawn')
+  equal(select(2, run.current(root)), 'Build')
+  assert(#vim.tbl_filter(function(b) return vim.bo[b].buftype == 'terminal' end, vim.api.nvim_list_bufs()) == 0, 'the output pane opened too')
 elseif case == 'steps' then
   local run = require 'jvim.run'
   vim.o.shell = 'sh'

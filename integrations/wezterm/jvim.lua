@@ -55,6 +55,7 @@ M.keys = {
   { 'b', 'CMD|ALT', '\x1b[23;5~39' },
   { 'l', 'CMD|ALT', '\x1b[23;5~24' },
   { 'o', 'CMD|ALT', '\x1b[23;5~44' },
+  { 'r', 'CMD|ALT', '\x1b[23;5~82' },
   { 'Backspace', 'CMD|SHIFT', '\x1b[23;5~61' },
   { 'DownArrow', 'CMD|SHIFT', '\x1b[1;6F' },
   { 'LeftArrow', 'CMD|SHIFT', '\x1b[1;2H' },

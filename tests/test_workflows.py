@@ -28,6 +28,10 @@ class WorkflowTests(unittest.TestCase):
         self.check_case('compose')
 
     @unittest.skipIf(os.name == 'nt', 'fake wezterm is a POSIX script')
+    def test_run_in_window_runs_the_configuration_and_waits_before_closing(self):
+        self.check_case('window')
+
+    @unittest.skipIf(os.name == 'nt', 'fake wezterm is a POSIX script')
     def test_pop_out_saves_releases_and_opens_the_file_in_a_new_wezterm_window(self):
         self.check_case('pop_out')
 

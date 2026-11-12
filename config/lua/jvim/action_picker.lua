@@ -118,6 +118,7 @@ function M.entries()
     { 'Mark tree files for moving', 'files', 'cut' },
     { 'Move marked files into tree folder', 'files', 'paste' },
     { 'Run selected configuration', 'run', 'run' },
+    { 'Run selected configuration in a new window (Cmd+Option+R)', 'run', 'run_in_window' },
     { 'Choose run configuration', 'run', 'choose' },
     { 'Rerun selected configuration', 'run', 'rerun' },
     { 'Stop run', 'run', 'stop' },

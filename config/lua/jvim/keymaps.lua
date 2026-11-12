@@ -236,6 +236,7 @@ end
 action({ '<F35>78' }, function() split 'vsplit' end, 'Split right')
 action({ '<F35>79' }, function() split 'split' end, 'Split down')
 action({ '<F35>81' }, function() require('jvim.pop_out').open() end, 'Move file to a new window')
+action({ '<F35>82' }, function() require('jvim.run').run_in_window() end, 'Run in a new window')
 local function toggle_project_tree()
   local available, tree = pcall(require, 'neo-tree.command')
   if not available then vim.notify('The project tree requires Neo-tree; enable it through your plugin manager', vim.log.levels.WARN); return end

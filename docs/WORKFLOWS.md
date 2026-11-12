@@ -29,6 +29,8 @@ Run: Build thesis
 
 A failing step stops the whole run. Renaming a configuration updates the `Run:` lines that use it, and a configuration that ends up running itself is refused with the loop it found. Choose a configuration in **Config** to make it the one **Run** starts, and pick **Edit "<name>"** there to change it; remove every command and save to delete it. **Cmd+W** or **Esc** closes the form without saving.
 
+**Run** uses the output pane below the editor. To put a run on another monitor instead, press **Cmd+Option+R** (Ctrl+Alt+R on Linux) or pick **Run selected configuration in a new window** in the action picker: it opens a new WezTerm window that runs the configuration and stays open after it finishes, showing the exit status, until you press Enter. **Run** itself is unchanged.
+
 The form writes `.jvim/run.json`, which you can also edit directly through **Open .jvim/run.json**:
 
 ```json
