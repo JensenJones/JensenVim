@@ -36,6 +36,27 @@ local function each_jvim_theme(check)
   end
 end
 
+if case == 'transparent' then
+  theme.setup()
+  theme.apply('jvim-ember')
+  local solid = highlight('Normal').bg
+  assert(solid, 'Ember should paint a background by default')
+  assert(theme.toggle_transparent() == true)
+  for _, group in ipairs { 'Normal', 'NormalNC', 'SignColumn', 'EndOfBuffer', 'LineNr' } do
+    assert(highlight(group).bg == nil, group .. ' still paints over the terminal picture')
+  end
+  assert(highlight('Normal').fg, 'transparency removed the text colour')
+  assert(highlight('NormalFloat').bg, 'popups must stay solid to remain readable')
+  theme.apply('jvim-blood-moon')
+  assert(highlight('Normal').bg == nil, 'switching theme brought the background back')
+  theme.setup()
+  assert(highlight('Normal').bg == nil, 'transparency was not remembered')
+  assert(theme.toggle_transparent() == false)
+  theme.apply('jvim-ember')
+  assert(highlight('Normal').bg == solid, 'turning transparency off did not restore the background')
+  vim.cmd 'qall!'
+end
+
 if case == 'default' then
   theme.setup()
   assert(vim.g.colors_name == 'jvim-charcoal', 'jvim startup theme is not jvim-charcoal')

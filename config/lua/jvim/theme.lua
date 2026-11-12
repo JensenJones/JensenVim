@@ -35,6 +35,14 @@ local focus_groups = {
   },
 }
 
+local transparent_path = vim.fn.stdpath('state') .. '/jvim/transparent'
+-- Groups that paint the editor area; floats, status line and tabs stay solid so they remain readable.
+local see_through = { 'Normal', 'NormalNC', 'SignColumn', 'EndOfBuffer', 'LineNr', 'FoldColumn', 'NeoTreeNormal', 'NeoTreeNormalNC', 'NeoTreeEndOfBuffer' }
+
+function M.transparent()
+  return vim.uv.fs_stat(transparent_path) ~= nil
+end
+
 local default_rainbow = { yellow = '#e6cc00', blue = '#69a9df', violet = '#c17cbf', cyan = '#56b8df', orange = '#d28e76', green = '#95b86d', red = '#e88a85' }
 
 local function apply_focus(name)
@@ -48,6 +56,33 @@ local function apply_focus(name)
   local selected = vim.api.nvim_get_hl(0, { name = 'TabLineSel', link = false })
   local tabs = vim.api.nvim_get_hl(0, { name = 'TabLine', link = false })
   vim.api.nvim_set_hl(0, 'JvimTabLineSelNC', { fg = selected.bg or selected.fg, bg = tabs.bg, bold = true, underline = true })
+  if M.transparent() then
+    local editor_bg = vim.api.nvim_get_hl(0, { name = 'Normal', link = false }).bg
+    local clear = {}
+    for _, group in ipairs(see_through) do clear[group] = true end
+    -- Plugin and syntax groups that repeat the editor background would otherwise paint cells over the picture.
+    for group, spec in pairs(vim.api.nvim_get_hl(0, {})) do
+      if not spec.link and editor_bg and spec.bg == editor_bg then clear[group] = true end
+    end
+    for group in pairs(clear) do
+      local spec = vim.api.nvim_get_hl(0, { name = group, link = false })
+      spec.bg, spec.ctermbg = nil, nil
+      vim.api.nvim_set_hl(0, group, spec)
+    end
+  end
+end
+
+-- Lets the terminal's own background, such as a WezTerm picture, show behind the code.
+function M.toggle_transparent()
+  if M.transparent() then
+    os.remove(transparent_path)
+  else
+    vim.fn.mkdir(vim.fs.dirname(transparent_path), 'p')
+    local file = assert(io.open(transparent_path, 'w'))
+    file:close()
+  end
+  vim.cmd.colorscheme(vim.g.colors_name)
+  return M.transparent()
 end
 
 function M.names()

@@ -80,6 +80,14 @@ function M.entries()
     action = function() require('jvim.theme').pick() end,
   })
   table.insert(entries, {
+    name = 'Toggle transparent background (show the terminal picture)',
+    shortcut = '',
+    action = function()
+      local on = require('jvim.theme').toggle_transparent()
+      vim.notify(on and 'Transparent background on' or 'Transparent background off')
+    end,
+  })
+  table.insert(entries, {
     name = 'Check C++ project (syntax only)',
     shortcut = '',
     action = function() require('jvim.cpp_check').run() end,

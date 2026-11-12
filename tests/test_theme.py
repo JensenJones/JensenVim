@@ -63,3 +63,6 @@ class ThemeTests(unittest.TestCase):
 
     def test_invalid_saved_theme_falls_back(self):
         self.check_case('invalid_saved')
+
+    def test_transparent_background_shows_the_terminal_picture(self):
+        self.check_case('transparent')
