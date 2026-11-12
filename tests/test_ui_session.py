@@ -182,6 +182,26 @@ class UiSessionTests(unittest.TestCase):
         editor.send(b'\x1b[23;5~67')
         editor.wait_for('vim.bo.buftype ~= "terminal"')
 
+    def test_cmd_w_closes_the_pager_and_run_output_before_quitting(self):
+        (self.project/'.jvim').mkdir()
+        (self.project/'.jvim/run.json').write_text(json.dumps({'version': 1, 'configurations': [{'name': 'Quick', 'command': ['true']}]}))
+        editor = self.editor()
+        editor.lua('vim.cmd.edit "main.tex" return true')
+        terminal_open = '#vim.tbl_filter(function(w) return vim.bo[vim.api.nvim_win_get_buf(w)].buftype == "terminal" end, vim.api.nvim_tabpage_list_wins(0)) > 0'
+        editor.lua('require("jvim.run").run("Quick") return true')
+        editor.wait_for('(function() local s = require("jvim.run").current() return s and s.status == "exited" end)()')
+        editor.send(b'\x1b[23;5~20')
+        editor.wait_for('vim.fn.expand("%:t") == "main.tex" and not (' + terminal_open + ')')
+        editor.lua('require("jvim.run").show() vim.cmd.wincmd "p" vim.schedule(function() vim.cmd "messages" end) return true')
+        pager_open = '(function() local w = require("vim._core.ui2").wins.pager return vim.api.nvim_win_is_valid(w) and not vim.api.nvim_win_get_config(w).hide end)()'
+        editor.wait_for(pager_open)
+        editor.send(b'\x1b[23;5~20')
+        editor.wait_for('not ' + pager_open + ' and vim.fn.expand("%:t") == "main.tex"')
+        editor.send(b'\x1b[23;5~20')
+        editor.wait_for('vim.bo.filetype == "neo-tree" and (' + terminal_open + ')')
+        editor.send(b'\x1b[23;5~20')
+        editor.wait_for('vim.bo.filetype == "neo-tree" and not (' + terminal_open + ')')
+
     def test_second_editor_restores_files_held_by_the_first_without_swap_warnings(self):
         first = self.editor()
         first.lua('vim.cmd.edit "chapters/intro.tex"; vim.cmd.edit "main.tex"; return true')

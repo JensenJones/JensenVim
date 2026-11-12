@@ -187,7 +187,19 @@ action({ '<F18>', '<D-S-f>', '<C-S-f>' }, telescope 'live_grep', 'Search project
 action({ '<F19>', '<D-e>' }, telescope 'oldfiles', 'Recent files')
 action({ '<F35>38', '<C-S-a>', '<D-S-a>' }, function() require('jvim.action_picker').open() end, 'Find action or shortcut')
 vim.api.nvim_create_user_command('Shortcuts', function() require('jvim.action_picker').open() end, { desc = 'Find an editor action or shortcut' })
+-- The message pager at the bottom closes first, wherever focus is.
+local function close_popup()
+  local ok, ui2 = pcall(require, 'vim._core.ui2')
+  local pager = ok and ui2.wins and ui2.wins.pager
+  if pager and vim.api.nvim_win_is_valid(pager) and not vim.api.nvim_win_get_config(pager).hide then
+    return vim.api.nvim_win_close(pager, true) or true
+  end
+end
+local function quit_or_hide_terminal()
+  if not require('jvim.command_terminal').hide_visible() then vim.cmd 'confirm qall' end
+end
 action({ '<F20>', '<D-w>' }, function()
+  if close_popup() then return end
   if vim.b.jvim_command_terminal then
     require('jvim.command_terminal').hide()
     return
@@ -197,7 +209,7 @@ action({ '<F20>', '<D-w>' }, function()
     return
   end
   if vim.bo.filetype == 'neo-tree' then
-    if #require('jvim.files').editor_windows() == 0 then return vim.cmd 'confirm qall' end
+    if #require('jvim.files').editor_windows() == 0 then return quit_or_hide_terminal() end
     require('neo-tree.command').execute { action = 'close', position = 'left' }
     return
   end
@@ -206,7 +218,7 @@ action({ '<F20>', '<D-w>' }, function()
     return
   end
   if settings.features.autosave then require('jvim.autosave').save_all() end
-  if not require('jvim.files').close_current_tab() then vim.cmd 'confirm qall' end
+  if not require('jvim.files').close_current_tab() then quit_or_hide_terminal() end
 end, 'Close file')
 local function split(command)
   local files = require 'jvim.files'

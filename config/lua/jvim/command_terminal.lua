@@ -23,10 +23,23 @@ function M.hide()
   if not vim.b.jvim_command_terminal then return end
   vim.cmd.stopinsert()
   if #vim.api.nvim_tabpage_list_wins(0) > 1 then
+    local editors = require('jvim.files').editor_windows()
     vim.cmd.close()
+    if #editors > 0 then vim.api.nvim_set_current_win(editors[1]) end
   else
     vim.cmd.enew()
   end
+end
+
+-- Closes a visible command terminal pane from another window; false when none is open.
+function M.hide_visible()
+  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+    if vim.b[vim.api.nvim_win_get_buf(win)].jvim_command_terminal and #vim.api.nvim_tabpage_list_wins(0) > 1 then
+      vim.api.nvim_win_close(win, true)
+      return true
+    end
+  end
+  return false
 end
 
 function M.stop(session)
