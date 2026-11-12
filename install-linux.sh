@@ -68,6 +68,9 @@ else
   cp "$SOURCE/integrations/wezterm/starter.lua" "$HOME/.wezterm.lua"
   echo "Created ~/.wezterm.lua with jvim's terminal settings; add your own settings at its end."
 fi
+if command -v gsettings >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
+  python3 "$SOURCE/integrations/linux/desktop-keys.py" || echo "Warning: could not check desktop shortcuts." >&2
+fi
 command -v wezterm >/dev/null 2>&1 || echo "WezTerm is not installed. jvim runs in any terminal, but its shortcuts need WezTerm; see README.md." >&2
 
 touch "$PROFILE"

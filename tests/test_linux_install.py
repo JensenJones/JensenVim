@@ -1,8 +1,10 @@
 """Check the Linux installer in an isolated home."""
+import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -60,6 +62,37 @@ class LinuxInstallTests(unittest.TestCase):
             backups = list((home/'.local/state/jvim/backups').iterdir())
             self.assertEqual((backups[0]/'config/init.lua').read_text(), 'old copy')
             self.assertTrue((home/'.config/jvim').is_symlink())
+
+    def test_desktop_shortcuts_that_clash_with_jvim_are_listed_and_freed(self):
+        with tempfile.TemporaryDirectory(prefix='jvim-gsettings-') as temporary:
+            tools = Path(temporary)
+            (tools/'gsettings').write_text('''#!/usr/bin/env python3
+import json, os, sys
+state = os.path.join(os.path.dirname(__file__), 'state.json')
+data = json.load(open(state)) if os.path.exists(state) else {
+    'org.gnome.desktop.wm.keybindings': {'switch-to-workspace-left': "['<Super>Page_Up', '<Control><Alt>Left']", 'begin-move': "['<Alt>F7']", 'close': "['<Alt>F4']", 'cycle-group': "@as []"},
+    'org.gnome.settings-daemon.plugins.media-keys': {'terminal': "['<Primary><Alt>t']", 'screensaver': "'<Primary><Alt>l'"}}
+if sys.argv[1] == 'list-schemas': print('\\n'.join(data))
+elif sys.argv[1] == 'list-recursively': print('\\n'.join(f'{sys.argv[2]} {k} {v}' for k, v in data[sys.argv[2]].items()))
+elif sys.argv[1] == 'set': data[sys.argv[2]][sys.argv[3]] = sys.argv[4]; json.dump(data, open(state, 'w'))
+''')
+            (tools/'gsettings').chmod(0o755)
+            env = dict(os.environ, PATH=f'{tools}:{os.environ["PATH"]}')
+            script = str(ROOT/'integrations/linux/desktop-keys.py')
+            listed = subprocess.run([sys.executable, script], env=env, capture_output=True, text=True, timeout=30)
+            self.assertEqual(listed.returncode, 0, listed.stderr)
+            for expected in ('Ctrl+Alt+Left: org.gnome.desktop.wm.keybindings switch-to-workspace-left', 'Alt+F7:', 'Ctrl+Alt+L:'):
+                self.assertIn(expected, listed.stdout)
+            self.assertNotIn('Alt+F4', listed.stdout)
+            self.assertNotIn('Ctrl+Alt+T', listed.stdout)
+            self.assertFalse((tools/'state.json').exists(), 'listing changed settings')
+            subprocess.run([sys.executable, script, '--apply'], env=env, check=True, capture_output=True, timeout=30)
+            state = json.loads((tools/'state.json').read_text())
+            self.assertEqual(state['org.gnome.desktop.wm.keybindings']['switch-to-workspace-left'], "['<Super>Page_Up']")
+            self.assertEqual(state['org.gnome.desktop.wm.keybindings']['close'], "['<Alt>F4']")
+            self.assertEqual(state['org.gnome.settings-daemon.plugins.media-keys']['screensaver'], "''")
+            again = subprocess.run([sys.executable, script], env=env, capture_output=True, text=True, timeout=30)
+            self.assertIn('No desktop shortcuts clash with jvim.', again.stdout)
 
     def test_bootstrap_stops_with_package_command_when_tools_are_missing(self):
         with tempfile.TemporaryDirectory(prefix='jvim-bootstrap-') as temporary:

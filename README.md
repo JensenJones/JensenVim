@@ -79,6 +79,18 @@ Then paste this line, which needs no password:
 curl -fsSL https://raw.githubusercontent.com/JensenJones/JensenVim/main/bootstrap-linux.sh | sh
 ```
 
+Last, hand jvim the desktop shortcuts that clash with it. On a stock Ubuntu desktop those are Alt+F7 (jvim: Find usages; GNOME: move window) and Ctrl+Alt+Left/Right (jvim: Navigate back/forward; GNOME: switch workspace). The installer lists any it finds. This needs no password, removes only the clashing key from each desktop shortcut (Super+Page Up still switches workspaces) and prints what it changed; undo one with `gsettings reset <schema> <key>`:
+
+```sh
+~/JensenVim/integrations/linux/desktop-keys.py --apply
+```
+
+Before your first session, check:
+
+- `wl-copy --version` (Wayland) or `xclip -version` (X11) works, or copy and paste will not reach other apps. The first command above installs both.
+- `~/JensenVim/integrations/linux/desktop-keys.py` says "No desktop shortcuts clash with jvim."
+- You open **WezTerm**, not the desktop's default terminal, and run `jvim .` there. Other terminals keep many shortcuts for themselves.
+
 It installs Neovim and tree-sitter into `~/.local` from their official releases (distribution packages are usually too old), clones the repository into `~/JensenVim` and runs `install-linux.sh --apply`. If system packages are missing it stops and prints the command for your distribution (apt, dnf or pacman). Rerun the same line to update; set `JVIM_DIR` to clone somewhere else. For WezTerm outside Debian, Ubuntu and Arch, see [wezterm.org](https://wezterm.org/install/linux.html). Neovim needs `wl-clipboard` (Wayland) or `xclip` (X11) to share the clipboard with other apps, and fresh Ubuntu ships neither.
 
 The installer links `config/` to `~/.config/jvim`, adds a `jvim` launcher in `~/.local/bin`, puts that folder on PATH in your shell's startup file and sets up WezTerm as described in [Terminal setup](#terminal-setup). It first moves any previous installation into `~/.local/state/jvim/backups`. Open WezTerm and run `jvim .`; shortcuts use Ctrl where the Mac uses Cmd (Ctrl+S, Ctrl+W, Ctrl+Shift+A). In another terminal jvim still runs, but shortcuts that terminal reserves or cannot encode will not arrive. The iTerm bridge is macOS only; Herdr panes inside WezTerm get the same keys.
