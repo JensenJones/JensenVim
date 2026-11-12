@@ -218,6 +218,50 @@ class UiSessionTests(unittest.TestCase):
         self.assertEqual(editor.lua('return vim.o.cmdheight'), 0)
         self.assertEqual(editor.lua('return vim.api.nvim_win_get_height(0)'), editor.lua('return vim.o.lines - 1'))
 
+    def test_wheel_scrolling_keeps_the_selection_and_the_next_key_uses_it(self):
+        clipboard = ('lua local held = {} vim.g.clipboard = { name = "test", '
+                     'copy = { ["+"] = function(lines) held = lines end, ["*"] = function(lines) held = lines end }, '
+                     'paste = { ["+"] = function() return held end, ["*"] = function() return held end } }')
+        editor = self.editor('--cmd', clipboard)
+        editor.lua('vim.cmd.edit "long.txt" return true')
+        editor.wait_for('vim.fn.expand("%:t") == "long.txt" and vim.api.nvim_buf_line_count(0) > 100')
+        editor.lua('vim.api.nvim_win_set_cursor(0, { 10, 0 }) return true')
+        # Select lines 10-12 the way Shift+Down does (Select mode).
+        editor.send(b'\x1b[1;2B\x1b[1;2B')
+        editor.wait_for('vim.fn.mode() == "s"')
+        editor.send(b'\x1b[23;5~13')
+        unscrolled = editor.wait_for('vim.fn.getreg("+") ~= "" and vim.fn.getreg("+")')
+        editor.send(b'\x1b')
+        editor.wait_for('vim.fn.mode() ~= "s"')
+        editor.lua('vim.fn.setreg("+", "") vim.api.nvim_win_set_cursor(0, { 10, 0 }) return true')
+        editor.send(b'\x1b[1;2B\x1b[1;2B')
+        editor.wait_for('vim.fn.mode() == "s"')
+        win = editor.lua('local p = vim.fn.win_screenpos(0) return { row = p[1] + 2, col = p[2] + 5 }')
+        for _ in range(6):
+            editor.send(f"\x1b[<65;{win['col']};{win['row']}M".encode())
+        editor.wait_for('vim.fn.line("w0") > 12')
+        time.sleep(0.3)
+        drawn = editor.lua('local ns = vim.api.nvim_get_namespaces()["clion-scroll-selection"] '
+                           'local marks = ns and vim.api.nvim_buf_get_extmarks(0, ns, 0, -1, {}) or {} return #marks > 0 and marks[1][2] + 1')
+        editor.send(b'\x1b[23;5~13')
+        editor.wait_for('vim.fn.getreg("+") ~= ""')
+        self.assertEqual(editor.lua('return vim.fn.getreg("+")'), unscrolled, 'scrolling changed what was selected')
+        self.assertEqual(drawn, 10, 'the selection is not drawn where it was')
+        self.assertEqual(unscrolled, 'line 10\nline 11\n')
+        self.assertEqual(editor.lua('return { vim.fn.mode(), vim.fn.getline(10), vim.fn.getline(11) }'), ['s', 'line 10', 'line 11'])
+        editor.send(b'\x1b')
+        editor.wait_for('vim.fn.mode() ~= "s"')
+        editor.lua('vim.api.nvim_win_set_cursor(0, { 10, 0 }) return true')
+        editor.send(b'\x1b[1;2B')
+        editor.wait_for('vim.fn.mode() == "s"')
+        for _ in range(6):
+            editor.send(f"\x1b[<65;{win['col']};{win['row']}M".encode())
+        editor.wait_for('vim.fn.line("w0") > 12')
+        time.sleep(0.3)
+        editor.send(b'X')
+        editor.wait_for('vim.fn.getline(10) == "Xline 11"')
+        self.assertEqual(editor.lua('return vim.fn.getline(11)'), 'line 12')
+
     def test_second_editor_restores_files_held_by_the_first_without_swap_warnings(self):
         first = self.editor()
         first.lua('vim.cmd.edit "chapters/intro.tex"; vim.cmd.edit "main.tex"; return true')
