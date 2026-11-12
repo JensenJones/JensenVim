@@ -63,33 +63,23 @@ In another terminal, the editor can start but the Mac shortcut transport and nat
 
 ## Linux installation
 
-Distribution packages of Neovim and tree-sitter are usually too old, so the simplest route is [Homebrew on Linux](https://brew.sh). If `brew` is not installed yet, run this first (Debian/Ubuntu shown; it asks for your password once):
+On Debian or Ubuntu, first install the system packages and WezTerm (this asks for your password once):
 
 ```sh
-sudo apt-get install -y build-essential procps curl file git gpg wl-clipboard xclip &&
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)" &&
-eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-```
-
-Then install WezTerm from its official package repository (Debian/Ubuntu):
-
-```sh
+sudo apt-get update && sudo apt-get install -y build-essential curl git gpg ripgrep wl-clipboard xclip poppler-utils imagemagick &&
 curl -fsSL https://apt.fury.io/wez/gpg.key | sudo gpg --yes --dearmor -o /usr/share/keyrings/wezterm-fury.gpg &&
 echo 'deb [signed-by=/usr/share/keyrings/wezterm-fury.gpg] https://apt.fury.io/wez/ * *' | sudo tee /etc/apt/sources.list.d/wezterm.list &&
 sudo chmod 644 /usr/share/keyrings/wezterm-fury.gpg &&
 sudo apt-get update && sudo apt-get install -y wezterm
 ```
 
-On Fedora install the prerequisites with `sudo dnf group install development-tools && sudo dnf install procps-ng curl file git wl-clipboard xclip`, and on Arch with `sudo pacman -S base-devel procps-ng curl file git wl-clipboard xclip wezterm`; for WezTerm on other distributions see [wezterm.org](https://wezterm.org/install/linux.html). Neovim needs `wl-clipboard` (Wayland) or `xclip` (X11) to share the clipboard with other apps; fresh Ubuntu ships neither. Then paste this block in the folder you want to open:
+Then paste this line, which needs no password:
 
 ```sh
-PROJECT_DIR="$PWD"
-brew install neovim ripgrep tree-sitter-cli poppler imagemagick &&
-git clone https://github.com/JensenJones/JensenVim.git "$HOME/JensenVim" &&
-"$HOME/JensenVim/install-linux.sh" --apply &&
-export PATH="$HOME/.local/bin:$PATH" &&
-jvim "$PROJECT_DIR"
+curl -fsSL https://raw.githubusercontent.com/JensenJones/JensenVim/main/bootstrap-linux.sh | sh
 ```
+
+It installs Neovim and tree-sitter into `~/.local` from their official releases (distribution packages are usually too old), clones the repository into `~/JensenVim` and runs `install-linux.sh --apply`. If system packages are missing it stops and prints the command for your distribution (apt, dnf or pacman). Rerun the same line to update; set `JVIM_DIR` to clone somewhere else. For WezTerm outside Debian, Ubuntu and Arch, see [wezterm.org](https://wezterm.org/install/linux.html). Neovim needs `wl-clipboard` (Wayland) or `xclip` (X11) to share the clipboard with other apps, and fresh Ubuntu ships neither.
 
 The installer links `config/` to `~/.config/jvim`, adds a `jvim` launcher in `~/.local/bin`, puts that folder on PATH in your shell's startup file and sets up WezTerm as described in [Terminal setup](#terminal-setup). It first moves any previous installation into `~/.local/state/jvim/backups`. Open WezTerm and run `jvim .`; shortcuts use Ctrl where the Mac uses Cmd (Ctrl+S, Ctrl+W, Ctrl+Shift+A). In another terminal jvim still runs, but shortcuts that terminal reserves or cannot encode will not arrive. The iTerm bridge is macOS only; Herdr panes inside WezTerm get the same keys.
 
@@ -161,7 +151,7 @@ Use **Check jvim health** in the picker, or `:checkhealth jvim`, to inspect conf
 
 ## Repository contents and updating
 
-`config/` is the editor; `install-linux.sh` and `install-windows.ps1` install it on Linux and Windows; `bin/` contains the Mac launchers; `integrations/macos/` contains the shortcut preset, AppleScript sources and Python requirements. No compiled Mac app, plugin cache, Python environment, editing history, credentials, sockets or project source is bundled. The installer builds the app and runtime on the destination computer.
+`config/` is the editor; `install-linux.sh` and `install-windows.ps1` install it on Linux and Windows, and `bootstrap-linux.sh` and `bootstrap-windows.ps1` are the one-line setups; `bin/` contains the Mac launchers; `integrations/macos/` contains the shortcut preset, AppleScript sources and Python requirements. No compiled Mac app, plugin cache, Python environment, editing history, credentials, sockets or project source is bundled. The installer builds the app and runtime on the destination computer.
 
 After updating the repository, rerun the installer. It backs up the previous managed installation. To roll back, close jvim and restore the desired files from the reported backup directory. The installer does not alter iTerm's global underline preference.
 

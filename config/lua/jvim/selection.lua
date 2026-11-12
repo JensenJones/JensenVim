@@ -61,8 +61,15 @@ function M.select(direction)
   local cursor = vim.api.nvim_win_get_cursor(0)
   local target = M.target(direction, true)
   local distance = M.distance(vim.api.nvim_get_current_line(), target, cursor[2])
-  if distance == 0 then return '' end
-  local keys = string.rep(direction > 0 and '<S-Right>' or '<S-Left>', distance)
+  local keys
+  if distance > 0 then
+    keys = string.rep(direction > 0 and '<S-Right>' or '<S-Left>', distance)
+  else
+    -- At a line end the selection carries on to the neighbouring line, as word movement does.
+    local row = cursor[1] + direction
+    if row < 1 or row > vim.api.nvim_buf_line_count(0) then return '' end
+    keys = direction > 0 and '<S-Down><S-Home>' or '<S-Up><S-End>'
+  end
   -- Shifted arrows from a mapping start Visual mode rather than Select mode, so switch to Select for typing over the word.
   if vim.fn.mode():find '^[ni]' then keys = keys .. '<C-g>' end
   return keys

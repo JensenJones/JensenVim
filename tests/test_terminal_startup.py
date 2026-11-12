@@ -627,6 +627,19 @@ end })
                 time.sleep(0.05)
                 self.assertEqual(state('vim.api.nvim_win_get_cursor(0)'), expected, 'Option+arrow did not continue across the line end')
             self.assertEqual(state('vim.fn.mode()'), 'i', 'word movement left typing mode')
+            ends = "(function() local v, c = vim.fn.getpos('v'), vim.fn.getpos('.'); return {v[2], v[3], c[2], c[3]} end)()"
+            for expected in ([1, 26, 2, 1], [1, 26, 2, 5]):
+                os.write(master, b'\x1b[23;5~76')
+                time.sleep(0.1)
+                self.assertEqual(state(ends), expected, 'Option+Shift+Right did not extend the selection onto the next line')
+            self.assertEqual(state('vim.fn.mode()'), 's', 'selection across lines left Select mode')
+            os.write(master, b'\x1b')
+            time.sleep(0.1)
+            lua("(function() vim.api.nvim_win_set_cursor(0, {2, 0}); vim.cmd.startinsert(); return true end)()")
+            time.sleep(0.1)
+            os.write(master, b'\x1b[23;5~75')
+            time.sleep(0.1)
+            self.assertEqual(state(ends), [2, 1, 1, 26], 'Option+Shift+Left did not extend the selection onto the previous line')
             return
         if interaction == 'terminal_normal_cmdw':
             lua("(function() _G.jvim_test_terminal=require('jvim.command_terminal').open(); return true end)()")

@@ -60,3 +60,15 @@ class LinuxInstallTests(unittest.TestCase):
             backups = list((home/'.local/state/jvim/backups').iterdir())
             self.assertEqual((backups[0]/'config/init.lua').read_text(), 'old copy')
             self.assertTrue((home/'.config/jvim').is_symlink())
+
+    def test_bootstrap_stops_with_package_command_when_tools_are_missing(self):
+        with tempfile.TemporaryDirectory(prefix='jvim-bootstrap-') as temporary:
+            tools = Path(temporary)/'bin'
+            tools.mkdir()
+            for name in ('uname', 'cat'):
+                (tools/name).symlink_to(shutil.which(name))
+            result = subprocess.run(['/bin/sh', str(ROOT/'bootstrap-linux.sh')], env={'HOME': temporary, 'PATH': str(tools)},
+                                    capture_output=True, text=True, timeout=15)
+            self.assertEqual(result.returncode, 1, result.stderr)
+            self.assertIn('Missing: git curl cc rg', result.stderr)
+            self.assertFalse((Path(temporary)/'JensenVim').exists(), 'bootstrap cloned before checking prerequisites')
