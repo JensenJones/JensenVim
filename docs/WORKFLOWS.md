@@ -8,14 +8,14 @@ Click **Config** in the status line. With no configurations yet, it opens a smal
 
 ```
 Name: Build and run
-Directory: .
+Directory: /home/you/project
 
 cmake -B build
 cmake --build build
 ./build/app --verbose
 ```
 
-Each line runs in your shell exactly as you would type it, so pipes, `&&`, quotes and globs work. Lines run in order and the run stops at the first command that fails, showing its exit status. Lines starting with `#` are ignored. **Directory** is the folder the commands run in: `.` is the project root, and other relative paths such as `paper` start there. Saving checks that the folder exists. Choose a configuration in **Config** to make it the one **Run** starts, and pick **Edit "<name>"** there to change it; remove every command and save to delete it. **Cmd+W** or **Esc** closes the form without saving.
+Each line runs in your shell exactly as you would type it, so pipes, `&&`, quotes and globs work. Lines run in order and the run stops at the first command that fails, showing its exit status. Lines starting with `#` are ignored. **Directory** is the folder the commands run in. It starts as the project root's full path; type another path, or a relative one such as `paper`, which starts at the project root. Saving checks that the folder exists, and `.jvim/run.json` stores folders inside the project relative to it so the file still works on other machines. Choose a configuration in **Config** to make it the one **Run** starts, and pick **Edit "<name>"** there to change it; remove every command and save to delete it. **Cmd+W** or **Esc** closes the form without saving.
 
 The form writes `.jvim/run.json`, which you can also edit directly through **Open .jvim/run.json**:
 

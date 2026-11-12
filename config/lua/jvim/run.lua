@@ -197,9 +197,14 @@ function M.save_form(root, original, lines)
   local path = root .. '/.jvim/run.json'
   local name, commands, directory = parse_form(lines)
   if not name or name == '' then return nil, 'Give the configuration a name on the "Name:" line' end
-  if directory == '' or directory == '.' then directory = nil end
-  if directory and vim.fn.isdirectory(absolute(directory) and directory or root .. '/' .. directory) ~= 1 then
-    return nil, 'Directory not found: ' .. directory .. ' (relative paths start at ' .. root .. ')'
+  if directory and directory ~= '' then
+    local full = vim.fs.normalize(vim.fn.expand(directory))
+    if not absolute(full) then full = vim.fs.normalize(root .. '/' .. full) end
+    if vim.fn.isdirectory(full) ~= 1 then return nil, 'Directory not found: ' .. full end
+    -- run.json stays portable: folders inside the project are stored relative to it, the root itself not at all.
+    directory = full ~= root and (vim.fs.relpath(root, full) or full) or nil
+  else
+    directory = nil
   end
   local data, err = read_raw(path)
   if not data then return nil, err end
@@ -229,7 +234,7 @@ local forms = 0
 
 function M.form(root, original)
   root = vim.fs.normalize(root or M.root())
-  local commands, directory = {}, '.'
+  local commands, directory = {}, root
   if original then
     local data, err = read_raw(root .. '/.jvim/run.json')
     if not data then return error_message(err) end
@@ -237,7 +242,8 @@ function M.form(root, original)
       if type(item) == 'table' and item.name == original then
         commands = list(item.commands) and vim.deepcopy(item.commands)
           or { table.concat(vim.tbl_map(shell_word, item.command or {}), ' ') }
-        directory = text(item.cwd) and item.cwd or '.'
+        local cwd = text(item.cwd) and vim.fs.normalize(item.cwd) or '.'
+        directory = absolute(cwd) and cwd or vim.fs.normalize(root .. '/' .. cwd)
       end
     end
   end
@@ -245,8 +251,7 @@ function M.form(root, original)
     '# Cmd+S saves, Cmd+W or Esc closes without saving.',
     'Name: ' .. (original or ''),
     '',
-    '# Folder the commands run in. Relative paths start at the project root,',
-    '# ' .. vim.fn.fnamemodify(root, ':~') .. ', and . is the root itself.',
+    '# Folder the commands run in. Relative paths start at the project root.',
     'Directory: ' .. directory,
     '',
     '# Commands, one per line. They run in order in your shell',
