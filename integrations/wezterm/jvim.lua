@@ -99,6 +99,7 @@ M.keys = {
   { 'UpArrow', 'SHIFT', '\x1b[23;5~73' },
   { '\\', 'CMD', '\x1b[23;5~78' },
   { '\\', 'CMD|SHIFT', '\x1b[23;5~79' },
+  { '\\', 'CMD|ALT', '\x1b[23;5~81' },
   { '|', 'CMD|SHIFT', '\x1b[23;5~79' },
 }
 
@@ -163,7 +164,8 @@ function M.apply(config)
   end)
 
   local defaults = {}
-  for _, binding in ipairs(wezterm.gui.default_keys()) do
+  -- wezterm.gui is absent when the config loads for `wezterm cli`, which needs no keys.
+  for _, binding in ipairs(wezterm.gui and wezterm.gui.default_keys() or {}) do
     defaults[binding_id(binding.key, binding.mods)] = binding.action
   end
 

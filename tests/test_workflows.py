@@ -23,6 +23,10 @@ class WorkflowTests(unittest.TestCase):
                                     env=env, capture_output=True, text=True, timeout=15)
             self.assertEqual(result.returncode, 0, result.stderr)
 
+    @unittest.skipIf(os.name == 'nt', 'fake wezterm is a POSIX script')
+    def test_pop_out_saves_releases_and_opens_the_file_in_a_new_wezterm_window(self):
+        self.check_case('pop_out')
+
     def test_run_config_validation_rejects_bad_commands_paths_and_environment(self):
         self.check_case('validation')
 

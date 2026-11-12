@@ -22,6 +22,7 @@ end
 
 local function text(value) return type(value) == 'string' and not value:find('\0', 1, true) end
 local function list(value) return type(value) == 'table' and vim.islist(value) end
+local function absolute(path) return vim.startswith(path, '/') or path:match('^%a:[/\\]') ~= nil end
 
 function M.load(root)
   root = vim.fs.normalize(root or M.root())
@@ -52,7 +53,7 @@ function M.load(root)
     end
     if item.cwd ~= nil and not text(item.cwd) then return nil, prefix .. 'cwd must be a path string' end
     local cwd = item.cwd or '.'
-    if not vim.startswith(cwd, '/') and not cwd:match('^%a:[/\\]') then cwd = root .. '/' .. cwd end
+    if not absolute(cwd) then cwd = root .. '/' .. cwd end
     cwd = vim.fs.normalize(cwd)
     if vim.fn.isdirectory(cwd) ~= 1 then return nil, prefix .. 'cwd is not a directory: ' .. cwd end
     if item.env ~= nil and (type(item.env) ~= 'table' or vim.islist(item.env)) then return nil, prefix .. 'env must be an object' end
@@ -95,14 +96,14 @@ end
 
 local function resolve(entry)
   local executable = entry.command[1]
-  if executable:find('[/\\]') and not vim.startswith(executable, '/') and not executable:match('^%a:[/\\]') then
+  if executable:find('[/\\]') and not absolute(executable) then
     executable = entry.cwd .. '/' .. executable
   end
   if not executable:find('[/\\]') and entry.env and entry.env.PATH then
     local found
     local separator = package.config:sub(1, 1) == '\\' and ';' or ':'
     for _, directory in ipairs(vim.split(entry.env.PATH, separator, { plain = true })) do
-      if not vim.startswith(directory, '/') and not directory:match('^%a:[/\\]') then directory = entry.cwd .. '/' .. directory end
+      if not absolute(directory) then directory = entry.cwd .. '/' .. directory end
       local candidate = directory .. '/' .. executable
       if vim.fn.executable(candidate) == 1 then found = candidate; break end
     end
@@ -175,24 +176,31 @@ local function shell_word(arg)
 end
 
 local function parse_form(lines)
-  local name, commands
+  local name, commands, directory
   for _, line in ipairs(lines) do
     local trimmed = vim.trim(line)
-    if not commands then
+    local folder = trimmed:match('^Directory:%s*(.-)$')
+    if folder then
+      directory = folder
+    elseif not commands then
       local value = trimmed:match('^Name:%s*(.-)$')
       if value then name, commands = value, {} end
     elseif trimmed ~= '' and not vim.startswith(trimmed, '#') then
       commands[#commands + 1] = trimmed
     end
   end
-  return name, commands or {}
+  return name, commands or {}, directory
 end
 
 -- Saves the form into run.json. original is the configuration's previous name, nil for a new one.
 function M.save_form(root, original, lines)
   local path = root .. '/.jvim/run.json'
-  local name, commands = parse_form(lines)
+  local name, commands, directory = parse_form(lines)
   if not name or name == '' then return nil, 'Give the configuration a name on the "Name:" line' end
+  if directory == '' or directory == '.' then directory = nil end
+  if directory and vim.fn.isdirectory(absolute(directory) and directory or root .. '/' .. directory) ~= 1 then
+    return nil, 'Directory not found: ' .. directory .. ' (relative paths start at ' .. root .. ')'
+  end
   local data, err = read_raw(path)
   if not data then return nil, err end
   local index
@@ -208,7 +216,7 @@ function M.save_form(root, original, lines)
     if selected[root] == original then selected[root] = nil end
   else
     local item = index and data.configurations[index] or {}
-    item.name, item.commands, item.command = name, commands, nil
+    item.name, item.commands, item.command, item.cwd = name, commands, nil, directory
     if not index then data.configurations[#data.configurations + 1] = item end
     selected[root] = name
   end
@@ -221,7 +229,7 @@ local forms = 0
 
 function M.form(root, original)
   root = vim.fs.normalize(root or M.root())
-  local commands = {}
+  local commands, directory = {}, '.'
   if original then
     local data, err = read_raw(root .. '/.jvim/run.json')
     if not data then return error_message(err) end
@@ -229,12 +237,17 @@ function M.form(root, original)
       if type(item) == 'table' and item.name == original then
         commands = list(item.commands) and vim.deepcopy(item.commands)
           or { table.concat(vim.tbl_map(shell_word, item.command or {}), ' ') }
+        directory = text(item.cwd) and item.cwd or '.'
       end
     end
   end
   local lines = {
     '# Cmd+S saves, Cmd+W or Esc closes without saving.',
     'Name: ' .. (original or ''),
+    '',
+    '# Folder the commands run in. Relative paths start at the project root,',
+    '# ' .. vim.fn.fnamemodify(root, ':~') .. ', and . is the root itself.',
+    'Directory: ' .. directory,
     '',
     '# Commands, one per line. They run in order in your shell',
     '# and stop at the first one that fails. Remove them all to delete.',

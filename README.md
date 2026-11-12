@@ -115,6 +115,7 @@ On Windows, Cmd-based editor mappings become Ctrl-based mappings: Ctrl+B for def
 | Cmd+Shift+A | Search actions and shortcuts |
 | Ctrl+Shift+G | Git changes: changed-file tree with side-by-side diffs |
 | Cmd+Shift+T | Reopen the last closed file, recreating its split if needed |
+| Cmd+Option+\\ | Move the current file to a new jvim window (WezTerm), for example to put it on another monitor |
 | Cmd+B / Ctrl-click | Go to definition (Cmd-click is optional) |
 | Cmd+Option+Left / Right | Navigate back / forward |
 | Cmd+Z / Cmd+Shift+Z | Undo / redo |

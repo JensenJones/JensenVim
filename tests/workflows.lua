@@ -124,7 +124,8 @@ elseif case == 'form' then
   buf = run.form(root, 'Example')
   -- Legacy argv commands become one shell line quoted for the user's shell (cmd.exe uses double quotes).
   local legacy = vim.fn.has 'win32' == 1 and 'sh -c "echo legacy"' or "sh -c 'echo legacy'"
-  equal(vim.api.nvim_buf_get_lines(buf, 5, 6, false), { legacy })
+  equal(vim.api.nvim_buf_get_lines(buf, 9, 10, false), { legacy })
+  equal(vim.api.nvim_buf_get_lines(buf, 5, 6, false), { 'Directory: .' })
   vim.api.nvim_buf_set_lines(buf, 1, 2, false, { 'Name: Renamed' })
   vim.cmd.write()
   wait_for(function() return not vim.api.nvim_buf_is_valid(buf) end)
@@ -132,6 +133,17 @@ elseif case == 'form' then
   equal({ entries[1].name, entries[1].commands, entries[1].command, entries[1].env.JVIM_WORKFLOW_VALUE }, { 'Renamed', { legacy }, nil, 'hello spaces' })
   assert(not run.save_form(root, nil, { 'Name: Renamed', 'echo x' }), 'duplicate name accepted')
   assert(not run.save_form(root, nil, { 'Name: Empty' }), 'configuration without commands accepted')
+  vim.fn.mkdir(root .. '/paper', 'p')
+  assert(not run.save_form(root, 'Renamed', { 'Name: Renamed', 'Directory: missing', 'echo x' }), 'missing directory accepted')
+  equal(run.save_form(root, 'Renamed', { 'Name: Renamed', 'Directory: paper', 'pwd' }), 'Renamed')
+  equal(assert(run.load(root))[1].cwd, vim.fs.normalize(root .. '/paper'))
+  buf = run.form(root, 'Renamed')
+  equal(vim.api.nvim_buf_get_lines(buf, 5, 6, false), { 'Directory: paper' })
+  vim.api.nvim_buf_set_lines(buf, 5, 6, false, { 'Directory: .' })
+  vim.cmd.write()
+  wait_for(function() return not vim.api.nvim_buf_is_valid(buf) end)
+  equal(assert(run.load(root))[1].cwd, root)
+  assert(not table.concat(vim.fn.readfile(root .. '/.jvim/run.json'), '\n'):find('"cwd"', 1, true), 'the root directory was stored')
   equal(run.save_form(root, 'Renamed', { 'Name: Renamed' }), false)
   equal(assert(run.load(root)), {})
   assert(#vim.tbl_filter(function(b) return vim.bo[b].buftype == 'terminal' end, vim.api.nvim_list_bufs()) == 0, 'saving the form ran a command')
@@ -140,7 +152,7 @@ elseif case == 'form' then
   local editor_win = vim.api.nvim_get_current_win()
   buf = run.form(root)
   vim.api.nvim_buf_set_lines(buf, 1, 2, false, { 'Name: Keys' })
-  vim.api.nvim_buf_set_lines(buf, 5, 6, false, { 'echo keys' })
+  vim.api.nvim_buf_set_lines(buf, 9, 10, false, { 'echo keys' })
   vim.api.nvim_feedkeys(vim.keycode '<F35>16', 'xt', false)
   wait_for(function() return not vim.api.nvim_buf_is_valid(buf) end)
   equal(assert(run.load(root))[1].name, 'Keys')
@@ -150,6 +162,28 @@ elseif case == 'form' then
     wait_for(function() return not vim.api.nvim_buf_is_valid(buf) end)
     assert(vim.api.nvim_win_is_valid(editor_win), close .. ' closed the editor instead of only the form')
   end
+elseif case == 'pop_out' then
+  local pop_out = require 'jvim.pop_out'
+  vim.env.WEZTERM_PANE, vim.env.WEZTERM_EXECUTABLE = nil, nil
+  vim.env.PATH = root .. '/bin:' .. vim.env.PATH
+  equal({ pop_out.command(root .. '/a.txt', { 1, 0 }, root) }, { nil, 'Opening a file in a new window needs WezTerm' })
+  vim.fn.mkdir(root .. '/bin', 'p')
+  vim.fn.writefile({ '#!/bin/sh' }, root .. '/bin/wezterm')
+  vim.fn.setfperm(root .. '/bin/wezterm', 'rwxr-xr-x')
+  vim.env.WEZTERM_PANE = '1'
+  vim.fn.writefile({ 'one', 'two', 'three' }, root .. '/a.txt')
+  vim.fn.writefile({ 'other' }, root .. '/b.txt')
+  vim.cmd.edit 'b.txt'
+  vim.cmd.edit 'a.txt'
+  vim.api.nvim_buf_set_lines(0, 0, 1, false, { 'edited' })
+  vim.api.nvim_win_set_cursor(0, { 3, 2 })
+  local spawned
+  vim.system = function(command) spawned = command end
+  pop_out.open()
+  equal(vim.fn.readfile(root .. '/a.txt'), { 'edited', 'two', 'three' })
+  equal(vim.fn.bufloaded(root .. '/a.txt'), 0)
+  equal(vim.list_slice(spawned, 1, 6), { root .. '/bin/wezterm', 'cli', 'spawn', '--new-window', '--cwd', root })
+  equal(vim.list_slice(spawned, #spawned - 1), { '+call cursor(3, 3)', root .. '/a.txt' })
 elseif case == 'project' then
   local run = require 'jvim.run'
   vim.fn.mkdir(root .. '/tools', 'p')

@@ -109,6 +109,7 @@ function M.entries()
   table.insert(entries, { name = 'Open terminal', shortcut = 'Cmd+Option+;', key = '<F35>67' })
   table.insert(entries, { name = 'Split editor right', shortcut = '', key = '<F35>78' })
   table.insert(entries, { name = 'Split editor down', shortcut = '', key = '<F35>79' })
+  table.insert(entries, { name = 'Move file to a new window (for another monitor)', shortcut = 'Cmd+Option+\\', key = '<F35>81' })
   table.insert(entries, { name = 'Toggle Markdown preview', shortcut = '', key = '<F35>65' })
   table.insert(entries, { name = 'Toggle Cmd-click code links (dashed underlines)', shortcut = '', key = '<F35>66' })
   for _, entry in ipairs {
