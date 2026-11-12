@@ -135,6 +135,21 @@ elseif case == 'form' then
   equal(run.save_form(root, 'Renamed', { 'Name: Renamed' }), false)
   equal(assert(run.load(root)), {})
   assert(#vim.tbl_filter(function(b) return vim.bo[b].buftype == 'terminal' end, vim.api.nvim_list_bufs()) == 0, 'saving the form ran a command')
+  -- WezTerm and iTerm send Cmd+S and Cmd+W as transport codes, which must reach the form, not the editor-wide actions.
+  require('jvim.keymaps')
+  local editor_win = vim.api.nvim_get_current_win()
+  buf = run.form(root)
+  vim.api.nvim_buf_set_lines(buf, 1, 2, false, { 'Name: Keys' })
+  vim.api.nvim_buf_set_lines(buf, 5, 6, false, { 'echo keys' })
+  vim.api.nvim_feedkeys(vim.keycode '<F35>16', 'xt', false)
+  wait_for(function() return not vim.api.nvim_buf_is_valid(buf) end)
+  equal(assert(run.load(root))[1].name, 'Keys')
+  for _, close in ipairs { '<C-F11>20', '<F35>20', '<Esc>' } do
+    buf = run.form(root)
+    vim.api.nvim_feedkeys(vim.keycode(close), 'xt', false)
+    wait_for(function() return not vim.api.nvim_buf_is_valid(buf) end)
+    assert(vim.api.nvim_win_is_valid(editor_win), close .. ' closed the editor instead of only the form')
+  end
 elseif case == 'project' then
   local run = require 'jvim.run'
   vim.fn.mkdir(root .. '/tools', 'p')

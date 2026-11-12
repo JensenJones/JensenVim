@@ -271,13 +271,14 @@ function M.form(root, original)
       vim.cmd.redrawstatus()
     end,
   })
-  for _, key in ipairs { '<F16>', '<D-s>', '<C-s>' } do
+  -- Terminals deliver Cmd+S and Cmd+W as transport codes (<F35>16, <C-F11>20), so the form claims those too.
+  for _, key in ipairs { '<F16>', '<F35>16', '<C-F11>16', '<D-s>', '<C-s>' } do
     vim.keymap.set({ 'n', 'i', 's', 'x' }, key, '<Cmd>write<CR>', { buffer = buf, desc = 'Save run configuration' })
   end
-  for _, key in ipairs { '<F20>', '<D-w>' } do
+  for _, key in ipairs { '<F20>', '<F35>20', '<C-F11>20', '<D-w>', '<C-w>' } do
     vim.keymap.set({ 'n', 'i', 's', 'x' }, key, close, { buffer = buf, desc = 'Close run configuration' })
   end
-  vim.keymap.set('n', '<Esc>', close, { buffer = buf, desc = 'Close run configuration' })
+  vim.keymap.set({ 'n', 'i' }, '<Esc>', close, { buffer = buf, desc = 'Close run configuration' })
   if original then
     vim.api.nvim_win_set_cursor(win, { first_command, #lines[first_command] })
   else
