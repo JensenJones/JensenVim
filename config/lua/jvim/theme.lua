@@ -5,6 +5,7 @@ local themes = {
   { name = 'jvim-neon-dusk', label = 'Neon Dusk (synthwave midnight)' },
   { name = 'jvim-ember', label = 'Ember (warm fire on charcoal)' },
   { name = 'jvim-aurora', label = 'Aurora (polar night, northern lights)' },
+  { name = 'jvim-blood-moon', label = 'Blood Moon (crimson on black, high contrast)' },
   { name = 'dark-ubuntu', label = 'Dark Ubuntu (previous)' },
   { name = 'habamax', label = 'Habamax' },
   { name = 'slate', label = 'Slate' },
