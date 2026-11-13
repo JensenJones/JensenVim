@@ -44,10 +44,10 @@ The settings give jvim its shortcuts and make shells and prompts outside jvim (z
 |---|---|---|
 | Paste | Cmd+V | Ctrl+V (or Ctrl+Shift+V) |
 | Copy selected text | Cmd+C | Ctrl+C (interrupts when nothing is selected) |
-| Delete to start of line | Cmd+Backspace | Ctrl+Backspace |
-| Delete word | Option+Backspace | Alt+Backspace |
+| Delete to start of line (line in jvim) | Cmd+Backspace | Alt+Backspace |
+| Delete word | Option+Backspace | Ctrl+Backspace |
 
-Every jvim shortcut follows the same rule: on Linux and Windows press Ctrl wherever the Mac uses Cmd, and Alt for Option. Super stays with the desktop, because GNOME and Windows already use Super+V, Super+A, Super+L and Super+arrows. A few Cmd shortcuts whose Ctrl form jvim already uses keep the Ctrl meaning; for example Ctrl+Left and Ctrl+Right move to the previous and next file, so use Home and End for line start and end. The settings update with the checkout and WezTerm reloads them automatically.
+Every jvim shortcut follows the same rule: on Linux and Windows press Ctrl wherever the Mac uses Cmd, and Alt for Option. Backspace is the exception: as in Windows and Linux text fields, Ctrl+Backspace deletes a word and Alt+Backspace the line. Super stays with the desktop, because GNOME and Windows already use Super+V, Super+A, Super+L and Super+arrows. A few Cmd shortcuts whose Ctrl form jvim already uses keep the Ctrl meaning; for example Ctrl+Left and Ctrl+Right move to the previous and next file, so use Home and End for line start and end. The settings update with the checkout and WezTerm reloads them automatically.
 
 To open a file later, run `jvim path/to/file.cpp` from any terminal in which the shell PATH is loaded. Herdr panes inside WezTerm get the same keys, since WezTerm checks which pane is running jvim.
 
@@ -113,7 +113,7 @@ For terminal mode, install WezTerm with `winget install wez.wezterm`; the instal
 
 To install from an existing checkout instead, run `install-windows.ps1 -Apply -AddToPath` (add `-Frontend nvim` for terminal mode). jvim installs separately at `%LOCALAPPDATA%\jvim`, backs up existing managed files, and keeps plugins in `%LOCALAPPDATA%\jvim-data`. Personal settings go in `%LOCALAPPDATA%\jvim-user\init.lua`.
 
-On Windows, Cmd-based editor mappings become Ctrl-based mappings: Ctrl+B for definition, F4 for the tree, Ctrl+W to close, and Ctrl+Alt+arrows for history. Ctrl-click is mapped inside Neovim. PDF and image previews are off on Windows because image.nvim does not support it. Installation, first-launch plugin, parser and language-server setup, health checks, run configurations and the test suite have been verified on Windows 11. Keyboard and mouse delivery inside Neovide has been checked through Neovim's mapping API only, and OS-reserved keys may need remapping. Windows Terminal integration and Herdr on Windows are not included.
+On Windows, Cmd-based editor mappings become Ctrl-based mappings: Ctrl+B for definition, F4 for the tree, Ctrl+W to close, Ctrl+A to select all, and Ctrl+Alt+arrows for history. Windows reads Ctrl+Alt as AltGr, so Ctrl+Alt+; often never reaches jvim; Ctrl+` opens the terminal instead. Ctrl-click is mapped inside Neovim. PDF and image previews are off on Windows because image.nvim does not support it. Installation, first-launch plugin, parser and language-server setup, health checks, run configurations and the test suite have been verified on Windows 11. Keyboard and mouse delivery inside Neovide has been checked through Neovim's mapping API only, and OS-reserved keys may need remapping. Windows Terminal integration and Herdr on Windows are not included.
 
 ## Everyday editing
 

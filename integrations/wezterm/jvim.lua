@@ -112,6 +112,9 @@ local shell = {
   ['Delete:ALT'] = act.SendString '\x1bd',
 }
 
+-- Mac Option+Backspace (word) and Cmd+Backspace (line) are pressed as these keys on Windows and Linux.
+local backspace_swap = { ALT = 'CTRL', CMD = 'ALT' }
+
 -- Like iTerm2: when the clipboard holds only an image, save it and paste its path instead.
 local function clipboard_image_path()
   local ok, text = wezterm.run_child_process { '/usr/bin/pbpaste' }
@@ -196,8 +199,11 @@ function M.apply(config)
   for _, entry in ipairs(M.keys) do
     local key, bytes = entry[1], entry[3]
     local mods = entry[2]:gsub('CMD', primary)
+    -- Off the Mac, Backspace follows Windows and Linux text fields: Ctrl deletes a word and Alt the line.
+    local swapped = not mac and key == 'Backspace' and backspace_swap[entry[2]]
+    if swapped then mods = swapped end
     -- A key the table already binds with Ctrl keeps that meaning, as Ctrl+Left does for the previous file.
-    if mods == entry[2] or not explicit[binding_id(key, mods)] then
+    if swapped or mods == entry[2] or not explicit[binding_id(key, mods)] then
       bind(key, mods, bytes, shell[key .. ':' .. entry[2]] or defaults[binding_id(key, mods)] or act.SendKey { key = key, mods = mods })
     end
   end

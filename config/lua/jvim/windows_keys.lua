@@ -28,6 +28,19 @@ function M.setup()
       end
     end
   end
+  -- Backspace follows Windows and Linux text fields rather than the Mac: Ctrl deletes a word and Alt the line.
+  -- WezTerm already swaps the two and sends Ctrl+Backspace as Alt+Backspace (<M-BS>), so only a GUI that
+  -- passes keys straight through, such as Neovide, needs <M-BS> to delete the line.
+  local function delete_line()
+    local row = vim.api.nvim_win_get_cursor(0)[1]
+    vim.api.nvim_buf_set_lines(0, row - 1, row, false, {})
+  end
+  for _, mode in ipairs { 'n', 's', 'x' } do pcall(vim.keymap.del, mode, '<C-BS>') end
+  vim.keymap.set('i', '<C-BS>', '<C-S-w>', { desc = 'Delete previous word' })
+  vim.keymap.set({ 'n', 'i', 's', 'x' }, '<M-BS>', function()
+    if vim.g.neovide then return delete_line() end
+    if vim.fn.mode() == 'i' then vim.api.nvim_feedkeys(vim.keycode '<C-S-w>', 'n', false) end
+  end, { desc = 'Delete line (Neovide) or previous word' })
   -- Windows treats Ctrl+Alt as AltGr, so Ctrl+Alt+; (Cmd+Option+;) often never
   -- arrives. Ctrl+` toggles the terminal as it does in VS Code.
   vim.keymap.set({ 'n', 'i', 's', 'x' }, '<C-`>', function() require('jvim.command_terminal').open() end, { desc = 'Open terminal' })

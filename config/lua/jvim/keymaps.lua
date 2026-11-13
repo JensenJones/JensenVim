@@ -89,9 +89,12 @@ local function shortcut(key, normal, insert, select, visual, desc)
   end
 end
 
--- Command+Left can arrive as Home, Find (CSI 1~), or Ctrl+A in terminals,
+-- Command+Left can arrive as Home, Find (CSI 1~), or Ctrl+A in Mac terminals,
 -- or as a direct Command key in a GUI. All should stop after indentation.
-for _, key in ipairs { '<Home>', '<Find>', '<C-a>', '<D-Left>' } do
+-- On Windows and Linux Ctrl+A is select all, so it stays free for the translated Cmd+A.
+local line_start_keys = { '<Home>', '<Find>', '<D-Left>' }
+if vim.fn.has 'mac' == 1 then table.insert(line_start_keys, '<C-a>') end
+for _, key in ipairs(line_start_keys) do
   shortcut(key, '^', '<C-o>^', '<C-g>^', '^', 'Move to first nonblank column')
 end
 

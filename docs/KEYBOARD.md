@@ -74,7 +74,7 @@ These bindings are generated from your active macOS copy keymap and its bundled 
 | Option+Down | Shrink selection |
 | Option+Shift+Up | Move line up |
 | Option+Shift+Down | Move line down |
-| Cmd+Backspace | Delete line |
+| Cmd+Backspace (Alt+Backspace on Linux and Windows) | Delete line |
 | F2 | Next problem |
 | Shift+F2 | Previous problem |
 | F3, Ctrl+L, Cmd+G | Next search match |

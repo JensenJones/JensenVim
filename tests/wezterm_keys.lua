@@ -42,9 +42,12 @@ for id in pairs(bindings) do
   assert(not (linux and id:find 'CMD'), 'Cmd binding on Linux: ' .. id)
 end
 equal(press('w ' .. cmd, 'jvim .'), jvim(20), 'close tab in jvim')
-equal(press('Backspace ' .. cmd, 'jvim .'), jvim(53), 'delete line in jvim')
-equal(press('Backspace ' .. cmd, 'zsh'), { 'SendString', '\21' }, 'delete line in the shell')
-equal(press('Backspace ALT', 'zsh'), { 'SendString', '\27\127' }, 'delete word in the shell')
+-- Off the Mac, Ctrl+Backspace deletes a word and Alt+Backspace the line.
+local line_mod, word_mod = linux and 'ALT' or 'CMD', linux and 'CTRL' or 'ALT'
+equal(press('Backspace ' .. line_mod, 'jvim .'), jvim(53), 'delete line in jvim')
+equal(press('Backspace ' .. word_mod, 'jvim .'), { 'SendString', '\27\127' }, 'delete word in jvim')
+equal(press('Backspace ' .. line_mod, 'zsh'), { 'SendString', '\21' }, 'delete line in the shell')
+equal(press('Backspace ' .. word_mod, 'zsh'), { 'SendString', '\27\127' }, 'delete word in the shell')
 equal(press('v ' .. cmd, 'zsh'), { 'PasteFrom', 'Clipboard' }, 'paste in the shell')
 equal(press('c ' .. cmd, 'zsh', 'picked'), { 'CopyTo', 'Clipboard' }, 'copy a selection')
 equal(press('w ' .. cmd .. '|SHIFT', 'jvim .'), jvim(63), 'close others in jvim')

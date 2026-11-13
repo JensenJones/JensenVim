@@ -339,7 +339,8 @@ function M.form(root, original)
     end
   end
   local lines = {
-    '# Cmd+S saves, Cmd+W or Esc closes without saving.',
+    (vim.fn.has 'mac' == 1 and '# Cmd+S saves, Cmd+W or Esc closes without saving.'
+      or '# Ctrl+S saves, Ctrl+W or Esc closes without saving.'),
     'Name: ' .. (original or ''),
     '',
     '# Folder the commands run in. Relative paths start at the project root.',
