@@ -356,6 +356,12 @@ function M.form(root, original)
   vim.api.nvim_buf_set_name(buf, ('jvim-run://%d/%s'):format(forms, original or 'new'))
   vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
   vim.bo[buf].buftype, vim.bo[buf].bufhidden, vim.bo[buf].swapfile = 'acwrite', 'wipe', false
+  vim.b[buf].jvim_run_root = root
+  local others = {}
+  for _, item in ipairs((read_raw(root .. '/.jvim/run.json') or {}).configurations or {}) do
+    if type(item) == 'table' and text(item.name) and item.name ~= original then others[#others + 1] = item.name end
+  end
+  vim.b[buf].jvim_run_names = others
   vim.bo[buf].filetype, vim.bo[buf].syntax, vim.bo[buf].modified = 'jvimrun', 'sh', false
   local width = math.min(80, vim.o.columns - 4)
   local height = math.min(math.max(#lines + 4, 12), vim.o.lines - 4)

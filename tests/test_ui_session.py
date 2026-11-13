@@ -289,6 +289,64 @@ class UiSessionTests(unittest.TestCase):
                                 'local entry = picker.manager:get_entry(1) return { vim.fs.basename(entry.filename), entry.lnum, entry.col } end)()', timeout=10)
         self.assertEqual(found, ['prose.tex', 1, 15])
 
+    def test_run_form_completes_commands_configurations_and_paths_like_a_shell(self):
+        tools = self.home/'tools'
+        tools.mkdir()
+        (tools/'jvimfaketool').write_text('#!/bin/sh\n')
+        (tools/'jvimfaketool').chmod(0o755)
+        (self.project/'.jvim').mkdir()
+        (self.project/'.jvim/run.json').write_text(json.dumps({'version': 1, 'configurations': [{'name': 'Build thesis', 'command': ['true']}]}))
+        path = os.environ['PATH']
+        os.environ['PATH'] = f'{tools}:{path}'
+        try:
+            editor = self.editor()
+        finally:
+            os.environ['PATH'] = path
+        editor.lua('require("jvim.run").form() return true')
+        editor.wait_for('vim.bo.filetype == "jvimrun" and vim.fn.mode() == "i"')
+        menu = ('(function() local list = require("blink.cmp.completion.list") if #list.items == 0 then return false end '
+                'return vim.tbl_map(function(item) return item.source_id .. ":" .. item.label end, list.items) end)()')
+        editor.lua('vim.api.nvim_win_set_cursor(0, { 10, 0 }) return true')
+        editor.send(b'jvimfake')
+        time.sleep(1)  # Polling over RPC while blink debounces the first keystrokes hides the menu.
+        items = editor.wait_for(menu, timeout=10)
+        self.assertIn('jvim_shell:jvimfaketool', items)
+        self.assertTrue(all(item.split(':')[0] in ('jvim_shell', 'path') for item in items), items)
+        editor.lua('require("blink.cmp").hide() vim.api.nvim_buf_set_lines(0, 9, 10, false, { "" }) vim.api.nvim_win_set_cursor(0, { 10, 0 }) return true')
+        editor.send(b'Run')
+        time.sleep(1)  # Polling over RPC while blink debounces the first keystrokes hides the menu.
+        self.assertIn('jvim_shell:Run: Build thesis', editor.wait_for(menu, timeout=10))
+        editor.lua('require("blink.cmp").hide() vim.api.nvim_buf_set_lines(0, 9, 10, false, { "" }) vim.api.nvim_win_set_cursor(0, { 10, 0 }) return true')
+        editor.send(b'cat ./ma')
+        time.sleep(1)  # Polling over RPC while blink debounces the first keystrokes hides the menu.
+        self.assertIn('path:main.tex', editor.wait_for(menu, timeout=10))
+
+    def test_diagnostic_details_open_on_click_not_when_the_cursor_rests(self):
+        editor = self.editor()
+        editor.lua('vim.cmd.edit "long.txt" return true')
+        editor.wait_for('vim.fn.expand("%:t") == "long.txt" and vim.api.nvim_buf_line_count(0) > 100')
+        time.sleep(1)
+        editor.lua('local ns = vim.api.nvim_create_namespace("test-diag") vim.diagnostic.set(ns, vim.fn.bufnr("long.txt"), { { lnum = 2, col = 0, end_col = 4, '
+                   'severity = vim.diagnostic.severity.WARN, message = "made-up warning" } }) local win = vim.fn.bufwinid("long.txt") vim.api.nvim_set_current_win(win) vim.api.nvim_win_set_width(win, 120) vim.api.nvim_win_set_cursor(win, { 3, 1 }) return true')
+        floats = ('#vim.tbl_filter(function(w) local c = vim.api.nvim_win_get_config(w) local b = vim.api.nvim_win_get_buf(w) '
+                  'return c.relative ~= "" and not c.hide and table.concat(vim.api.nvim_buf_get_lines(b, 0, -1, false), "\\n"):find("made%-up warning") ~= nil end, vim.api.nvim_list_wins())')
+        time.sleep(max(1.0, editor.lua('return vim.o.updatetime') / 1000 + 0.5))
+        self.assertEqual(editor.lua('return ' + floats), 0, 'resting the cursor opened the details')
+        screen = editor.lua('local info = vim.fn.getwininfo(vim.fn.bufwinid("long.txt"))[1] '
+                            'return { row = info.winrow + info.winbar + 3 - info.topline, gutter = info.wincol, text = info.wincol + info.textoff }')
+        def click(col, row=None):
+            row = row or screen['row']
+            editor.send(f"\x1b[<0;{col};{row}M\x1b[<0;{col};{row}m".encode())
+        click(screen['text'] + 5)
+        time.sleep(0.5)
+        self.assertEqual(editor.lua('return ' + floats), 0, 'clicking text without a diagnostic opened the details')
+        click(screen['gutter'])
+        editor.wait_for(floats + ' == 1')
+        editor.lua('vim.api.nvim_win_set_cursor(vim.fn.bufwinid("long.txt"), { 20, 0 }) return true')
+        editor.wait_for(floats + ' == 0')
+        click(screen['text'] + 1)
+        editor.wait_for(floats + ' == 1')
+
     def test_second_editor_restores_files_held_by_the_first_without_swap_warnings(self):
         first = self.editor()
         first.lua('vim.cmd.edit "chapters/intro.tex"; vim.cmd.edit "main.tex"; return true')

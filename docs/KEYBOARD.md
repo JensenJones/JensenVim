@@ -97,7 +97,7 @@ Find in file uses a literal query shared by next/previous search. File and proje
 
 Wheel/trackpad browsing keeps a stationary marker at the editing position and hides the native cursor so it does not appear to follow the viewport edge. Typing returns to the saved position; clicking chooses a new editing position.
 
-C/C++ uses your installed clangd for completion, diagnostics while typing, definitions, types, implementations, references, rename, fixes, documentation, and parameter information. Accurate includes and project symbols depend on the project's compiler flags or compilation database.
+C/C++ uses your installed clangd for completion, diagnostics while typing, definitions, types, implementations, references, rename, fixes, documentation, and parameter information. Warnings and errors show as a sign beside the line number and a short message after the line; click the sign, the message or the underlined code to see the full details. Accurate includes and project symbols depend on the project's compiler flags or compilation database.
 
 Successful C/C++ renames also trigger asynchronous syntax-only compiler checks using `compile_commands.json`, so errors in instantiated header templates appear in the editor. Checked projects recheck after saved edits. Use **Cmd+Shift+A → Check C++ project (syntax only)** to start a check manually. Include test sources in the database. Some dependent template references remain outside clangd's rename support; uninstantiated templates may need review even when compiler checks pass.
 

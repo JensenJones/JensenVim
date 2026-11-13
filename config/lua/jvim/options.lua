@@ -31,10 +31,27 @@ function M.setup()
     } },
     jump = { float = true },
   }
-  vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
-    group = vim.api.nvim_create_augroup('jvim-diagnostic-float', { clear = true }),
-    callback = function() vim.diagnostic.open_float { scope = 'line', focus = false } end,
-  })
+  -- Diagnostic details open on a click: on the sign beside the line number or the message after the line
+  -- shows the whole line's diagnostics, on the underlined text the ones under it. Resting the cursor does nothing.
+  vim.on_key(function(_, typed)
+    if typed == '' or vim.fn.keytrans(typed) ~= '<LeftRelease>' then return end
+    vim.schedule(function()
+      local mouse = vim.fn.getmousepos()
+      if mouse.winid == 0 or mouse.line == 0 or not vim.api.nvim_win_is_valid(mouse.winid) then return end
+      if vim.fn.mode():find '^[vVsS\22\19]' then return end
+      local buf = vim.api.nvim_win_get_buf(mouse.winid)
+      local info = vim.fn.getwininfo(mouse.winid)[1]
+      local text = vim.api.nvim_buf_get_lines(buf, mouse.line - 1, mouse.line, false)[1] or ''
+      local gutter = mouse.wincol <= info.textoff
+      local after_line = not gutter and mouse.column > #text
+      vim.api.nvim_win_call(mouse.winid, function()
+        vim.diagnostic.open_float {
+          bufnr = buf, focus = false, scope = (gutter or after_line) and 'line' or 'cursor',
+          pos = { mouse.line - 1, math.max(mouse.column - 1, 0) },
+        }
+      end)
+    end)
+  end, vim.api.nvim_create_namespace 'jvim-diagnostic-click')
   -- Thesis chapters pulled in with \input have no \documentclass, so Neovim would guess plain TeX.
   vim.g.tex_flavor = 'latex'
   vim.api.nvim_create_autocmd('FileType', {

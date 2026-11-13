@@ -203,6 +203,12 @@ return {
           if ok and node and node:type():find 'comment' then return {} end
           return { 'lsp', 'path', 'snippets', 'buffer' }
         end,
+        -- The run configuration form completes like a shell, not like a code file.
+        per_filetype = { jvimrun = { 'jvim_shell', 'path' } },
+        providers = {
+          jvim_shell = { name = 'Shell', module = 'jvim.shell_completion' },
+          path = { opts = { get_cwd = function(context) return require('jvim.shell_completion').cwd(context.bufnr) end } },
+        },
       },
 
       snippets = require('jvim.completion').snippets(),
