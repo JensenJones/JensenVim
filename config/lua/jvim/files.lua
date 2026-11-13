@@ -120,7 +120,10 @@ function M.render_winbar(win)
   -- Every tab gets the same width: the longest name, shrunk to share the pane if needed.
   local width = 0
   for _, tab in ipairs(tabs) do width = math.max(width, vim.fn.strdisplaywidth(tab.name)) end
-  local fit = math.floor((vim.api.nvim_win_get_width(win) + 1) / #tabs) - 3
+  local controls = package.loaded['jvim.fold_controls']
+  controls = controls and controls.in_winbar() and controls or nil
+  local room = vim.api.nvim_win_get_width(win) - (controls and controls.width + 2 or 0)
+  local fit = math.floor((room + 1) / #tabs) - 3
   width = math.max(math.min(width, fit), 6)
   local parts = {}
   for _, tab in ipairs(tabs) do
@@ -137,7 +140,9 @@ function M.render_winbar(win)
     local group = tab.buf == current and selected_group or 'TabLine'
     parts[#parts + 1] = ('%%#%s#%%%d@v:lua.JvimTabClick@ %s %%T'):format(group, next_click_target, name)
   end
-  return table.concat(parts, '%#TabLineFill# ') .. '%#TabLineFill#'
+  local bar = table.concat(parts, '%#TabLineFill# ') .. '%#TabLineFill#'
+  if controls and vim.bo[current].buftype == '' then bar = bar .. '%=' .. controls.section(win) .. ' ' end
+  return bar
 end
 
 function M.click_tab(target)

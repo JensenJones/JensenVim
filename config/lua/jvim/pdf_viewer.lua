@@ -211,10 +211,18 @@ function M.setup_external()
       vim.schedule(function()
         if not vim.api.nvim_buf_is_valid(args.buf) then return end
         for _, win in ipairs(vim.fn.win_findbuf(args.buf)) do
-          vim.api.nvim_win_call(win, function()
-            local alternate = vim.fn.bufnr '#'
-            if alternate > 0 and alternate ~= args.buf and vim.api.nvim_buf_is_loaded(alternate) then vim.cmd.buffer(alternate) end
-          end)
+          -- Go back only to a file: from the tree with nothing open, the previous buffer is the tree itself,
+          -- and the window was made just for the PDF, so close it instead.
+          local alternate = vim.api.nvim_win_call(win, function() return vim.fn.bufnr '#' end)
+          local is_file = alternate > 0 and alternate ~= args.buf and vim.api.nvim_buf_is_loaded(alternate)
+            and vim.bo[alternate].buftype == '' and vim.bo[alternate].filetype ~= 'neo-tree'
+          if is_file then
+            vim.api.nvim_win_set_buf(win, alternate)
+          elseif #vim.api.nvim_tabpage_list_wins(vim.api.nvim_win_get_tabpage(win)) > 1 then
+            pcall(vim.api.nvim_win_close, win, true)
+          else
+            vim.api.nvim_win_call(win, function() vim.cmd.enew() end)
+          end
         end
         if #vim.fn.win_findbuf(args.buf) == 0 then pcall(vim.api.nvim_buf_delete, args.buf, { force = true }) end
       end)
