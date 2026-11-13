@@ -49,7 +49,8 @@ function M.setup(overrides)
   end
   require 'jvim.keymaps'
   if opts.features.compiler_checks then require('jvim.rename').setup() end
-  if opts.features.pdf then require('jvim.pdf_viewer').setup() end
+  if opts.features.pdf then require('jvim.pdf_viewer').setup()
+  elseif vim.fn.has 'win32' == 1 then require('jvim.pdf_viewer').setup_external() end
   if not plugins and next(opts.lsp.servers) then require('jvim.lsp').setup() end
   callback(opts.after_setup, 'after_setup', opts)
   return M

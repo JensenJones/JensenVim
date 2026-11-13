@@ -193,6 +193,35 @@ local function open_pdf(buf, path)
   end)
 end
 
+-- Where pages cannot be drawn inside the editor (Windows: image.nvim has no Neovide or Windows support),
+-- opening a PDF hands it to the system viewer instead of showing its bytes.
+function M.setup_external()
+  local group = vim.api.nvim_create_augroup('JvimPdfViewer', { clear = true })
+  vim.api.nvim_create_autocmd('BufReadCmd', {
+    group = group,
+    pattern = '*.pdf',
+    callback = function(args)
+      local path = vim.fn.fnamemodify(args.file, ':p')
+      vim.bo[args.buf].buftype = 'nofile'
+      vim.bo[args.buf].swapfile = false
+      vim.bo[args.buf].modifiable = false
+      local _, err = vim.ui.open(path)
+      if err then vim.notify('Could not open PDF: ' .. err, vim.log.levels.ERROR) end
+      -- Wiping a buffer inside its own BufReadCmd is unsafe, so leave it once the read finishes.
+      vim.schedule(function()
+        if not vim.api.nvim_buf_is_valid(args.buf) then return end
+        for _, win in ipairs(vim.fn.win_findbuf(args.buf)) do
+          vim.api.nvim_win_call(win, function()
+            local alternate = vim.fn.bufnr '#'
+            if alternate > 0 and alternate ~= args.buf and vim.api.nvim_buf_is_loaded(alternate) then vim.cmd.buffer(alternate) end
+          end)
+        end
+        if #vim.fn.win_findbuf(args.buf) == 0 then pcall(vim.api.nvim_buf_delete, args.buf, { force = true }) end
+      end)
+    end,
+  })
+end
+
 function M.setup()
   local group = vim.api.nvim_create_augroup('JvimPdfViewer', { clear = true })
   vim.api.nvim_create_autocmd('BufReadCmd', {
