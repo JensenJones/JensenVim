@@ -65,6 +65,17 @@ elseif case == 'lifecycle' then
   assert(second ~= first and second.buf ~= first.buf)
   run.stop(root)
   wait_for(function() return second.status == 'exited' end)
+  -- Run after a finished run starts it again (it used to reshow the old output), after saving edited files.
+  save_config(configuration { 'sh', '-c', 'cat input.txt >> runs.txt' })
+  vim.fn.writefile({ 'old' }, root .. '/input.txt')
+  vim.cmd.edit(vim.fn.fnameescape(root .. '/input.txt'))
+  vim.api.nvim_buf_set_lines(0, 0, -1, false, { 'edited' })
+  local third = assert(run.run('Example', root))
+  wait_for(function() return third.status == 'exited' end)
+  local fourth = assert(run.run('Example', root))
+  assert(fourth ~= third, 'Run reshowed the finished output instead of running again')
+  wait_for(function() return fourth.status == 'exited' end)
+  equal(vim.fn.readfile(root .. '/runs.txt'), { 'edited', 'edited' })
 elseif case == 'shell' then
   local terminal = require 'jvim.command_terminal'
   local first = assert(terminal.open())

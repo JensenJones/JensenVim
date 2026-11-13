@@ -181,9 +181,11 @@ function M.run(name, root, restart)
   local entry, command = prepare(name, root)
   if not entry then return error_message(command) end
   selected[root] = name
+  require('jvim.autosave').save_all()
+  -- A finished run starts again; one still running is shown instead of being started twice.
   return require('jvim.command_terminal').open {
     key = 'run:' .. root .. ':' .. name, cwd = entry.cwd, command = command,
-    env = entry.env, title = name, restart = restart, root = root,
+    env = entry.env, title = name, restart = restart ~= false, root = root,
   }
 end
 
@@ -216,6 +218,7 @@ function M.run_in_window(name, root)
   local command, err = M.window_command(name, root)
   if not command then return error_message(err) end
   selected[root] = name
+  require('jvim.autosave').save_all()
   vim.system(command, { text = true }, function(result)
     if result.code ~= 0 then vim.schedule(function() error_message('Could not open a new window: ' .. vim.trim(result.stderr)) end) end
   end)
