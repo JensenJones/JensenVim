@@ -35,8 +35,31 @@ function M.grep_previewer(opts)
   return previewer
 end
 
+-- A space in the query also matches a line break, so prose wrapped across lines (LaTeX, Markdown) is found.
+function M.grep_args(prompt)
+  if not prompt:find(' ', 1, true) then return { '--', prompt } end
+  return { '--multiline', '--', (prompt:gsub(' +', '\\s+')) }
+end
+
+-- Telescope's live grep, with the query passed through grep_args.
+function M.live_grep()
+  local conf = require('telescope.config').values
+  local opts = { cwd = vim.uv.cwd() }
+  require('telescope.pickers').new(opts, {
+    prompt_title = 'Live Grep',
+    finder = require('telescope.finders').new_job(function(prompt)
+      if not prompt or prompt == '' then return nil end
+      return vim.list_extend(vim.deepcopy(conf.vimgrep_arguments), M.grep_args(prompt))
+    end, require('telescope.make_entry').gen_from_vimgrep(opts), nil, opts.cwd),
+    previewer = conf.grep_previewer(opts),
+    sorter = require('telescope.sorters').highlighter_only(opts),
+    push_cursor_on_edit = true,
+  }):find()
+end
+
 function M.open(name)
   local ok, builtin = pcall(require, 'telescope.builtin')
+  if ok and name == 'live_grep' then return M.live_grep() end
   if ok and builtin[name] then return builtin[name]() end
   local win = vim.api.nvim_get_current_win()
   if name == 'find_files' then

@@ -133,7 +133,7 @@ On Windows, Cmd-based editor mappings become Ctrl-based mappings: Ctrl+B for def
 | Cmd+Option+Left / Right | Navigate back / forward |
 | Cmd+Z / Cmd+Shift+Z | Undo / redo |
 | Cmd+Shift+O | Find a file |
-| Cmd+Shift+F | Search the project |
+| Cmd+Shift+F | Search the project; a space also matches a line break, so `bob is` finds "bob" at a line end followed by "is" |
 
 Accept a function completion with **Tab** or **Enter** to select its first argument. Type to replace it, use **Tab** for the next argument and **Shift+Tab** for the previous one. The final Tab leaves the cursor after the closing parenthesis. Escape, clicking outside the call or switching files ends argument navigation.
 

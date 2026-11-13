@@ -277,6 +277,18 @@ class UiSessionTests(unittest.TestCase):
         self.assertLessEqual(view['leftcol'], 300)
         self.assertLess(300 + len('needle_far_right'), view['leftcol'] + view['width'], 'the match is still off screen')
 
+    @unittest.skipUnless(shutil.which('rg'), 'project search needs ripgrep')
+    def test_project_search_matches_words_split_across_lines(self):
+        (self.project/'prose.tex').write_text('The man named bob\nis tall.\nNothing here.\n')
+        editor = self.editor()
+        editor.send(b'\x1b[23;5~18')
+        editor.wait_for('vim.bo.filetype == "TelescopePrompt"')
+        editor.send(b'bob is')
+        found = editor.wait_for('(function() local picker = require("telescope.actions.state").get_current_picker(vim.api.nvim_get_current_buf()) '
+                                'if not picker or picker.manager == nil or picker.manager:num_results() == 0 then return false end '
+                                'local entry = picker.manager:get_entry(1) return { vim.fs.basename(entry.filename), entry.lnum, entry.col } end)()', timeout=10)
+        self.assertEqual(found, ['prose.tex', 1, 15])
+
     def test_second_editor_restores_files_held_by_the_first_without_swap_warnings(self):
         first = self.editor()
         first.lua('vim.cmd.edit "chapters/intro.tex"; vim.cmd.edit "main.tex"; return true')
