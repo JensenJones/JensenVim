@@ -78,6 +78,7 @@ return {
 
       require('telescope').setup {
         defaults = {
+          grep_previewer = function(opts) return require('jvim.pickers').grep_previewer(opts) end,
           mappings = {
             i = { ['<Esc>'] = require('telescope.actions').close },
           },

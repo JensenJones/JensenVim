@@ -262,6 +262,21 @@ class UiSessionTests(unittest.TestCase):
         editor.wait_for('vim.fn.getline(10) == "Xline 11"')
         self.assertEqual(editor.lua('return vim.fn.getline(11)'), 'line 12')
 
+    @unittest.skipUnless(shutil.which('rg'), 'project search needs ripgrep')
+    def test_project_search_preview_scrolls_to_a_match_far_right(self):
+        (self.project/'wide.txt').write_text('short line\n' + ' ' * 300 + 'needle_far_right here\n')
+        editor = self.editor()
+        editor.send(b'\x1b[23;5~18')
+        editor.wait_for('vim.bo.filetype == "TelescopePrompt"')
+        editor.send(b'needle_far_right')
+        view = editor.wait_for('(function() local picker = require("telescope.actions.state").get_current_picker(vim.api.nvim_get_current_buf()) '
+                               'local win = picker and picker.previewer and picker.previewer.state and picker.previewer.state.winid '
+                               'if not win or not vim.api.nvim_win_is_valid(win) or vim.api.nvim_win_get_cursor(win)[1] ~= 2 then return false end '
+                               'local leftcol = vim.api.nvim_win_call(win, function() return vim.fn.winsaveview().leftcol end) '
+                               'return leftcol > 0 and { leftcol = leftcol, width = vim.api.nvim_win_get_width(win) } end)()', timeout=10)
+        self.assertLessEqual(view['leftcol'], 300)
+        self.assertLess(300 + len('needle_far_right'), view['leftcol'] + view['width'], 'the match is still off screen')
+
     def test_second_editor_restores_files_held_by_the_first_without_swap_warnings(self):
         first = self.editor()
         first.lua('vim.cmd.edit "chapters/intro.tex"; vim.cmd.edit "main.tex"; return true')
