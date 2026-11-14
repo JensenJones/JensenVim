@@ -56,6 +56,8 @@ function M.setup()
   })
   local packages = {}
   local mason_names = { clangd = 'clangd', lua_ls = 'lua-language-server' }
+  -- Mason has no clangd build for Linux on ARM, so there the distribution's clangd package is used.
+  if vim.fn.has 'linux' == 1 and vim.uv.os_uname().machine:find '^a' then mason_names.clangd = nil end
   for name, server in pairs(servers) do
     if server ~= false then
       server = vim.deepcopy(server)

@@ -354,7 +354,8 @@ vim.api.nvim_create_autocmd('VimLeavePre', {
 local function repaint_soon()
   repaint:stop()
   repaint:start(150, 0, vim.schedule_wrap(function()
-    if valid() and vim.api.nvim_get_current_tabpage() == state.tab then vim.cmd 'redraw!' end
+    -- Without an attached screen there are no stale cells, and a forced redraw has crashed headless Neovim on Windows.
+    if valid() and vim.api.nvim_get_current_tabpage() == state.tab and #vim.api.nvim_list_uis() > 0 then vim.cmd 'redraw!' end
   end))
 end
 
