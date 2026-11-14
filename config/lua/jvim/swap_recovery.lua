@@ -9,6 +9,12 @@ local function preserve_swap(path)
   return ok and backup or nil
 end
 
+-- Swap files record the Windows NetBIOS computer name, which can differ in case and length from the DNS host name.
+local function this_host(host)
+  if host == vim.uv.os_gethostname() then return true end
+  return vim.fn.has 'win32' == 1 and host:upper() == (vim.env.COMPUTERNAME or ''):upper()
+end
+
 local function opened_read_only(name)
   vim.schedule(function() vim.notify(vim.fs.basename(name) .. ' is open in another jvim; opened read-only') end)
 end
@@ -47,7 +53,7 @@ function M.setup()
       if info.error then return end
       -- A running jvim on this machine is editing the file: open it read-only instead of prompting.
       if info.pid > 0 then
-        if info.host == vim.uv.os_gethostname() then
+        if this_host(info.host) then
           vim.v.swapchoice = 'o'
           opened_read_only(vim.fn.expand '<afile>:p')
         end

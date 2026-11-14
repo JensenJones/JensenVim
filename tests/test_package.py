@@ -15,6 +15,8 @@ import threading
 import unittest
 from unittest.mock import patch
 
+from tests.support import XDG_NAMES
+
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location('jvim_install', ROOT/'install/macos.py')
 installer = importlib.util.module_from_spec(spec)
@@ -27,6 +29,12 @@ class PackageTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(prefix='jvim-package-')
         self.home = Path(self.temp.name)
         self.addCleanup(self.temp.cleanup)
+        # The installer refuses custom XDG paths, which CI runners such as GitHub's Ubuntu image set.
+        environment = patch.dict(os.environ)
+        environment.start()
+        self.addCleanup(environment.stop)
+        for name in XDG_NAMES:
+            os.environ.pop(name, None)
 
     def install(self, **kwargs):
         with contextlib.redirect_stdout(io.StringIO()):

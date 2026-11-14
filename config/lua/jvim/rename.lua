@@ -15,7 +15,7 @@ end
 local function node_at_cursor(buf)
   local filetype = vim.bo[buf].filetype
   local ok, parser = pcall(vim.treesitter.get_parser, buf, filetype)
-  if not ok then return nil end
+  if not ok or not parser then return nil end
   local parsed = pcall(parser.parse, parser)
   if not parsed then return nil end
   local cursor = vim.api.nvim_win_get_cursor(0)
@@ -38,13 +38,13 @@ local function location_is_namespace(location, encoding)
   local range = location.range or location.targetSelectionRange or location.targetRange
   if not uri or not range then return false end
   local path = vim.uri_to_fname(uri)
-  local buf = vim.fn.bufadd(path)
-  vim.fn.bufload(buf)
   local filetype = vim.filetype.match { filename = path }
   if filetype ~= 'cpp' and filetype ~= 'c' then return false end
+  local buf = vim.fn.bufadd(path)
+  if not require('jvim.swap_recovery').load(buf) then return false end
   if vim.bo[buf].filetype == '' then vim.bo[buf].filetype = filetype end
   local ok, parser = pcall(vim.treesitter.get_parser, buf, filetype)
-  if not ok or not pcall(parser.parse, parser) then return false end
+  if not ok or not parser or not pcall(parser.parse, parser) then return false end
   local position = range.start
   local line = vim.api.nvim_buf_get_lines(buf, position.line, position.line + 1, false)[1] or ''
   local col = vim.str_byteindex(line, encoding or 'utf-16', position.character)

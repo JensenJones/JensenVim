@@ -185,9 +185,16 @@ vim.cmd 'qa!'
         self.assertEqual(result.returncode,0,result.stderr)
 
     def test_editing_a_newly_opened_header_discards_an_active_check(self):
-        wrapper=self.project/'slow-compiler'
-        wrapper.write_text('#!' + sys.executable + '\nimport os,sys,time\ntime.sleep(0.5)\nos.execv(' + repr(self.arguments[0]) + ',[' + repr(self.arguments[0]) + ']+sys.argv[1:])\n')
-        wrapper.chmod(0o755)
+        body='import subprocess,sys,time\ntime.sleep(0.5)\nsys.exit(subprocess.call([' + repr(self.arguments[0]) + ']+sys.argv[1:]))\n'
+        if os.name == 'nt':
+            # Windows ignores shebang lines; a batch file starts the Python wrapper instead.
+            (self.project/'slow-compiler.py').write_text(body)
+            wrapper=self.project/'slow-compiler.cmd'
+            wrapper.write_text('@"' + sys.executable + '" "' + str(self.project/'slow-compiler.py') + '" %*\n')
+        else:
+            wrapper=self.project/'slow-compiler'
+            wrapper.write_text('#!' + sys.executable + '\n' + body)
+            wrapper.chmod(0o755)
         arguments=[str(wrapper)] + self.arguments[1:]
         self.database.write_text(json.dumps([{'directory':str(self.project),'file':'main.cpp','arguments':arguments}]))
         script=self.project/'stale.lua'

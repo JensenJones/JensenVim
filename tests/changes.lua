@@ -65,6 +65,19 @@ if vim.env.JVIM_TEST_CASE == 'lines' then
   equal(git('status', '--porcelain', '--', 'fresh.txt'), '?? fresh.txt\n')
   vim.cmd 'qall!'
 end
+if vim.env.JVIM_TEST_CASE == 'crlf' then
+  local function git(...) return vim.system({ 'git', '-C', root, ... }):wait().stdout end
+  local items = assert(changes.collect(root))
+  equal(vim.tbl_map(function(item) return item.path end, items), { 'code.txt', 'nested' })
+  changes.open()
+  local work = vim.iter(vim.api.nvim_tabpage_list_wins(0)):find(function(win)
+    return vim.wo[win].diff and vim.bo[vim.api.nvim_win_get_buf(win)].buftype == ''
+  end)
+  equal(vim.bo[vim.api.nvim_win_get_buf(work)].fileformat, 'dos')
+  changes.stage_lines(2, 2)
+  equal(git('show', ':code.txt'), vim.env.JVIM_TEST_STAGED)
+  vim.cmd 'qall!'
+end
 if vim.env.JVIM_TEST_CASE == 'scroll' then
   changes.open()
   local panel = vim.api.nvim_get_current_win()

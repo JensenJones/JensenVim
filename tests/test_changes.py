@@ -7,7 +7,7 @@ import tempfile
 import time
 import unittest
 
-from tests.support import isolated_env
+from tests.support import isolated_env, state_dir
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -59,6 +59,30 @@ class ChangesTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_windows_line_endings_stage_only_the_chosen_line(self):
+        # With autocrlf the index keeps LF endings; without it, the CRLF endings are committed as they are.
+        for autocrlf, staged in (('false', 'a\r\nB\r\nc\r\n'), ('true', 'a\nB\nc\n')):
+            with self.subTest(autocrlf=autocrlf), tempfile.TemporaryDirectory(prefix='jvim-changes-') as temporary:
+                project = Path(temporary)/'project'
+                project.mkdir()
+                env = isolated_env(temporary, GIT_CONFIG_NOSYSTEM='1', GIT_AUTHOR_NAME='jvim', GIT_AUTHOR_EMAIL='jvim@example.com',
+                           GIT_COMMITTER_NAME='jvim', GIT_COMMITTER_EMAIL='jvim@example.com')
+                (project/'code.txt').write_bytes(b'a\r\nb\r\nc\r\n')
+                for command in (['init', '-q'], ['config', 'core.autocrlf', autocrlf], ['add', '.'], ['commit', '-q', '-m', 'base']):
+                    subprocess.run(['git', *command], cwd=project, env=env, check=True, capture_output=True)
+                (project/'code.txt').write_bytes(b'a\r\nB\r\nC\r\n')
+                # An untracked nested repository is listed as a folder path ending in a slash.
+                (project/'nested').mkdir()
+                subprocess.run(['git', 'init', '-q'], cwd=project/'nested', env=env, check=True)
+                (project/'nested/file.txt').write_text('inside\n')
+                result = subprocess.run(
+                    ['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(ROOT/'tests/changes.lua')],
+                    env=dict(env, JVIM_TEST_CONFIG=str(ROOT/'config'), JVIM_TEST_PROJECT=str(project), JVIM_TEST_CASE='crlf',
+                             JVIM_TEST_STAGED=staged),
+                    capture_output=True, text=True, timeout=20,
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_diff_panes_scroll_together(self):
         with tempfile.TemporaryDirectory(prefix='jvim-changes-') as temporary:
             project = Path(temporary)/'project'
@@ -83,7 +107,7 @@ class ChangesTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='jvim-changes-') as temporary:
             project = Path(temporary)/'project'
             project.mkdir()
-            env = dict(os.environ, HOME=temporary, GIT_CONFIG_NOSYSTEM='1', GIT_AUTHOR_NAME='jvim', GIT_AUTHOR_EMAIL='jvim@example.com',
+            env = isolated_env(temporary, GIT_CONFIG_NOSYSTEM='1', GIT_AUTHOR_NAME='jvim', GIT_AUTHOR_EMAIL='jvim@example.com',
                        GIT_COMMITTER_NAME='jvim', GIT_COMMITTER_EMAIL='jvim@example.com')
             (project/'shared.txt').write_text('one\n')
             for command in (['init', '-q'], ['add', '.'], ['commit', '-q', '-m', 'base']):
@@ -92,7 +116,7 @@ class ChangesTests(unittest.TestCase):
             owner = subprocess.Popen(['nvim', '--headless', '-u', 'NONE', '-i', 'NONE', str(project/'shared.txt'), '-c', 'sleep 30'],
                                      cwd=project, env=env, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             try:
-                swap_dir = Path(temporary)/'.local/state/nvim/swap'
+                swap_dir = state_dir(temporary)/'swap'
                 deadline = time.monotonic() + 5
                 while time.monotonic() < deadline and not (swap_dir.exists() and list(swap_dir.glob('*.swp'))):
                     time.sleep(0.05)

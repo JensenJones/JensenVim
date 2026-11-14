@@ -8,13 +8,13 @@ XDG_NAMES = ('XDG_CONFIG_HOME', 'XDG_DATA_HOME', 'XDG_STATE_HOME', 'XDG_CACHE_HO
 def isolated_env(home, unset=(), **overrides):
     """Return an environment whose Neovim config, data, state and cache live under ``home``.
 
-    On macOS and Linux, Neovim derives those directories from HOME, so this is
-    ``dict(os.environ, HOME=home)``. Windows Neovim uses LOCALAPPDATA instead, so
-    there the XDG variables (honoured on every platform) are pointed into ``home``;
-    otherwise tests would read and write the real jvim installation.
+    On macOS and Linux, Neovim derives those directories from HOME once inherited XDG
+    variables (set by some CI runners and desktops) are removed. Windows Neovim uses
+    LOCALAPPDATA instead, so there the XDG variables (honoured on every platform) are
+    pointed into ``home``; otherwise tests would read and write the real jvim installation.
     """
     env = dict(os.environ, HOME=str(home))
-    for name in unset:
+    for name in (*XDG_NAMES, *unset):
         env.pop(name, None)
     if os.name == 'nt':
         home = Path(home)

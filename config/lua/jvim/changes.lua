@@ -30,7 +30,8 @@ function M.collect(root)
   while index <= #fields do
     local field = fields[index]
     if #field > 3 then
-      local x, y, path = field:sub(1, 1), field:sub(2, 2), field:sub(4)
+      -- An untracked nested repository is reported as a folder, with a trailing slash.
+      local x, y, path = field:sub(1, 1), field:sub(2, 2), field:sub(4):gsub('/$', '')
       local item = { path = path, added = 0, removed = 0 }
       if x == 'R' or x == 'C' or y == 'R' or y == 'C' then
         index = index + 1
@@ -58,7 +59,7 @@ function M.collect(root)
   end
   for _, item in ipairs(items) do
     local file = root .. '/' .. item.path
-    if item.status == 'U' and (vim.fn.getfsize(file) or 0) < 1024 * 1024 then
+    if item.status == 'U' and vim.fn.filereadable(file) == 1 and vim.fn.getfsize(file) < 1024 * 1024 then
       item.added = #vim.fn.readfile(file)
     end
   end
@@ -263,7 +264,9 @@ end
 local function line_state()
   local lines = state.lines
   if not lines or not state.work_win or not vim.api.nvim_win_is_valid(state.work_win) then return end
-  lines.work = vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(state.work_win), 0, -1, false)
+  local buf = vim.api.nvim_win_get_buf(state.work_win)
+  lines.work = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  lines.eol = vim.bo[buf].fileformat == 'dos' and '\r\n' or '\n'
   lines.index = lines_of(git(state.root, { 'show', ':' .. lines.path }))
   lines.unstaged = hunks(lines.index, lines.work)
   lines.staged = hunks(lines.index, lines.head)
@@ -305,7 +308,9 @@ function M.stage_lines(first, last)
   if #result == 0 and #lines.head == 0 then
     ok, err = git(state.root, { 'rm', '--cached', '-f', '-q', '--', lines.path })
   else
-    local hashed = vim.system({ 'git', '-C', state.root, 'hash-object', '-w', '--stdin' }, { stdin = joined(result), text = true }):wait()
+    -- Git output arrives with LF endings; write the file's own endings and let --path apply its attributes and autocrlf.
+    local content = #result == 0 and '' or table.concat(result, lines.eol) .. lines.eol
+    local hashed = vim.system({ 'git', '-C', state.root, 'hash-object', '-w', '--stdin', '--path', lines.path }, { stdin = content, text = true }):wait()
     local mode = (git(state.root, { 'ls-files', '-s', '--', lines.path }) or ''):match '^(%d+)' or '100644'
     ok, err = hashed.code == 0, hashed.stderr
     if ok then ok, err = git(state.root, { 'update-index', '--add', '--cacheinfo', mode .. ',' .. vim.trim(hashed.stdout) .. ',' .. lines.path }) end

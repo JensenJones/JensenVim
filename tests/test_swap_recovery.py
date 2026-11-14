@@ -50,10 +50,11 @@ vim.cmd.edit(vim.fn.fnameescape(vim.env.JVIM_TEST_FILE))
 local backups = vim.fn.glob(vim.fn.stdpath('state') .. '/jvim/recovered-swaps/*.swp', false, true)
 assert(vim.fn.getline(1) == 'recovered edit', 'stale swap content was not recovered: ' .. vim.inspect({line=vim.fn.getline(1),swap=vim.v.swapname,backups=backups}))
 assert(#backups == 1, 'stale swap was not backed up')
-vim.cmd 'qall!'
 ''')
-            result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '-i', 'NONE', '-c', 'luafile ' + str(script)],
-                                    env=env, capture_output=True, text=True, timeout=10)
+            # A failed assertion would leave Neovim waiting, so report it and quit with an error status.
+            result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '-i', 'NONE', '-c',
+                                     'lua local ok, err = pcall(dofile, vim.env.JVIM_TEST_SCRIPT) io.stderr:write(tostring(err)) vim.cmd(ok and "qall!" or "cquit!")'],
+                                    env=dict(env, JVIM_TEST_SCRIPT=str(script)), capture_output=True, text=True, timeout=20)
             self.assertEqual(result.returncode, 0, result.stderr)
 
 
