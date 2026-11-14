@@ -347,6 +347,10 @@ end
 
 -- Some terminal multiplexers leave stale cells after partial-width scrolls; repaint once scrolling settles.
 local repaint = vim.uv.new_timer()
+vim.api.nvim_create_autocmd('VimLeavePre', {
+  group = vim.api.nvim_create_augroup('JvimChangesTimer', { clear = true }),
+  callback = function() repaint:stop() end,
+})
 local function repaint_soon()
   repaint:stop()
   repaint:start(150, 0, vim.schedule_wrap(function()
