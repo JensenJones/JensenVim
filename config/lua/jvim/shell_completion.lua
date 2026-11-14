@@ -1,8 +1,21 @@
 -- blink.cmp source for the run configuration form: commands on PATH, shell builtins and "Run: <name>" lines.
 local M = {}
 
-local builtins = { 'cd', 'echo', 'exit', 'export', 'false', 'printf', 'pwd', 'set', 'sleep', 'source', 'test', 'true', 'unset' }
+local windows = vim.fn.has 'win32' == 1
+-- Run lines go to sh -c, or cmd.exe on Windows.
+local builtins = windows and { 'cd', 'copy', 'del', 'dir', 'echo', 'exit', 'mkdir', 'move', 'rmdir', 'set', 'type' }
+  or { 'cd', 'echo', 'exit', 'export', 'false', 'printf', 'pwd', 'set', 'sleep', 'source', 'test', 'true', 'unset' }
 local commands
+
+-- On Windows only PATHEXT files are programs, and they are typed without the extension.
+local function program_name(name)
+  if not windows then return name end
+  local stem, extension = name:match '^(.+)(%.[^.]+)$'
+  if not stem then return nil end
+  for allowed in (vim.env.PATHEXT or '.COM;.EXE;.BAT;.CMD'):gmatch '[^;]+' do
+    if allowed:lower() == extension:lower() then return stem end
+  end
+end
 
 local function command_names()
   if commands then return commands end
@@ -12,10 +25,11 @@ local function command_names()
     if not seen[name] then seen[name] = true; commands[#commands + 1] = name end
   end
   for _, name in ipairs(builtins) do add(name) end
-  for directory in vim.gsplit(vim.env.PATH or '', vim.fn.has 'win32' == 1 and ';' or ':', { plain = true }) do
+  for directory in vim.gsplit(vim.env.PATH or '', windows and ';' or ':', { plain = true }) do
     if directory ~= '' and vim.fn.isdirectory(directory) == 1 then
       for name, kind in vim.fs.dir(directory) do
-        if kind == 'file' or kind == 'link' then add(name) end
+        local program = (kind == 'file' or kind == 'link') and program_name(name)
+        if program then add(program) end
       end
     end
   end

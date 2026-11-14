@@ -252,12 +252,12 @@ function M.setup(action, resume_editing)
     end
   end
 
-  map('i', '<F35>51', '<Esc><cmd>move .-2<CR>==gi', { desc = 'Move line up' })
-  map('i', '<F35>52', '<Esc><cmd>move .+1<CR>==gi', { desc = 'Move line down' })
-  map('n', '<F35>51', '<cmd>move .-2<CR>==', { desc = 'Move line up' })
-  map('n', '<F35>52', '<cmd>move .+1<CR>==', { desc = 'Move line down' })
-  map('s', '<F35>51', "<C-g>:move '<-2<CR>gv<C-g>", { desc = 'Move selected lines up' })
-  map('s', '<F35>52', "<C-g>:move '>+1<CR>gv<C-g>", { desc = 'Move selected lines down' })
+  map('i', '<F35>51', '<Esc><cmd>silent! move .-2<CR>==gi', { desc = 'Move line up' })
+  map('i', '<F35>52', '<Esc><cmd>silent! move .+1<CR>==gi', { desc = 'Move line down' })
+  map('n', '<F35>51', '<cmd>silent! move .-2<CR>==', { desc = 'Move line up' })
+  map('n', '<F35>52', '<cmd>silent! move .+1<CR>==', { desc = 'Move line down' })
+  map('s', '<F35>51', "<C-g>:<C-u>silent! '<,'>move '<-2<CR>gv<C-g>", { desc = 'Move selected lines up' })
+  map('s', '<F35>52', "<C-g>:<C-u>silent! '<,'>move '>+1<CR>gv<C-g>", { desc = 'Move selected lines down' })
   action({ '<F35>53', '<D-BS>' }, function()
     local row = vim.api.nvim_win_get_cursor(0)[1]
     vim.api.nvim_buf_set_lines(0, row - 1, row, false, {})

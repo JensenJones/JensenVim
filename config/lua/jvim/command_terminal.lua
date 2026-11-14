@@ -64,7 +64,8 @@ function M.open(opts)
   vim.b[buf].jvim_project_root = opts.root
   local session = { buf = buf, key = key, cwd = cwd, status = 'running', title = opts.title or 'Shell' }
   M.show(session)
-  local ok, job = pcall(vim.fn.termopen, opts.command or vim.o.shell, {
+  local ok, job = pcall(vim.fn.jobstart, opts.command or vim.o.shell, {
+    term = true,
     cwd = cwd,
     env = opts.env,
     on_exit = function(_, code)

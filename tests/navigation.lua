@@ -186,6 +186,7 @@ elseif case == 'pane_local_file_cycling' then
   assert(opened_win == second_win, 'opening from the tree did not target the focused editor pane')
   local files = require('jvim.files')
   local first_bar, second_bar = files.render_winbar(first_win), files.render_winbar(second_win)
+  assert(files.render_winbar(second_win) == second_bar, 'redrawing the winbar allocated new click targets')
   assert(first_bar:find('other.txt', 1, true), 'first pane winbar did not show its local tab')
   assert(second_bar:find('third.txt', 1, true), 'second pane winbar did not show its local tab')
   vim.cmd.edit(root .. '/a_much_longer_file_name.txt')

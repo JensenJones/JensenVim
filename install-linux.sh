@@ -9,12 +9,16 @@ BIN="$HOME/.local/bin"
 SHARE="$HOME/.local/share/jvim"
 NVIM=${JVIM_NVIM:-nvim}
 
+PATH_LINE='export PATH="$HOME/.local/bin:$PATH"'
 case "$(basename "${SHELL:-sh}")" in
   zsh) PROFILE="$HOME/.zshrc" ;;
   bash) PROFILE="$HOME/.bashrc" ;;
+  fish)
+    PROFILE="$CONFIG_HOME/fish/config.fish"
+    PATH_LINE='fish_add_path -g "$HOME/.local/bin"'
+    ;;
   *) PROFILE="$HOME/.profile" ;;
 esac
-PATH_LINE='export PATH="$HOME/.local/bin:$PATH"'
 
 echo "Configuration: $CONFIG"
 echo "Launcher: $BIN/jvim"
@@ -73,6 +77,7 @@ if command -v gsettings >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; t
 fi
 command -v wezterm >/dev/null 2>&1 || echo "WezTerm is not installed. jvim runs in any terminal, but its shortcuts need WezTerm; see README.md." >&2
 
+mkdir -p "$(dirname "$PROFILE")"
 touch "$PROFILE"
 grep -qxF "$PATH_LINE" "$PROFILE" || printf '%s\n' "$PATH_LINE" >> "$PROFILE"
 

@@ -9,7 +9,7 @@ function M.save_all()
       vim.b[buf].jvim_autosaving = true
       local ok, err = pcall(vim.api.nvim_buf_call, buf, function() vim.cmd 'silent update' end)
       if vim.api.nvim_buf_is_valid(buf) then vim.b[buf].jvim_autosaving = previous end
-      if not ok then vim.notify('Autosave failed: ' .. tostring(err), vim.log.levels.ERROR) end
+      if not ok then vim.notify('Autosave failed: ' .. (tostring(err):match 'E%d+:[^\n]*' or tostring(err)), vim.log.levels.ERROR) end
     end
   end
 end

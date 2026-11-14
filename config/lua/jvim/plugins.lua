@@ -270,7 +270,8 @@ return {
       if settings.treesitter.auto_install then require('nvim-treesitter').install(settings.treesitter.parsers) end
 
       local function treesitter_try_attach(buf, language)
-        if not vim.treesitter.language.add(language) then return end
+        -- A parser install finishes later; the buffer may be gone by then.
+        if not vim.api.nvim_buf_is_valid(buf) or not vim.treesitter.language.add(language) then return end
         vim.treesitter.start(buf, language)
 
         for _, win in ipairs(settings.features.folds and vim.api.nvim_list_wins() or {}) do

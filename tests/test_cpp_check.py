@@ -20,7 +20,8 @@ RUNNER = ROOT/'config/tools/cpp_check.py'
 @unittest.skipUnless(shutil.which('clang++') and shutil.which('nvim'), 'C++ compiler and Neovim required')
 class CppCheckTests(unittest.TestCase):
     def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory(prefix='jvim cpp check ')
+        # On Windows a stopped check can leave its compiler process holding the folder for a moment.
+        self.temporary = tempfile.TemporaryDirectory(prefix='jvim cpp check ', ignore_cleanup_errors=os.name == 'nt')
         self.addCleanup(self.temporary.cleanup)
         self.project = Path(self.temporary.name).resolve()
         self.header = self.project/'record.hpp'

@@ -13,10 +13,19 @@ ROOT = Path(__file__).resolve().parents[1]
 
 @unittest.skipUnless(os.name == 'posix' and shutil.which('nvim'), 'POSIX shell and Neovim are required')
 class LinuxInstallTests(unittest.TestCase):
-    def run_installer(self, home, *args):
+    def run_installer(self, home, *args, shell='/bin/bash'):
         env = {key: value for key, value in os.environ.items() if not key.startswith('XDG_')}
-        env.update(HOME=str(home), SHELL='/bin/bash')
+        env.update(HOME=str(home), SHELL=shell)
         return subprocess.run(['sh', str(ROOT/'install-linux.sh'), *args], env=env, capture_output=True, text=True, timeout=30)
+
+    def test_fish_users_get_the_launcher_folder_on_path(self):
+        with tempfile.TemporaryDirectory(prefix='jvim-linux-') as temporary:
+            home = Path(temporary)
+            result = self.run_installer(home, '--apply', shell='/usr/bin/fish')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            fish = home/'.config/fish/config.fish'
+            self.assertEqual(fish.read_text(), 'fish_add_path -g "$HOME/.local/bin"\n')
+            self.assertFalse((home/'.profile').exists())
 
     def test_preview_apply_and_reinstall(self):
         with tempfile.TemporaryDirectory(prefix='jvim-linux-') as temporary:

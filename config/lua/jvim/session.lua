@@ -1,6 +1,6 @@
 local M = {}
 
-local markers = { '.git', 'CMakeLists.txt', 'compile_commands.json', 'compile_flags.txt', 'package.json', 'pyproject.toml' }
+M.markers = { '.git', 'CMakeLists.txt', 'compile_commands.json', 'compile_flags.txt', 'package.json', 'pyproject.toml' }
 
 local function project_root(root)
   root = root or vim.fn.getcwd()
@@ -19,7 +19,7 @@ end
 
 function M.root(root)
   root = project_root(root)
-  return vim.fs.root(root, markers) or root
+  return vim.fs.root(root, M.markers) or root
 end
 
 -- Saves under the root jvim started in, so closing and relaunching in that repository use the same workspace.
@@ -27,11 +27,16 @@ function M.save(root)
   root = M.root(root or active_root)
   local layout = require('jvim.files').snapshot()
   if not layout then return false, 'no editor splits to save' end
-  local file, open_err = io.open(metadata_path(root), 'w')
+  -- Write beside the workspace file and rename, so a crash mid-write never leaves a truncated workspace.
+  local path = metadata_path(root)
+  local temporary = path .. '.tmp'
+  local file, open_err = io.open(temporary, 'w')
   if not file then return false, open_err end
-  local wrote, write_err = pcall(file.write, file, vim.json.encode { version = 2, root = root, layout = layout })
+  local wrote, write_err = file:write(vim.json.encode { version = 2, root = root, layout = layout })
   file:close()
-  if not wrote then return false, write_err end
+  if not wrote then os.remove(temporary); return false, write_err end
+  local renamed, rename_err = vim.uv.fs_rename(temporary, path)
+  if not renamed then os.remove(temporary); return false, rename_err end
   return true
 end
 

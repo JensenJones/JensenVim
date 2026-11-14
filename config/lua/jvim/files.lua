@@ -3,7 +3,7 @@ local last_file
 local recent = {}
 local panes = {}
 local last_editor_win
-local click_targets = {}
+local click_targets, click_ids = {}, {}
 local next_click_target = 0
 local closed_tabs = {}
 -- Buffers that have belonged to a pane; others (such as extra startup arguments) join the pane that cycles first.
@@ -101,6 +101,16 @@ function M.pane_tabs(win)
   return pane and vim.deepcopy(pane.tabs) or {}
 end
 
+-- The winbar redraws constantly, so each pane and file keeps one click id instead of a new one per redraw.
+local function click_target(win, buf)
+  local key = win .. ':' .. buf
+  if not click_ids[key] then
+    next_click_target = next_click_target + 1
+    click_ids[key], click_targets[next_click_target] = next_click_target, { win = win, buf = buf }
+  end
+  return click_ids[key]
+end
+
 function M.render_winbar(win)
   local pane = ensure_pane(win)
   if not pane then return '' end
@@ -135,10 +145,8 @@ function M.render_winbar(win)
     local gap = width - vim.fn.strdisplaywidth(name)
     local left = math.floor(gap / 2)
     name = (' '):rep(left) .. name:gsub('%%', '%%%%') .. (' '):rep(gap - left)
-    next_click_target = next_click_target + 1
-    click_targets[next_click_target] = { win = win, buf = tab.buf }
     local group = tab.buf == current and selected_group or 'TabLine'
-    parts[#parts + 1] = ('%%#%s#%%%d@v:lua.JvimTabClick@ %s %%T'):format(group, next_click_target, name)
+    parts[#parts + 1] = ('%%#%s#%%%d@v:lua.JvimTabClick@ %s %%T'):format(group, click_target(win, tab.buf), name)
   end
   local bar = table.concat(parts, '%#TabLineFill# ') .. '%#TabLineFill#'
   if controls and vim.bo[current].buftype == '' then bar = bar .. '%=' .. controls.section(win) .. ' ' end
@@ -566,6 +574,9 @@ function M.setup(group, opts)
       local win = tonumber(args.match)
       panes[win] = nil
       if last_editor_win == win then last_editor_win = nil end
+      for id, target in pairs(click_targets) do
+        if target.win == win then click_targets[id], click_ids[win .. ':' .. target.buf] = nil, nil end
+      end
     end,
   })
   M.setup_tabline()
@@ -582,10 +593,7 @@ function M.setup(group, opts)
       if has_file_argument then return end
       local buf = vim.api.nvim_get_current_buf()
       local name = vim.api.nvim_buf_get_name(buf)
-      local root = name ~= '' and vim.fn.isdirectory(name) == 1 and name
-        or (name ~= '' and (vim.fs.root(name, { '.git', 'CMakeLists.txt', 'compile_commands.json', 'compile_flags.txt', 'package.json', 'pyproject.toml' }) or vim.fs.dirname(name)))
-        or vim.fn.getcwd()
-      require('jvim.session').restore(root)
+      require('jvim.session').restore(name ~= '' and name or nil)
     end,
   })
   if opts.tree == false then return end
@@ -599,11 +607,7 @@ function M.setup(group, opts)
       local empty = name == '' and not vim.bo[buf].modified and vim.api.nvim_buf_line_count(buf) == 1 and vim.api.nvim_buf_get_lines(buf, 0, 1, false)[1] == ''
       local project_start = not vim.bo[buf].modified and (directory or empty)
       vim.schedule(function()
-        local root = directory and name
-          or (name ~= '' and (vim.fs.root(name, { '.git', 'CMakeLists.txt', 'compile_commands.json', 'compile_flags.txt', 'package.json', 'pyproject.toml' }) or vim.fs.dirname(
-            name
-          )))
-          or vim.fn.getcwd()
+        local root = directory and name or (name ~= '' and require('jvim.session').root(name)) or vim.fn.getcwd()
         require('neo-tree.command').execute {
           action = project_start and 'focus' or 'show',
           position = 'left',

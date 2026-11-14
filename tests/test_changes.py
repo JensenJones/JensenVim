@@ -105,6 +105,8 @@ class ChangesTests(unittest.TestCase):
 
     def test_file_open_in_another_editor_shows_read_only(self):
         with tempfile.TemporaryDirectory(prefix='jvim-changes-') as temporary:
+            # Windows temp folders can be 8.3 short paths; Neovim names swap files after the long path.
+            temporary = str(Path(temporary).resolve())
             project = Path(temporary)/'project'
             project.mkdir()
             env = isolated_env(temporary, GIT_CONFIG_NOSYSTEM='1', GIT_AUTHOR_NAME='jvim', GIT_AUTHOR_EMAIL='jvim@example.com',

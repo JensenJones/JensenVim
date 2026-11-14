@@ -165,11 +165,15 @@ end
 
 action({ '<F16>', '<D-s>', '<C-s>' }, function()
   local function save()
+    local failures = {}
     for _, buf in ipairs(vim.api.nvim_list_bufs()) do
       if vim.api.nvim_buf_is_loaded(buf) and vim.bo[buf].buftype == '' and vim.bo[buf].modified and vim.api.nvim_buf_get_name(buf) ~= '' then
-        vim.api.nvim_buf_call(buf, function() vim.cmd 'write' end)
+        -- One file that cannot be written (read-only, no permission) must not stop the others saving.
+        local ok, err = pcall(vim.api.nvim_buf_call, buf, function() vim.cmd 'write' end)
+        if not ok then failures[#failures + 1] = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(buf), ':~:.') .. ': ' .. (tostring(err):match 'E%d+:[^\n]*' or tostring(err)) end
       end
     end
+    if #failures > 0 then vim.notify('Could not save:\n' .. table.concat(failures, '\n'), vim.log.levels.ERROR) end
   end
   if vim.api.nvim_buf_get_name(0) == '' then
     local context = editing.capture()
@@ -302,6 +306,16 @@ action({ '<F28>', '<D-d>' }, function()
     vim.cmd 'normal! v'
     vim.api.nvim_win_set_cursor(0, { row + #lines, #lines == 1 and col + #lines[1] or #lines[#lines] })
     vim.cmd 'normal! \7'
+  elseif mode == 'V' or mode == 'S' then
+    local first, last = vim.fn.line 'v', vim.fn.line '.'
+    if first > last then first, last = last, first end
+    local lines = vim.api.nvim_buf_get_lines(0, first - 1, last, false)
+    vim.cmd 'normal! \27'
+    vim.api.nvim_buf_set_lines(0, last, last, false, lines)
+    vim.api.nvim_win_set_cursor(0, { last + 1, 0 })
+    vim.cmd 'normal! V'
+    vim.api.nvim_win_set_cursor(0, { last + #lines, 0 })
+    if mode == 'S' then vim.cmd 'normal! \7' end
   else
     local row = vim.api.nvim_win_get_cursor(0)[1]
     vim.api.nvim_buf_set_lines(0, row, row, false, { vim.api.nvim_get_current_line() })
@@ -355,10 +369,14 @@ for _, key in ipairs { '<C-_>', '<D-/>', '<F29>' } do
   map('s', key, '<C-g>gc', { remap = true, desc = 'Toggle comment' })
   map('x', key, 'gc', { remap = true, desc = 'Toggle comment' })
 end
-map('n', '<M-S-Up>', '<cmd>move .-2<CR>==', { desc = 'Move line up' })
-map('n', '<M-S-Down>', '<cmd>move .+1<CR>==', { desc = 'Move line down' })
-map('i', '<M-S-Up>', '<Esc><cmd>move .-2<CR>==gi', { desc = 'Move line up' })
-map('i', '<M-S-Down>', '<Esc><cmd>move .+1<CR>==gi', { desc = 'Move line down' })
+map('n', '<M-S-Up>', '<cmd>silent! move .-2<CR>==', { desc = 'Move line up' })
+map('n', '<M-S-Down>', '<cmd>silent! move .+1<CR>==', { desc = 'Move line down' })
+map('i', '<M-S-Up>', '<Esc><cmd>silent! move .-2<CR>==gi', { desc = 'Move line up' })
+map('i', '<M-S-Down>', '<Esc><cmd>silent! move .+1<CR>==gi', { desc = 'Move line down' })
+map('s', '<M-S-Up>', "<C-g>:<C-u>silent! '<,'>move '<-2<CR>gv<C-g>", { desc = 'Move selected lines up' })
+map('s', '<M-S-Down>', "<C-g>:<C-u>silent! '<,'>move '>+1<CR>gv<C-g>", { desc = 'Move selected lines down' })
+map('x', '<M-S-Up>', ":<C-u>silent! '<,'>move '<-2<CR>gv", { desc = 'Move selected lines up' })
+map('x', '<M-S-Down>', ":<C-u>silent! '<,'>move '>+1<CR>gv", { desc = 'Move selected lines down' })
 
 action({ '<F35>35', '<D-S-t>' }, function() require('jvim.files').reopen_closed() end, 'Reopen closed file')
 action({ '<F35>77', '<C-S-g>' }, function() require('jvim.changes').open() end, 'Show Git changes')

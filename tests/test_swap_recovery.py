@@ -16,7 +16,8 @@ ROOT = Path(__file__).resolve().parents[1]
 class SwapRecoveryTests(unittest.TestCase):
     def test_stale_swap_recovers_edits_and_keeps_a_backup(self):
         with tempfile.TemporaryDirectory(prefix='jvim-swap-') as directory:
-            home = Path(directory)
+            # Windows temp folders can be 8.3 short paths, which Neovim's swap recovery cannot match.
+            home = Path(directory).resolve()
             target = home/'sample.cpp'
             marker = home/'writer-ready'
             target.write_text('disk version\n')
