@@ -1,6 +1,6 @@
 # A jvim desktop app: design
 
-Status: proposal, 2026-11-15. Nothing here is built except the key parity in step 0.
+Status: declined, 2026-11-15. jvim stays a terminal editor, run in Herdr panes. Neovide is not wanted as the window, and the only real gain from an app would be smoother scrolling. The rest of this page is kept as the record of what was considered. The key parity in step 0 was built and stays, since the Windows installer still offers a graphical frontend.
 
 ## Why consider it
 
