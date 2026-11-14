@@ -7,6 +7,7 @@ import shutil
 import shlex
 import struct
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -24,6 +25,9 @@ except ImportError:
 ROOT = Path(__file__).resolve().parents[1]
 PLUGINS = nvim_plugins()
 DEPENDENCIES = ('neo-tree.nvim', 'plenary.nvim', 'nui.nvim', 'mini.nvim', 'telescope.nvim')
+# macOS always has pbcopy; Linux needs one of the tools Neovim's clipboard provider looks for.
+CLIPBOARD = sys.platform == 'darwin' or any(shutil.which(tool) for tool in ('wl-copy', 'xclip', 'xsel'))
+needs_clipboard = unittest.skipUnless(CLIPBOARD, 'A system clipboard tool (wl-clipboard, xclip or xsel) is required')
 
 
 @unittest.skipUnless(pty is not None and shutil.which('nvim') and all((PLUGINS/name).is_dir() for name in DEPENDENCIES),
@@ -150,6 +154,7 @@ end })
     def test_rename_input_supports_word_selection_and_deletion(self):
         self.check_startup(True, 'rename_input')
 
+    @needs_clipboard
     def test_copy_paste_preserves_block_indentation(self):
         self.check_startup(True, 'clipboard_indentation')
 
@@ -601,7 +606,8 @@ end })
             self.assertEqual(selected['text'], ['word'], 'iTerm Option+Shift+Right selected spaces or the wrong word: ' + repr(selected))
             return
         if interaction == 'cmd_left_indent':
-            for payload in (b'\x1b[23;5~70', b'\x1b[1~', b'\x1b[H', b'\x01'):
+            # Ctrl+A is line start only on the Mac; on Linux and Windows it selects all, as Cmd+A does.
+            for payload in (b'\x1b[23;5~70', b'\x1b[1~', b'\x1b[H') + ((b'\x01',) if sys.platform == 'darwin' else ()):
                 lua("(function() vim.api.nvim_buf_set_lines(0,0,1,false,{'    indented value'}); vim.api.nvim_win_set_cursor(0,{1,17}); vim.cmd.stopinsert(); return true end)()")
                 os.write(master, payload)
                 time.sleep(0.1)
@@ -789,6 +795,7 @@ end })
     def test_command_terminal_runs_a_shell_command_in_project(self):
         self.check_startup(False, 'command_terminal')
 
+    @needs_clipboard
     def test_iterm_copy_and_paste_work_between_files(self):
         self.check_startup(False, 'clipboard_copy_paste')
 

@@ -35,6 +35,8 @@ function M.setup(opts)
     install = { missing = opts.plugins.install },
     checker = { enabled = false },
     change_detection = { notify = false },
+    -- No plugin here needs a Lua rock; image.nvim's rockspec would otherwise start a luarocks build that fails on every launch without luarocks.
+    rocks = { enabled = false },
     ui = { icons = opts.ui.icons and {} or {
       cmd = '⌘', config = '🛠', event = '📅', ft = '📂', init = '⚙', keys = '🗝',
       plugin = '🔌', runtime = '💻', require = '🌙', source = '📄', start = '🚀', task = '📌', lazy = '💤',
