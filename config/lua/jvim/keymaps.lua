@@ -107,12 +107,15 @@ for _, prefix in ipairs { 'D', 'C' } do
 end
 shortcut('<F13>', '"+yy', '<C-o>"+yy', '<C-g>"+ygv<C-g>', '"+ygv', 'Copy')
 shortcut('<F14>', '"+ddi', '<C-o>"+dd', '<C-g>"+di', '"+di', 'Cut')
+shortcut('<S-Del>', '"+ddi', '<C-o>"+dd', '<C-g>"+di', '"+di', 'Cut')
 shortcut('<F15>', 'i<C-r><C-o>+', '<C-r><C-o>+', '<C-g>"_c<C-r><C-o>+', '"_c<C-r><C-o>+', 'Paste')
 shortcut('<F25>', 'gg0vG$<C-g>', '<Esc>gg0vG$<C-g>', '<Esc>gg0vG$<C-g>', '<Esc>gg0vG$<C-g>', 'Select all')
 map({ 'n', 'i', 's', 'x' }, '<D-a>', '<Esc>gg0vG$<C-g>', { desc = 'Select all' })
 -- iTerm sends Shift+Enter as the packaged F35 action 69. Open a line below
 -- without replacing the current line, in both normal and editing modes.
 shortcut('<F35>69', 'o', '<C-o>o', '<C-g><Esc>o', '<Esc>o', 'Insert line below')
+-- Graphical frontends such as Neovide report Shift+Enter itself.
+shortcut('<S-CR>', 'o', '<C-o>o', '<C-g><Esc>o', '<Esc>o', 'Insert line below')
 -- Give modified arrows explicit iTerm transport codes so terminal escape
 -- parsing cannot turn them into literal text.
 shortcut('<F35>70', '^', '<C-o>^', '<C-g>^', '^', 'Move to first nonblank column')
@@ -244,10 +247,10 @@ local function split(command)
     if text_file then files.show(text_file) end
   end
 end
-action({ '<F35>78' }, function() split 'vsplit' end, 'Split right')
-action({ '<F35>79' }, function() split 'split' end, 'Split down')
-action({ '<F35>81' }, function() require('jvim.pop_out').open() end, 'Move file to a new window')
-action({ '<F35>82' }, function() require('jvim.run').run_in_window() end, 'Run in a new window')
+action({ '<F35>78', '<D-Bslash>' }, function() split 'vsplit' end, 'Split right')
+action({ '<F35>79', '<D-S-Bslash>', '<D-Bar>' }, function() split 'split' end, 'Split down')
+action({ '<F35>81', '<D-M-Bslash>' }, function() require('jvim.pop_out').open() end, 'Move file to a new window')
+action({ '<F35>82', '<D-M-r>' }, function() require('jvim.run').run_in_window() end, 'Run in a new window')
 local function toggle_project_tree()
   local available, tree = pcall(require, 'neo-tree.command')
   if not available then vim.notify('The project tree requires Neo-tree; enable it through your plugin manager', vim.log.levels.WARN); return end
@@ -294,7 +297,7 @@ action({ '<F24>', '<C-M-l>', '<D-M-l>' }, function()
   else vim.lsp.buf.format { async = true } end
 end, 'Format file')
 action({ '<F26>', '<D-z>', '<C-z>' }, undo, 'Undo')
-action({ '<F27>', '<D-S-z>' }, redo, 'Redo')
+action({ '<F27>', '<D-S-z>', '<M-S-BS>' }, redo, 'Redo')
 action({ '<F28>', '<D-d>' }, function()
   local mode = vim.fn.mode()
   if mode == 's' or mode == 'v' then
@@ -330,8 +333,8 @@ action({ '<F30>', '<D-f>', '<C-f>' }, telescope 'current_buffer_fuzzy_find', 'Fi
 action({ '<F35>45', '<D-o>' }, telescope 'lsp_dynamic_workspace_symbols', 'Find class')
 action({ '<F31>', '<D-b>', '<F12>' }, vim.lsp.buf.definition, 'Go to definition')
 action({ '<F32>', '<M-F7>' }, telescope 'lsp_references', 'Find usages')
-action({ '<F36>', '<C-Tab>' }, function() require('jvim.files').cycle(1) end, 'Next file')
-action({ '<F37>', '<C-S-Tab>' }, function() require('jvim.files').cycle(-1) end, 'Previous file')
+action({ '<F36>', '<C-Tab>', '<D-S-]>' }, function() require('jvim.files').cycle(1) end, 'Next file')
+action({ '<F37>', '<C-S-Tab>', '<D-S-[>' }, function() require('jvim.files').cycle(-1) end, 'Previous file')
 action({ '<F2>' }, function() vim.diagnostic.jump { count = 1, float = true } end, 'Next problem')
 action({ '<S-F2>' }, function() vim.diagnostic.jump { count = -1, float = true } end, 'Previous problem')
 -- Keep Option+arrows for word movement, as on macOS.

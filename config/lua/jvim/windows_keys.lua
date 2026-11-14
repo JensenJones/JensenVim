@@ -17,7 +17,9 @@ function M.setup()
         local existing = vim.fn.maparg(key, mode, false, true)
         -- Ctrl+[ is Esc to Neovim, so Cmd+[ must not take it over.
         local is_esc = vim.keycode(key) == vim.keycode '<Esc>'
-        if not is_esc and (vim.tbl_isempty(existing) or (existing.desc or ''):find '^:help ') then
+        -- Ctrl+\ starts Neovim's own <C-\><C-n>, which jvim's mappings rely on to leave a mode.
+        local is_prefix = mapping.lhs:find 'Bslash' ~= nil or mapping.lhs:find 'Bar' ~= nil
+        if not is_esc and not is_prefix and (vim.tbl_isempty(existing) or (existing.desc or ''):find '^:help ') then
           vim.keymap.set(mode, key, mapping.callback or mapping.rhs, {
             desc = mapping.desc,
             expr = mapping.expr == 1,

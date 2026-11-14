@@ -55,6 +55,25 @@ vim.cmd 'qall!'
         for binding, action in EXPECTED.items():
             self.assertEqual(actions[str(codes[binding])], action, f'{binding} reaches the wrong action')
 
+    def test_graphical_frontends_reach_the_same_actions_with_the_keys_themselves(self):
+        # Neovide and other GUIs report Cmd+S as <D-s>, not as a transport code, so every action in the
+        # terminal key table needs a direct mapping too. These are the deliberate exceptions.
+        exceptions = [
+            '<C-Left> Previous file',        # word movement, as in every text field
+            '<C-Right> Next file',
+            '<C-m> Go to matching bracket',  # Ctrl+M is Enter to Neovim
+            '<D-S-Bar> Split down',          # reported as <D-Bar> or <D-S-Bslash>, both mapped
+            '<S-Down> Select down',          # Shift+arrows select natively through 'keymodel'
+            '<S-Up> Select up',
+        ]
+        with tempfile.TemporaryDirectory(prefix='jvim-gui-keys-') as temporary:
+            result = subprocess.run(['nvim', '--headless', '-u', 'NONE', '--noplugin', '-i', 'NONE', '-l', str(ROOT/'tests/gui_keys.lua')],
+                                    env=dict(os.environ, HOME=temporary, JVIM_TEST_CONFIG=str(ROOT/'config'),
+                                             JVIM_TEST_MODULE=str(ROOT/'integrations/wezterm/jvim.lua')),
+                                    capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout), exceptions, 'actions a graphical frontend cannot reach, or stale exceptions')
+
     def test_iterm_codes_reach_jvim_actions(self):
         keys = json.loads((ROOT/'integrations/macos/keyboard.json').read_text())
         codes = {}
