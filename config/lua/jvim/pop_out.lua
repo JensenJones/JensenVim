@@ -15,6 +15,8 @@ end
 local function jvim_command()
   local launcher = vim.fn.exepath 'jvim'
   if launcher ~= '' then return { launcher } end
+  -- Windows has no env command to set NVIM_APPNAME for the new window.
+  if vim.fn.has 'win32' == 1 then return nil end
   return { 'env', 'NVIM_APPNAME=' .. (vim.env.NVIM_APPNAME or 'jvim'), vim.v.progpath }
 end
 
@@ -22,8 +24,10 @@ end
 function M.command(path, cursor, root)
   local cli = M.wezterm()
   if not cli or not vim.env.WEZTERM_PANE then return nil, 'Opening a file in a new window needs WezTerm' end
+  local jvim = jvim_command()
+  if not jvim then return nil, 'Opening a file in a new window needs the jvim launcher on PATH' end
   local command = { cli, 'cli', 'spawn', '--new-window', '--cwd', root, '--' }
-  vim.list_extend(command, jvim_command())
+  vim.list_extend(command, jvim)
   vim.list_extend(command, { ('+call cursor(%d, %d)'):format(cursor[1], cursor[2] + 1), path })
   return command
 end

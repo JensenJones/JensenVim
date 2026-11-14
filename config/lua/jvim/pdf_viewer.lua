@@ -1,5 +1,10 @@
 local M = {}
-local uv = vim.uv or vim.loop
+local uv = vim.uv
+local poppler_install = vim.fn.has 'mac' == 1 and 'brew install poppler'
+  or vim.fn.executable 'apt-get' == 1 and 'sudo apt-get install poppler-utils'
+  or vim.fn.executable 'dnf' == 1 and 'sudo dnf install poppler-utils'
+  or vim.fn.executable 'pacman' == 1 and 'sudo pacman -S poppler'
+  or 'your package manager (poppler)'
 local viewers = {}
 
 local function set_message(buf, message)
@@ -70,7 +75,7 @@ local function render_page(buf, state)
   end
 
   if vim.fn.executable 'pdftoppm' == 0 then
-    vim.notify('PDF rendering needs Poppler. Install it with: brew install poppler', vim.log.levels.ERROR)
+    vim.notify('PDF rendering needs Poppler. Install it with: ' .. poppler_install, vim.log.levels.ERROR)
     return
   end
 
@@ -175,7 +180,7 @@ local function open_pdf(buf, path)
   })
 
   if vim.fn.executable 'pdfinfo' == 0 then
-    set_message(buf, 'PDF rendering needs Poppler (pdfinfo and pdftoppm). Install with: brew install poppler')
+    set_message(buf, 'PDF rendering needs Poppler (pdfinfo and pdftoppm). Install with: ' .. poppler_install)
     return
   end
   vim.system({ 'pdfinfo', path }, { text = true }, function(result)
