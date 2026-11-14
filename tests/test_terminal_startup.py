@@ -113,7 +113,8 @@ end })
                         break
                     time.sleep(0.05)
                 else:
-                    self.fail('terminal startup did not finish')
+                    self.fail('terminal startup did not finish; the screen showed: '
+                              + re.sub(r'\x1b\[[0-9;?]*[A-Za-z]', ' ', b''.join(terminal_output).decode(errors='replace'))[-1500:])
                 state = json.loads(remote('luaeval("vim.json.encode({mode=vim.fn.mode(),windows=vim.tbl_map(function(w) local b=vim.api.nvim_win_get_buf(w); return {ft=vim.bo[b].filetype,relative=vim.api.nvim_win_get_config(w).relative,lines=vim.api.nvim_buf_get_lines(b,0,-1,false)} end,vim.api.nvim_list_wins()),buffers=vim.tbl_map(function(b) return {name=b.name,listed=b.listed,ft=vim.bo[b.bufnr].filetype} end,vim.fn.getbufinfo({bufloaded=1})),root=require(\\\"neo-tree.sources.manager\\\").get_state(\\\"filesystem\\\").path})")'))
                 self.assertEqual(len(state['windows']), 1, state)
                 window = state['windows'][0]

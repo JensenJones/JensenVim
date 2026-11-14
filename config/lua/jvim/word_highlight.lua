@@ -39,6 +39,10 @@ function M.setup()
     group = group,
     callback = function() clear(vim.api.nvim_get_current_win()) end,
   })
+  vim.api.nvim_create_autocmd('WinClosed', {
+    group = group,
+    callback = function(args) matches[tonumber(args.match)] = nil end,
+  })
 end
 
 return M

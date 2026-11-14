@@ -146,6 +146,10 @@ local function telescope(name)
 end
 local resume_editing = editing.resume
 local undo_cursors = {}
+vim.api.nvim_create_autocmd('BufWipeout', {
+  group = vim.api.nvim_create_augroup('JvimUndoCursors', { clear = true }),
+  callback = function(args) undo_cursors[args.buf] = nil end,
+})
 local function undo()
   local buf = vim.api.nvim_get_current_buf()
   undo_cursors[buf] = undo_cursors[buf] or {}
