@@ -20,5 +20,7 @@ if wezterm.target_triple:find 'linux' then
   config.window_decorations = 'INTEGRATED_BUTTONS|RESIZE'
   config.integrated_title_buttons = { 'Hide', 'Maximize', 'Close' }
   config.integrated_title_button_style = 'Gnome'
+  -- The tab bar's height follows its font, and the default is too thin to grab easily.
+  config.window_frame = { font_size = 15 }
 end
 return config
