@@ -45,9 +45,15 @@ The settings give jvim its shortcuts and make shells and prompts outside jvim (z
 | Paste | Cmd+V | Ctrl+V (or Ctrl+Shift+V) |
 | Copy selected text | Cmd+C | Ctrl+C (interrupts when nothing is selected) |
 | Delete to start of line (line in jvim) | Cmd+Backspace | Alt+Backspace |
+| Delete to end of line (line in jvim) | Cmd+Delete | Alt+Delete |
 | Delete word | Option+Backspace | Ctrl+Backspace |
+| Delete next word | Option+Delete | Ctrl+Delete |
+| Move by word | Option+Left/Right | Ctrl+Left/Right |
+| Line start and end | Cmd+Left/Right | Alt+Left/Right |
+| Select by word or to the line start and end | add Shift to the above | add Shift to the above |
+| Close tab (file in jvim) | Cmd+W | Ctrl+W |
 
-Every jvim shortcut follows the same rule: on Linux and Windows press Ctrl wherever the Mac uses Cmd, and Alt for Option. Backspace is the exception: as in Windows and Linux text fields, Ctrl+Backspace deletes a word and Alt+Backspace the line. Super stays with the desktop, because GNOME and Windows already use Super+V, Super+A, Super+L and Super+arrows. A few Cmd shortcuts whose Ctrl form jvim already uses keep the Ctrl meaning; for example Ctrl+Left and Ctrl+Right move to the previous and next file, so use Home and End for line start and end. The settings update with the checkout and WezTerm reloads them automatically.
+Every jvim shortcut follows the same rule: on Linux and Windows press Ctrl wherever the Mac uses Cmd, and Alt for Option. Text editing is the exception: as in Windows and Linux text fields, Ctrl works on a word and Alt on the line, for Backspace, Delete and Left/Right (with Shift to select). Super stays with the desktop, because GNOME and Windows already use Super+V, Super+A, Super+L and Super+arrows. A few Cmd shortcuts whose Ctrl form jvim already uses keep the Ctrl meaning, such as Ctrl+J for quick documentation. Ctrl+Tab and Ctrl+Shift+Tab switch files. The settings update with the checkout and WezTerm reloads them automatically.
 
 To open a file later, run `jvim path/to/file.cpp` from any terminal in which the shell PATH is loaded. Herdr panes inside WezTerm get the same keys, since WezTerm checks which pane is running jvim.
 
@@ -91,7 +97,7 @@ Setting up with Claude Code or another coding agent? Ask it to "set up and check
 - `~/JensenVim/integrations/linux/desktop-keys.py` says "No desktop shortcuts clash with jvim."
 - You open **WezTerm**, not the desktop's default terminal, and run `jvim .` there. Other terminals keep many shortcuts for themselves.
 
-It installs Neovim and tree-sitter into `~/.local` from their official releases (distribution packages are usually too old), clones the repository into `~/JensenVim` and runs `install-linux.sh --apply`. If system packages are missing it stops and prints the command for your distribution (apt, dnf or pacman). Rerun the same line to update; set `JVIM_DIR` to clone somewhere else. For WezTerm outside Debian, Ubuntu and Arch, see [wezterm.org](https://wezterm.org/install/linux.html). Neovim needs `wl-clipboard` (Wayland) or `xclip` (X11) to share the clipboard with other apps, and fresh Ubuntu ships neither.
+It installs Neovim and tree-sitter into `~/.local` from their official releases (distribution packages are usually too old), clones the repository into `~/JensenVim` and runs `install-linux.sh --apply`. If system packages are missing it stops and prints the command for your distribution (apt, dnf or pacman). Rerun the same line to update; set `JVIM_DIR` to clone somewhere else. On Fedora the printed command installs WezTerm from its `wezfurlong/wezterm-nightly` COPR. Avoid WezTerm's Flatpak: it is an old, sandboxed build that does not apply jvim's keys (Ctrl+V types `^V`), and a Flatpak window left open keeps running after you switch, so close every one before opening the new WezTerm. For WezTerm elsewhere, see [wezterm.org](https://wezterm.org/install/linux.html). Neovim needs `wl-clipboard` (Wayland) or `xclip` (X11) to share the clipboard with other apps, and fresh Ubuntu ships neither.
 
 The installer links `config/` to `~/.config/jvim`, adds a `jvim` launcher in `~/.local/bin`, puts that folder on PATH in your shell's startup file and sets up WezTerm as described in [Terminal setup](#terminal-setup). It first moves any previous installation into `~/.local/state/jvim/backups`. Open WezTerm and run `jvim .`; shortcuts use Ctrl where the Mac uses Cmd (Ctrl+S, Ctrl+W, Ctrl+Shift+A). In another terminal jvim still runs, but shortcuts that terminal reserves or cannot encode will not arrive. The iTerm bridge is macOS only; Herdr panes inside WezTerm get the same keys.
 

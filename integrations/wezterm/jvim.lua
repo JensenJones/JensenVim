@@ -23,6 +23,7 @@ M.keys = {
   { 'UpArrow', 'ALT|SHIFT', '\x1b[23;5~51' },
   { '/', 'CMD', '\x1b[23;5~29' },
   { 'Backspace', 'CMD', '\x1b[23;5~53' },
+  { 'Delete', 'CMD', '\x1b[23;5~53' },
   { 'DownArrow', 'CMD', '\x1b[1;5F' },
   { 'F12', 'CMD', '\x1b[23;5~43' },
   { 'LeftArrow', 'CMD', '\x1b[23;5~70' },
@@ -73,8 +74,6 @@ M.keys = {
   { 't', 'CMD|SHIFT', '\x1b[23;5~35' },
   { 'w', 'CMD|SHIFT', '\x1b[23;5~63' },
   { 'z', 'CMD|SHIFT', '\x1b[23;5~27' },
-  { 'LeftArrow', 'CTRL', '\x1b[23;5~37' },
-  { 'RightArrow', 'CTRL', '\x1b[23;5~36' },
   { 'Tab', 'CTRL', '\x1b[23;5~36' },
   { 'j', 'CTRL', '\x1b[23;5~41' },
   { 'l', 'CTRL', '\x1b[23;5~56' },
@@ -104,16 +103,24 @@ M.keys = {
   { '|', 'CMD|SHIFT', '\x1b[23;5~79' },
 }
 
--- Outside jvim, shells and prompts get Mac text-field editing: paste, delete line and delete word.
+-- Outside jvim, shells and prompts get Mac text-field editing: paste, close tab, and word and line editing.
 local shell = {
   ['v:CMD'] = act.PasteFrom 'Clipboard',
+  ['w:CMD'] = act.CloseCurrentTab { confirm = true },
   ['Backspace:CMD'] = act.SendString '\x15',
   ['Backspace:ALT'] = act.SendString '\x1b\x7f',
+  ['Delete:CMD'] = act.SendString '\x0b',
   ['Delete:ALT'] = act.SendString '\x1bd',
+  ['LeftArrow:CMD'] = act.SendString '\x01',
+  ['RightArrow:CMD'] = act.SendString '\x05',
+  ['LeftArrow:CMD|SHIFT'] = act.SendString '\x1b[1;2H',
+  ['RightArrow:CMD|SHIFT'] = act.SendString '\x1b[1;2F',
 }
 
--- Mac Option+Backspace (word) and Cmd+Backspace (line) are pressed as these keys on Windows and Linux.
-local backspace_swap = { ALT = 'CTRL', CMD = 'ALT' }
+-- The Mac's Option (word) and Cmd (line) editing keys are Ctrl and Alt in Windows and Linux text fields.
+local word_line = { ALT = 'CTRL', CMD = 'ALT' }
+local word_line_select = { ALT = 'CTRL', CMD = 'ALT', ['ALT|SHIFT'] = 'CTRL|SHIFT', ['CMD|SHIFT'] = 'ALT|SHIFT' }
+local text_swap = { Backspace = word_line, Delete = word_line, LeftArrow = word_line_select, RightArrow = word_line_select }
 
 -- Like iTerm2: when the clipboard holds only an image, save it and paste its path instead.
 local function clipboard_image_path()
@@ -199,10 +206,9 @@ function M.apply(config)
   for _, entry in ipairs(M.keys) do
     local key, bytes = entry[1], entry[3]
     local mods = entry[2]:gsub('CMD', primary)
-    -- Off the Mac, Backspace follows Windows and Linux text fields: Ctrl deletes a word and Alt the line.
-    local swapped = not mac and key == 'Backspace' and backspace_swap[entry[2]]
+    local swapped = not mac and text_swap[key] and text_swap[key][entry[2]]
     if swapped then mods = swapped end
-    -- A key the table already binds with Ctrl keeps that meaning, as Ctrl+Left does for the previous file.
+    -- A key the table already binds with Ctrl keeps that meaning, as Ctrl+J does for quick documentation.
     if swapped or mods == entry[2] or not explicit[binding_id(key, mods)] then
       bind(key, mods, bytes, shell[key .. ':' .. entry[2]] or defaults[binding_id(key, mods)] or act.SendKey { key = key, mods = mods })
     end

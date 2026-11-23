@@ -258,7 +258,7 @@ function M.setup(action, resume_editing)
   map('n', '<F35>52', '<cmd>silent! move .+1<CR>==', { desc = 'Move line down' })
   map('s', '<F35>51', "<C-g>:<C-u>silent! '<,'>move '<-2<CR>gv<C-g>", { desc = 'Move selected lines up' })
   map('s', '<F35>52', "<C-g>:<C-u>silent! '<,'>move '>+1<CR>gv<C-g>", { desc = 'Move selected lines down' })
-  action({ '<F35>53', '<D-BS>' }, function()
+  action({ '<F35>53', '<D-BS>', '<D-Del>' }, function()
     local row = vim.api.nvim_win_get_cursor(0)[1]
     vim.api.nvim_buf_set_lines(0, row - 1, row, false, {})
   end, 'Delete line')

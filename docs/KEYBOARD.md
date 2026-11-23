@@ -56,8 +56,8 @@ These bindings are generated from your active macOS copy keymap and its bundled 
 | Cmd+[, Cmd+Option+Left | Navigate back |
 | Cmd+], Cmd+Option+Right | Navigate forward |
 | Shift+Cmd+T | Reopen closed file |
-| Cmd+Shift+], Ctrl+Right | Next file |
-| Cmd+Shift+[, Ctrl+Left | Previous file |
+| Cmd+Shift+], Ctrl+Tab | Next file |
+| Cmd+Shift+[, Ctrl+Shift+Tab | Previous file |
 | Cmd+Shift+A | Find action or shortcut |
 | Cmd+Option+B | Go to implementation |
 | Cmd+Shift+B, Ctrl+Shift+B | Go to type declaration |
@@ -74,7 +74,7 @@ These bindings are generated from your active macOS copy keymap and its bundled 
 | Option+Down | Shrink selection |
 | Option+Shift+Up | Move line up |
 | Option+Shift+Down | Move line down |
-| Cmd+Backspace (Alt+Backspace on Linux and Windows) | Delete line |
+| Cmd+Backspace, Cmd+Delete (Alt+Backspace, Alt+Delete on Linux and Windows) | Delete line |
 | F2 | Next problem |
 | Shift+F2 | Previous problem |
 | F3, Ctrl+L, Cmd+G | Next search match |

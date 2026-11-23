@@ -52,9 +52,18 @@ equal(press('v ' .. cmd, 'zsh'), { 'PasteFrom', 'Clipboard' }, 'paste in the she
 equal(press('c ' .. cmd, 'zsh', 'picked'), { 'CopyTo', 'Clipboard' }, 'copy a selection')
 equal(press('w ' .. cmd .. '|SHIFT', 'jvim .'), jvim(63), 'close others in jvim')
 if linux then
-  equal(press('w CTRL', 'zsh'), { 'SendKey', { key = 'w', mods = 'CTRL' } }, 'Ctrl+W in the shell')
+  equal(press('w CTRL', 'zsh'), { 'CloseCurrentTab', { confirm = true } }, 'Ctrl+W closes the tab outside jvim')
   equal(press('c CTRL', 'zsh'), { 'SendKey', { key = 'c', mods = 'CTRL' } }, 'Ctrl+C interrupts without a selection')
   equal(press('w CTRL|SHIFT', 'zsh'), { 'CloseCurrentTab' }, 'WezTerm keeps its own Ctrl+Shift+W outside jvim')
-  equal(press('LeftArrow CTRL', 'jvim .'), jvim(37), 'Ctrl+Left keeps its explicit meaning')
+  -- Ctrl moves and deletes by word, Alt by line, with Shift selecting.
+  equal(press('LeftArrow CTRL', 'jvim .'), { 'SendString', '\27[1;5D' }, 'Ctrl+Left moves a word in jvim')
+  equal(press('LeftArrow CTRL', 'zsh'), { 'SendKey', { key = 'LeftArrow', mods = 'CTRL' } }, 'Ctrl+Left moves a word in the shell')
+  equal(press('LeftArrow ALT', 'jvim .'), jvim(70), 'Alt+Left goes to the line start in jvim')
+  equal(press('RightArrow ALT', 'zsh'), { 'SendString', '\5' }, 'Alt+Right goes to the line end in the shell')
+  equal(press('RightArrow CTRL|SHIFT', 'jvim .'), { 'SendString', '\27[1;4C' }, 'Ctrl+Shift+Right selects a word in jvim')
+  equal(press('LeftArrow ALT|SHIFT', 'zsh'), { 'SendString', '\27[1;2H' }, 'Alt+Shift+Left selects to the line start in the shell')
+  equal(press('Delete CTRL', 'zsh'), { 'SendString', '\27d' }, 'Ctrl+Delete deletes the next word in the shell')
+  equal(press('Delete ALT', 'jvim .'), jvim(53), 'Alt+Delete deletes the line in jvim')
+  equal(press('Delete ALT', 'zsh'), { 'SendString', '\11' }, 'Alt+Delete deletes to the line end in the shell')
 end
 vim.cmd 'qall!'

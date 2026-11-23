@@ -39,5 +39,6 @@ def jvim_data():
 
 
 def nvim_plugins():
-    """A lazy.nvim plugin directory for integration tests (the developer's nvim on macOS/Linux, jvim's on Windows)."""
-    return jvim_data()/'lazy' if os.name == 'nt' else Path.home()/'.local/share/nvim/lazy'
+    """A lazy.nvim plugin directory for integration tests (the developer's nvim on macOS/Linux if present, else jvim's)."""
+    developer = Path.home()/'.local/share/nvim/lazy'
+    return developer if os.name != 'nt' and developer.is_dir() else jvim_data()/'lazy'

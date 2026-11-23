@@ -30,8 +30,11 @@ sudo chmod 644 /usr/share/keyrings/wezterm-fury.gpg &&
 sudo apt-get update && sudo apt-get install -y wezterm
 EOF
   elif command -v dnf >/dev/null 2>&1; then
-    echo 'sudo dnf install -y gcc make curl git ripgrep wl-clipboard xclip poppler-utils ImageMagick'
-    echo '# WezTerm: https://wezterm.org/install/linux.html'
+    # WezTerm's Flathub build is old and sandboxed, so it misses jvim's keys; use its COPR instead.
+    cat <<'EOF'
+sudo dnf install -y gcc gcc-c++ make curl git ripgrep wl-clipboard xclip poppler-utils ImageMagick &&
+sudo dnf copr enable -y wezfurlong/wezterm-nightly && sudo dnf install -y wezterm
+EOF
   elif command -v pacman >/dev/null 2>&1; then
     echo 'sudo pacman -S --needed base-devel curl git ripgrep wl-clipboard xclip poppler imagemagick wezterm'
   else

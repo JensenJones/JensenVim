@@ -59,8 +59,6 @@ vim.cmd 'qall!'
         # Neovide and other GUIs report Cmd+S as <D-s>, not as a transport code, so every action in the
         # terminal key table needs a direct mapping too. These are the deliberate exceptions.
         exceptions = [
-            '<C-Left> Previous file',        # word movement, as in every text field
-            '<C-Right> Next file',
             '<C-m> Go to matching bracket',  # Ctrl+M is Enter to Neovim
             '<D-S-Bar> Split down',          # reported as <D-Bar> or <D-S-Bslash>, both mapped
             '<S-Down> Select down',          # Shift+arrows select natively through 'keymodel'
