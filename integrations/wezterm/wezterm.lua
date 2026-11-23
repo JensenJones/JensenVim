@@ -15,4 +15,10 @@ config.font = wezterm.font 'JetBrains Mono'
 config.harfbuzz_features = { 'calt=0', 'clig=0', 'liga=0' }
 config.font_size = 12
 config.window_padding = { left = 4, right = 4, top = 0, bottom = 0 }
+-- GNOME on Wayland leaves window decorations to the app; put the buttons in the tab bar, which also drags and maximises.
+if wezterm.target_triple:find 'linux' then
+  config.window_decorations = 'INTEGRATED_BUTTONS|RESIZE'
+  config.integrated_title_buttons = { 'Hide', 'Maximize', 'Close' }
+  config.integrated_title_button_style = 'Gnome'
+end
 return config
