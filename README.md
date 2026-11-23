@@ -1,3 +1,6 @@
+:qa!
+:qa!
+:qa!
 # JensenVim (`jvim`)
 
 By Jensen Jones.

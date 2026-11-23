@@ -10,6 +10,8 @@ function M.setup()
     updatetime = 250, timeoutlen = 300, splitright = true, splitbelow = true,
     list = true, inccommand = 'split', cursorline = true, confirm = true,
     termguicolors = true,
+    -- WezTerm's key table and Herdr recognise jvim's pane by a title starting with "jvim".
+    title = true, titlestring = 'jvim %t',
   } do vim.o[option] = value end
   vim.opt.listchars = { tab = '» ', trail = '·', nbsp = '␣' }
   -- Hide the empty command row; ui2 shows messages in a popup so cmdheight=0 never asks to press Enter.
