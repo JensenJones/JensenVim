@@ -52,6 +52,7 @@ The settings give jvim its shortcuts and make shells and prompts outside jvim (z
 | Line start and end | Cmd+Left/Right | Alt+Left/Right |
 | Select by word or to the line start and end | add Shift to the above | add Shift to the above |
 | Close tab (file in jvim) | Cmd+W | Ctrl+W |
+| New tab (outside jvim) | Cmd+T | Ctrl+T |
 
 Every jvim shortcut follows the same rule: on Linux and Windows press Ctrl wherever the Mac uses Cmd, and Alt for Option. Text editing is the exception: as in Windows and Linux text fields, Ctrl works on a word and Alt on the line, for Backspace, Delete and Left/Right (with Shift to select). Super stays with the desktop, because GNOME and Windows already use Super+V, Super+A, Super+L and Super+arrows. A few Cmd shortcuts whose Ctrl form jvim already uses keep the Ctrl meaning, such as Ctrl+J for quick documentation. Ctrl+Tab and Ctrl+Shift+Tab switch files. The settings update with the checkout and WezTerm reloads them automatically.
 

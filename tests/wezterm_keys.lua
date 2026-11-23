@@ -53,6 +53,8 @@ equal(press('c ' .. cmd, 'zsh', 'picked'), { 'CopyTo', 'Clipboard' }, 'copy a se
 equal(press('w ' .. cmd .. '|SHIFT', 'jvim .'), jvim(63), 'close others in jvim')
 if linux then
   equal(press('w CTRL', 'zsh'), { 'CloseCurrentTab', { confirm = true } }, 'Ctrl+W closes the tab outside jvim')
+  equal(press('t CTRL', 'zsh'), { 'SpawnTab', 'CurrentPaneDomain' }, 'Ctrl+T opens a tab outside jvim')
+  equal(press('t CTRL', 'jvim .'), { 'SendKey', { key = 't', mods = 'CTRL' } }, 'Ctrl+T reaches jvim unchanged')
   equal(press('c CTRL', 'zsh'), { 'SendKey', { key = 'c', mods = 'CTRL' } }, 'Ctrl+C interrupts without a selection')
   equal(press('w CTRL|SHIFT', 'zsh'), { 'CloseCurrentTab' }, 'WezTerm keeps its own Ctrl+Shift+W outside jvim')
   -- Ctrl moves and deletes by word, Alt by line, with Shift selecting.

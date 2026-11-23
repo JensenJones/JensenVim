@@ -198,7 +198,8 @@ function M.apply(config)
         focused = checked and focused
         local image = mac and not focused and key == 'v' and mods == 'CMD' and clipboard_image_path()
         if image then return pane:send_paste(image) end
-        window:perform_action(focused and act.SendString(bytes) or fallback, pane)
+        local inside = bytes and act.SendString(bytes) or act.SendKey { key = key, mods = mods }
+        window:perform_action(focused and inside or fallback, pane)
       end),
     })
   end
@@ -213,6 +214,8 @@ function M.apply(config)
       bind(key, mods, bytes, shell[key .. ':' .. entry[2]] or defaults[binding_id(key, mods)] or act.SendKey { key = key, mods = mods })
     end
   end
+  -- Cmd+T opens a tab on the Mac; off it, Ctrl+T does outside jvim and reaches jvim unchanged inside.
+  if not mac then bind('t', 'CTRL', nil, act.SpawnTab 'CurrentPaneDomain') end
 end
 
 return M
